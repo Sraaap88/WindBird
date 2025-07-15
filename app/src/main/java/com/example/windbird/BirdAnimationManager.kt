@@ -81,10 +81,10 @@ class BirdAnimationManager(private val screenWidth: Int, private val screenHeigh
     
     // ==================== CLASSES POUR EFFETS ====================
     
-    private data class Tear(var x: Float, var y: Float, var velocityX: Float, var velocityY: Float, var life: Float)
-    private data class FlyingFeather(var x: Float, var y: Float, var vx: Float, var vy: Float, var rotation: Float, var life: Float)
-    private data class DustParticle(var x: Float, var y: Float, var vx: Float, var vy: Float, var life: Float, var size: Float)
-    private data class FallingLeaf(var x: Float, var y: Float, var vx: Float, var vy: Float, var rotation: Float, var life: Float)
+    data class Tear(var x: Float, var y: Float, var velocityX: Float, var velocityY: Float, var life: Float)
+    data class FlyingFeather(var x: Float, var y: Float, var vx: Float, var vy: Float, var rotation: Float, var life: Float)
+    data class DustParticle(var x: Float, var y: Float, var vx: Float, var vy: Float, var life: Float, var size: Float)
+    data class FallingLeaf(var x: Float, var y: Float, var vx: Float, var vy: Float, var rotation: Float, var life: Float)
     
     // ==================== COMPOSANTS EXTERNES ====================
     
