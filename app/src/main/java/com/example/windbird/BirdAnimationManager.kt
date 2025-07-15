@@ -66,10 +66,14 @@ class BirdAnimationManager(private val screenWidth: Int, private val screenHeigh
     private var birdState = BirdState.PERCHED
     private var fallAnimationTime = 0f
     private var fallRotation = 0f
-    private var fallPositionY = birdCenterY
+    private var fallPositionY = 0f
     private var respawnTimer = 0f
     private var impactEffectTime = 0f
     private var screenShakeIntensity = 0f
+    
+    init {
+        fallPositionY = birdCenterY
+    }
     
     enum class BirdState {
         PERCHED, FALLING, FALLEN, RESPAWNING
