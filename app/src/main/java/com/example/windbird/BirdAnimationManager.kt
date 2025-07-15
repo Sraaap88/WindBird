@@ -133,18 +133,23 @@ class BirdAnimationManager(private val screenWidth: Int, private val screenHeigh
         // Lissage du vent pour éviter les saccades
         windForceSmoothed = lerp(windForceSmoothed, windForce, 0.15f)
         
-        // Gestion du vent extrême soutenu
+        // Gestion du vent extrême soutenu - CORRECTION ICI
         if (windForceSmoothed >= EXTREME_WIND_THRESHOLD) {
             if (sustainedWindTime == 0f) {
+                // Premier moment où le vent dépasse le seuil
                 extremeWindStartTime = System.currentTimeMillis().toFloat()
+                sustainedWindTime = 0f
+            } else {
+                // Calculer le temps écoulé depuis le début du vent extrême
+                sustainedWindTime = System.currentTimeMillis() - extremeWindStartTime
             }
-            sustainedWindTime = System.currentTimeMillis() - extremeWindStartTime
             
             // Déclencher la chute après 3 secondes de vent extrême
             if (sustainedWindTime >= EXTREME_WIND_DURATION && birdState == BirdState.PERCHED) {
                 startFalling()
             }
         } else {
+            // Vent faible, réinitialiser les compteurs
             sustainedWindTime = 0f
             extremeWindStartTime = 0f
         }
