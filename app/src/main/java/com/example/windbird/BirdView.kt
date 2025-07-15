@@ -13,17 +13,17 @@ class BirdView @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
     
-    private val paint = Paint().apply {
-        color = Color.RED
-        textSize = 100f
-    }
-    
     fun updateWindForce(force: Float) {
-        // Ne fait rien pour le test
+        // Ne fait absolument rien
     }
     
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        canvas.drawText("TEST", 100f, 200f, paint)
+        // Affiche juste du texte blanc
+        val paint = Paint().apply {
+            color = Color.WHITE
+            textSize = 50f
+        }
+        canvas.drawText("WINDBIRD WORKS", 100f, 300f, paint)
     }
 }
