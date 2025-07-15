@@ -6,7 +6,7 @@ plugins {
 android {
     namespace 'com.example.windbird'
     compileSdk 33
-
+    
     defaultConfig {
         applicationId "com.example.windbird"
         minSdk 28
@@ -14,7 +14,7 @@ android {
         versionCode 1
         versionName "1.0"
     }
-
+    
     buildTypes {
         release {
             minifyEnabled false
@@ -34,7 +34,7 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
-
+    
     lintOptions {
         abortOnError false
         checkReleaseBuilds false
