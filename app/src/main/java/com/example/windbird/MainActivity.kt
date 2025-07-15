@@ -1,6 +1,6 @@
 package com.example.windbird
 
-import androidx.appcompat.app.AppCompatActivity
+import android.app.Activity
 import android.media.MediaRecorder
 import android.os.Bundle
 import android.os.Handler
@@ -10,10 +10,11 @@ import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : Activity() {
 
     private var mediaRecorder: MediaRecorder? = null
     private var handler: Handler? = null
+    private var animationHandler: Handler? = null
     private var birdView: BirdView? = null
     private var isRecording = false
     
@@ -28,6 +29,10 @@ class MainActivity : AppCompatActivity() {
         
         birdView = findViewById(R.id.birdView)
         handler = Handler(Looper.getMainLooper())
+        animationHandler = Handler(Looper.getMainLooper())
+        
+        // Démarrer l'animation continue
+        startContinuousAnimation()
         
         // Vérifier et demander les permissions
         if (checkPermissions()) {
@@ -48,7 +53,6 @@ class MainActivity : AppCompatActivity() {
     }
     
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startRecording()
@@ -97,6 +101,15 @@ class MainActivity : AppCompatActivity() {
         handler?.postDelayed({ updateAmplitude() }, UPDATE_INTERVAL)
     }
     
+    private fun startContinuousAnimation() {
+        animationHandler?.post(object : Runnable {
+            override fun run() {
+                birdView?.invalidate()
+                animationHandler?.postDelayed(this, 33) // 30 FPS
+            }
+        })
+    }
+    
     override fun onDestroy() {
         super.onDestroy()
         mediaRecorder?.let {
@@ -108,5 +121,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
         handler?.removeCallbacksAndMessages(null)
+        animationHandler?.removeCallbacksAndMessages(null)
     }
 }
