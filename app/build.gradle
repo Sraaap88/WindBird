@@ -13,7 +13,6 @@ android {
         targetSdk 30  // Plus compatible avec Huawei
         versionCode 1
         versionName "1.0"
-        archivesBaseName = "WindBird"
     }
 
     buildTypes {
