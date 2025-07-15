@@ -365,13 +365,13 @@ class WindGauge(private val screenWidth: Int, private val screenHeight: Int) {
     fun setDarkTheme() {
         backgroundPaint.color = Color.argb(180, 30, 30, 30)
         textPaint.color = Color.WHITE
-        legendPaint.color = Color.LIGHT_GRAY
+        legendPaint.color = Color.rgb(192, 192, 192) // LIGHT_GRAY equivalent
     }
     
     fun setLightTheme() {
         backgroundPaint.color = Color.argb(180, 240, 240, 240)
         textPaint.color = Color.BLACK
-        legendPaint.color = Color.DARK_GRAY
+        legendPaint.color = Color.rgb(64, 64, 64) // DARK_GRAY equivalent
     }
     
     fun setRainbowTheme() {
