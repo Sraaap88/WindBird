@@ -1,6 +1,6 @@
 package com.example.windbird
 
-import android.app.Activity
+import androidx.appcompat.app.AppCompatActivity
 import android.media.MediaRecorder
 import android.os.Bundle
 import android.os.Handler
@@ -10,7 +10,7 @@ import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
-class MainActivity : Activity() {
+class MainActivity : AppCompatActivity() {
 
     private var mediaRecorder: MediaRecorder? = null
     private var handler: Handler? = null
@@ -48,6 +48,7 @@ class MainActivity : Activity() {
     }
     
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startRecording()
