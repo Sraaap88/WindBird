@@ -17,14 +17,14 @@ class BirdAnimationManager(private val screenWidth: Int, private val screenHeigh
     private val branchStartX = screenWidth * 0.05f
     private val branchEndX = screenWidth * 0.95f
     
-    // ==================== ÉTAT DU VENT (PLUS FACILE) ====================
+    // ==================== ÉTAT DU VENT (SUPER FACILE) ====================
     
     private var currentWindForce = 0f
     private var windForceSmoothed = 0f
     private var sustainedWindTime = 0f
     private var extremeWindStartTime = 0f
-    private val EXTREME_WIND_THRESHOLD = 0.6f // Plus facile: 60% au lieu de 85%
-    private val EXTREME_WIND_DURATION = 1500f // Plus facile: 1.5 sec au lieu de 3 sec
+    private val EXTREME_WIND_THRESHOLD = 0.3f // SUPER FACILE: 30% seulement !
+    private val EXTREME_WIND_DURATION = 800f // SUPER FACILE: 0.8 sec seulement !
     
     // ==================== ANIMATION DES YEUX ====================
     
@@ -176,7 +176,7 @@ class BirdAnimationManager(private val screenWidth: Int, private val screenHeigh
         // Lissage du vent pour éviter les saccades
         windForceSmoothed = lerp(windForceSmoothed, windForce, 0.15f)
         
-        // Gestion du vent extrême soutenu - PLUS FACILE!
+        // Gestion du vent extrême soutenu - SUPER FACILE!
         if (windForceSmoothed >= EXTREME_WIND_THRESHOLD) {
             if (sustainedWindTime == 0f) {
                 extremeWindStartTime = System.currentTimeMillis().toFloat()
@@ -185,7 +185,7 @@ class BirdAnimationManager(private val screenWidth: Int, private val screenHeigh
                 sustainedWindTime = System.currentTimeMillis() - extremeWindStartTime
             }
             
-            // Déclencher la chute après seulement 1.5 secondes à 60%
+            // Déclencher la chute après seulement 0.8 secondes à 30% !
             if (sustainedWindTime >= EXTREME_WIND_DURATION && birdState == BirdState.PERCHED) {
                 startFalling()
             }
@@ -396,6 +396,7 @@ class BirdAnimationManager(private val screenWidth: Int, private val screenHeigh
         }
         
         drawParticleEffects(canvas)
+        drawWindGauge(canvas) // NOUVELLE JAUGE !
         canvas.restore()
     }
     
@@ -960,6 +961,135 @@ class BirdAnimationManager(private val screenWidth: Int, private val screenHeigh
         drawBarkDetails(canvas)
     }
     
+    // ==================== JAUGE DE VENT ====================
+    
+    private fun drawWindGauge(canvas: Canvas) {
+        val gaugeX = screenWidth * 0.05f
+        val gaugeY = screenHeight * 0.05f
+        val gaugeWidth = screenWidth * 0.3f
+        val gaugeHeight = 40f
+        
+        // Fond de la jauge
+        val backgroundPaint = Paint().apply {
+            color = Color.argb(150, 50, 50, 50)
+            isAntiAlias = true
+            style = Paint.Style.FILL
+        }
+        val backgroundRect = RectF(gaugeX, gaugeY, gaugeX + gaugeWidth, gaugeY + gaugeHeight)
+        canvas.drawRoundRect(backgroundRect, 20f, 20f, backgroundPaint)
+        
+        // Zones colorées de la jauge
+        drawGaugeZones(canvas, gaugeX, gaugeY, gaugeWidth, gaugeHeight)
+        
+        // Aiguille principale (vent lissé)
+        val needlePosition = (windForceSmoothed * gaugeWidth).coerceIn(0f, gaugeWidth)
+        val needlePaint = Paint().apply {
+            color = Color.WHITE
+            isAntiAlias = true
+            strokeWidth = 4f
+            style = Paint.Style.STROKE
+        }
+        canvas.drawLine(
+            gaugeX + needlePosition, gaugeY - 5f,
+            gaugeX + needlePosition, gaugeY + gaugeHeight + 5f,
+            needlePaint
+        )
+        
+        // Aiguille secondaire (vent brut) plus fine
+        val rawNeedlePosition = (currentWindForce * gaugeWidth).coerceIn(0f, gaugeWidth)
+        val rawNeedlePaint = Paint().apply {
+            color = Color.YELLOW
+            isAntiAlias = true
+            strokeWidth = 2f
+            style = Paint.Style.STROKE
+            alpha = 150
+        }
+        canvas.drawLine(
+            gaugeX + rawNeedlePosition, gaugeY,
+            gaugeX + rawNeedlePosition, gaugeY + gaugeHeight,
+            rawNeedlePaint
+        )
+        
+        // Texte d'information
+        val textPaint = Paint().apply {
+            color = Color.WHITE
+            textSize = 24f
+            isAntiAlias = true
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        
+        // Pourcentage actuel
+        val percentText = "${(windForceSmoothed * 100).toInt()}%"
+        canvas.drawText(percentText, gaugeX, gaugeY - 10f, textPaint)
+        
+        // Compteur de temps soutenu
+        if (sustainedWindTime > 0f) {
+            val timeText = "${(sustainedWindTime / 1000f).toInt()}s"
+            val timeTextWidth = textPaint.measureText(timeText)
+            canvas.drawText(timeText, gaugeX + gaugeWidth - timeTextWidth, gaugeY - 10f, textPaint)
+            
+            // Barre de progression du temps
+            val timeProgress = (sustainedWindTime / EXTREME_WIND_DURATION).coerceIn(0f, 1f)
+            val progressWidth = gaugeWidth * timeProgress
+            val progressPaint = Paint().apply {
+                color = Color.argb(200, 255, 100, 100)
+                isAntiAlias = true
+            }
+            canvas.drawRect(gaugeX, gaugeY + gaugeHeight + 10f, gaugeX + progressWidth, gaugeY + gaugeHeight + 20f, progressPaint)
+        }
+        
+        // Légendes
+        drawGaugeLegends(canvas, gaugeX, gaugeY + gaugeHeight + 35f)
+    }
+    
+    private fun drawGaugeZones(canvas: Canvas, startX: Float, startY: Float, width: Float, height: Float) {
+        // Zone verte (0-20%) - Calme
+        val greenZone = RectF(startX, startY, startX + width * 0.2f, startY + height)
+        val greenPaint = Paint().apply {
+            color = Color.argb(120, 0, 200, 0)
+            isAntiAlias = true
+        }
+        canvas.drawRect(greenZone, greenPaint)
+        
+        // Zone jaune (20-30%) - Léger vent, animations commencent
+        val yellowZone = RectF(startX + width * 0.2f, startY, startX + width * 0.3f, startY + height)
+        val yellowPaint = Paint().apply {
+            color = Color.argb(120, 255, 255, 0)
+            isAntiAlias = true
+        }
+        canvas.drawRect(yellowZone, yellowPaint)
+        
+        // Zone rouge (30%+) - ZONE DE CHUTE !
+        val redZone = RectF(startX + width * 0.3f, startY, startX + width, startY + height)
+        val redPaint = Paint().apply {
+            color = Color.argb(120, 255, 0, 0)
+            isAntiAlias = true
+        }
+        canvas.drawRect(redZone, redPaint)
+        
+        // Ligne de seuil critique
+        val thresholdX = startX + width * EXTREME_WIND_THRESHOLD
+        val thresholdPaint = Paint().apply {
+            color = Color.RED
+            strokeWidth = 3f
+            isAntiAlias = true
+        }
+        canvas.drawLine(thresholdX, startY - 10f, thresholdX, startY + height + 10f, thresholdPaint)
+    }
+    
+    private fun drawGaugeLegends(canvas: Canvas, startX: Float, startY: Float) {
+        val legendPaint = Paint().apply {
+            color = Color.WHITE
+            textSize = 18f
+            isAntiAlias = true
+        }
+        
+        canvas.drawText("🟢 Calme", startX, startY, legendPaint)
+        canvas.drawText("🟡 Léger", startX + 80f, startY, legendPaint)
+        canvas.drawText("🔴 CHUTE!", startX + 160f, startY, legendPaint)
+        canvas.drawText("⚪ Lissé  🟡 Brut", startX, startY + 25f, legendPaint)
+    }
+    
     // ==================== FONCTIONS UTILITAIRES ====================
     
     private fun startFalling() {
@@ -1005,7 +1135,7 @@ class BirdAnimationManager(private val screenWidth: Int, private val screenHeigh
     }
     
     fun getCurrentState(): String {
-        return "État: $birdState, Vent: ${(windForceSmoothed * 100).toInt()}%, Soutenu: ${(sustainedWindTime / 1000f).toInt()}s"
+        return "État: $birdState, Vent: ${(currentWindForce * 100).toInt()}%/${(windForceSmoothed * 100).toInt()}%, Soutenu: ${(sustainedWindTime / 1000f).toInt()}s, Seuil: ${(EXTREME_WIND_THRESHOLD * 100).toInt()}%"
     }
     
     private fun lerp(start: Float, end: Float, factor: Float): Float {
