@@ -3,381 +3,271 @@ package com.example.windbird
 import android.graphics.*
 import kotlin.math.*
 
-class WindGauge(private val screenWidth: Int, private val screenHeight: Int) {
+class WindGauge(private val screenWidth: Float, private val screenHeight: Float) {
     
-    // ==================== PROPRIÉTÉS DE LA JAUGE ====================
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     
-    private val gaugeX = screenWidth * 0.05f
-    private val gaugeY = screenHeight * 0.05f
-    private val gaugeWidth = screenWidth * 0.3f
-    private val gaugeHeight = 40f
+    private val gaugeRadius = min(screenWidth, screenHeight) * 0.15f
+    private val gaugeCenterX = screenWidth - gaugeRadius - 50f
+    private val gaugeCenterY = gaugeRadius + 50f
     
-    // ==================== PINCEAUX POUR L'INTERFACE ====================
+    // Couleurs sombres assorties au corbeau
+    private val darkGreenColor = Color.rgb(34, 80, 34)      // Vert sombre
+    private val ominousYellow = Color.rgb(180, 140, 20)     // Jaune sinistre
+    private val bloodRedColor = Color.rgb(139, 0, 0)        // Rouge sang
+    private val darkMetal = Color.rgb(60, 60, 70)           // Métal sombre
+    private val ghostWhite = Color.rgb(220, 220, 230)       // Blanc fantomatique
     
-    private val backgroundPaint = Paint().apply {
-        color = Color.argb(150, 50, 50, 50)
-        isAntiAlias = true
-        style = Paint.Style.FILL
+    private var smoothedForce = 0f
+    private val smoothingFactor = 0.85f
+    
+    // Effet de pulsation sinistre
+    private var pulseIntensity = 0f
+    
+    init {
+        textPaint.textSize = 24f
+        textPaint.color = ghostWhite
+        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.style = Paint.Style.FILL
+        textPaint.setShadowLayer(3f, 2f, 2f, Color.BLACK)
     }
     
-    private val greenZonePaint = Paint().apply {
-        color = Color.argb(120, 0, 200, 0)
-        isAntiAlias = true
-    }
-    
-    private val yellowZonePaint = Paint().apply {
-        color = Color.argb(120, 255, 255, 0)
-        isAntiAlias = true
-    }
-    
-    private val redZonePaint = Paint().apply {
-        color = Color.argb(120, 255, 0, 0)
-        isAntiAlias = true
-    }
-    
-    private val needlePaint = Paint().apply {
-        color = Color.WHITE
-        isAntiAlias = true
-        strokeWidth = 4f
-        style = Paint.Style.STROKE
-    }
-    
-    private val rawNeedlePaint = Paint().apply {
-        color = Color.YELLOW
-        isAntiAlias = true
-        strokeWidth = 2f
-        style = Paint.Style.STROKE
-        alpha = 150
-    }
-    
-    private val thresholdPaint = Paint().apply {
-        color = Color.RED
-        strokeWidth = 3f
-        isAntiAlias = true
-    }
-    
-    private val textPaint = Paint().apply {
-        color = Color.WHITE
-        textSize = 24f
-        isAntiAlias = true
-        typeface = Typeface.DEFAULT_BOLD
-    }
-    
-    private val progressPaint = Paint().apply {
-        color = Color.argb(200, 255, 100, 100)
-        isAntiAlias = true
-    }
-    
-    private val legendPaint = Paint().apply {
-        color = Color.WHITE
-        textSize = 18f
-        isAntiAlias = true
-    }
-    
-    // ==================== FONCTION PRINCIPALE DE DESSIN ====================
-    
-    fun draw(
-        canvas: Canvas,
-        currentWindForce: Float,
-        windForceSmoothed: Float,
-        sustainedWindTime: Float,
-        extremeWindThreshold: Float,
-        extremeWindDuration: Float
-    ) {
-        // Fond de la jauge avec coins arrondis
-        val backgroundRect = RectF(gaugeX, gaugeY, gaugeX + gaugeWidth, gaugeY + gaugeHeight)
-        canvas.drawRoundRect(backgroundRect, 20f, 20f, backgroundPaint)
+    fun draw(canvas: Canvas, rawForce: Float) {
+        smoothedForce = smoothedForce * smoothingFactor + rawForce * (1f - smoothingFactor)
         
-        // Zones colorées de progression
-        drawGaugeZones(canvas, extremeWindThreshold)
+        // Mise à jour de la pulsation sinistre
+        pulseIntensity = sin(System.currentTimeMillis() * 0.008f) * 0.3f + 0.7f
         
-        // Aiguilles de mesure
-        drawNeedles(canvas, currentWindForce, windForceSmoothed)
+        drawDarkGaugeBackground(canvas)
+        drawOminousZones(canvas)
+        drawGothicNumbers(canvas)
+        drawSinisterNeedles(canvas, rawForce, smoothedForce)
+        drawDarkForceText(canvas)
+        drawDeathThreshold(canvas)
+        drawAuraEffect(canvas)
+    }
+    
+    private fun drawDarkGaugeBackground(canvas: Canvas) {
+        // Contour métallique sombre
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 10f
+        paint.color = darkMetal
+        canvas.drawCircle(gaugeCenterX, gaugeCenterY, gaugeRadius, paint)
         
-        // Ligne de seuil critique
-        drawThresholdLine(canvas, extremeWindThreshold)
+        // Fond sombre avec gradient
+        val backgroundGradient = RadialGradient(
+            gaugeCenterX, gaugeCenterY, gaugeRadius - 5f,
+            intArrayOf(Color.rgb(20, 20, 25), Color.rgb(10, 10, 15), Color.rgb(5, 5, 10)),
+            floatArrayOf(0f, 0.7f, 1f),
+            Shader.TileMode.CLAMP
+        )
+        paint.shader = backgroundGradient
+        paint.style = Paint.Style.FILL
+        canvas.drawCircle(gaugeCenterX, gaugeCenterY, gaugeRadius - 5f, paint)
+        paint.shader = null
         
-        // Informations textuelles
-        drawWindInfo(canvas, windForceSmoothed, sustainedWindTime, extremeWindThreshold)
-        
-        // Barre de progression temporelle
-        if (sustainedWindTime > 0f) {
-            drawTimeProgress(canvas, sustainedWindTime, extremeWindDuration)
+        // Gravures sinistres autour du cadran
+        paint.color = Color.argb(80, 60, 60, 70)
+        paint.strokeWidth = 2f
+        paint.style = Paint.Style.STROKE
+        for (i in 0..23) {
+            val angle = i * 15f
+            val angleRad = Math.toRadians(angle.toDouble())
+            val innerRadius = gaugeRadius - 15f
+            val outerRadius = gaugeRadius - 8f
+            
+            val startX = gaugeCenterX + cos(angleRad) * innerRadius
+            val startY = gaugeCenterY + sin(angleRad) * innerRadius
+            val endX = gaugeCenterX + cos(angleRad) * outerRadius
+            val endY = gaugeCenterY + sin(angleRad) * outerRadius
+            
+            canvas.drawLine(startX.toFloat(), startY.toFloat(), endX.toFloat(), endY.toFloat(), paint)
         }
-        
-        // Légendes explicatives
-        drawLegends(canvas)
+        paint.style = Paint.Style.FILL
     }
     
-    // ==================== ZONES COLORÉES ====================
-    
-    private fun drawGaugeZones(canvas: Canvas, threshold: Float) {
-        // Zone verte (0-20%) - Calme, oiseau normal
-        val greenZone = RectF(gaugeX, gaugeY, gaugeX + gaugeWidth * 0.2f, gaugeY + gaugeHeight)
-        canvas.drawRect(greenZone, greenZonePaint)
-        
-        // Zone jaune (20-seuil%) - Léger vent, animations commencent
-        val yellowStart = gaugeX + gaugeWidth * 0.2f
-        val yellowEnd = gaugeX + gaugeWidth * threshold
-        val yellowZone = RectF(yellowStart, gaugeY, yellowEnd, gaugeY + gaugeHeight)
-        canvas.drawRect(yellowZone, yellowZonePaint)
-        
-        // Zone rouge (seuil%+) - ZONE DE CHUTE !
-        val redZone = RectF(gaugeX + gaugeWidth * threshold, gaugeY, gaugeX + gaugeWidth, gaugeY + gaugeHeight)
-        canvas.drawRect(redZone, redZonePaint)
-    }
-    
-    // ==================== AIGUILLES DE MESURE ====================
-    
-    private fun drawNeedles(canvas: Canvas, currentWind: Float, smoothedWind: Float) {
-        // Aiguille principale (vent lissé) - celle qui compte vraiment
-        val needlePosition = (smoothedWind * gaugeWidth).coerceIn(0f, gaugeWidth)
-        canvas.drawLine(
-            gaugeX + needlePosition, gaugeY - 5f,
-            gaugeX + needlePosition, gaugeY + gaugeHeight + 5f,
-            needlePaint
+    private fun drawOminousZones(canvas: Canvas) {
+        val rect = RectF(
+            gaugeCenterX - gaugeRadius + 25f,
+            gaugeCenterY - gaugeRadius + 25f,
+            gaugeCenterX + gaugeRadius - 25f,
+            gaugeCenterY + gaugeRadius - 25f
         )
         
-        // Aiguille secondaire (vent brut) - plus fine, pour voir les variations
-        val rawNeedlePosition = (currentWind * gaugeWidth).coerceIn(0f, gaugeWidth)
-        canvas.drawLine(
-            gaugeX + rawNeedlePosition, gaugeY,
-            gaugeX + rawNeedlePosition, gaugeY + gaugeHeight,
-            rawNeedlePaint
-        )
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 18f
+        
+        // Zone de calme (vert sombre) - 0-70%
+        paint.color = darkGreenColor
+        canvas.drawArc(rect, 135f, 126f, false, paint)
+        
+        // Zone d'avertissement (jaune sinistre) - 70-90%
+        paint.color = ominousYellow
+        canvas.drawArc(rect, 261f, 36f, false, paint)
+        
+        // Zone de mort (rouge sang) - 90-100%
+        val dangerIntensity = if (smoothedForce > 0.9f) (pulseIntensity * 100).toInt() else 0
+        paint.color = Color.rgb(139 + dangerIntensity/2, dangerIntensity/3, dangerIntensity/3)
+        canvas.drawArc(rect, 297f, 18f, false, paint)
     }
     
-    // ==================== LIGNE DE SEUIL ====================
-    
-    private fun drawThresholdLine(canvas: Canvas, threshold: Float) {
-        val thresholdX = gaugeX + gaugeWidth * threshold
-        canvas.drawLine(thresholdX, gaugeY - 10f, thresholdX, gaugeY + gaugeHeight + 10f, thresholdPaint)
+    private fun drawGothicNumbers(canvas: Canvas) {
+        textPaint.textSize = 16f
+        textPaint.color = ghostWhite
         
-        // Étiquette du seuil
-        val thresholdText = "${(threshold * 100).toInt()}%"
-        val thresholdTextWidth = textPaint.measureText(thresholdText)
-        canvas.drawText(
-            thresholdText, 
-            thresholdX - thresholdTextWidth / 2f, 
-            gaugeY - 15f, 
-            textPaint
-        )
-    }
-    
-    // ==================== INFORMATIONS TEXTUELLES ====================
-    
-    private fun drawWindInfo(canvas: Canvas, windForce: Float, sustainedTime: Float, threshold: Float) {
-        // Pourcentage actuel en haut à gauche
-        val percentText = "${(windForce * 100).toInt()}%"
-        canvas.drawText(percentText, gaugeX, gaugeY - 10f, textPaint)
-        
-        // Temps soutenu en haut à droite (si applicable)
-        if (sustainedTime > 0f) {
-            val timeText = "${(sustainedTime / 1000f).toInt()}s"
-            val timeTextWidth = textPaint.measureText(timeText)
-            canvas.drawText(timeText, gaugeX + gaugeWidth - timeTextWidth, gaugeY - 10f, textPaint)
-        }
-        
-        // Indicateur d'état
-        val statusText = when {
-            windForce < 0.2f -> "😴 Calme"
-            windForce < threshold -> "💨 Vent léger"
-            sustainedTime > 0f -> "⚠️ DANGER!"
-            else -> "🔥 Zone critique!"
-        }
-        
-        val statusY = gaugeY + gaugeHeight + 60f
-        canvas.drawText(statusText, gaugeX, statusY, textPaint)
-    }
-    
-    // ==================== BARRE DE PROGRESSION TEMPORELLE ====================
-    
-    private fun drawTimeProgress(canvas: Canvas, sustainedTime: Float, duration: Float) {
-        val timeProgress = (sustainedTime / duration).coerceIn(0f, 1f)
-        val progressWidth = gaugeWidth * timeProgress
-        
-        // Barre de fond
-        val progressBackgroundPaint = Paint().apply {
-            color = Color.argb(100, 100, 100, 100)
-            isAntiAlias = true
-        }
-        canvas.drawRect(
-            gaugeX, gaugeY + gaugeHeight + 10f, 
-            gaugeX + gaugeWidth, gaugeY + gaugeHeight + 20f, 
-            progressBackgroundPaint
-        )
-        
-        // Barre de progression remplie
-        canvas.drawRect(
-            gaugeX, gaugeY + gaugeHeight + 10f, 
-            gaugeX + progressWidth, gaugeY + gaugeHeight + 20f, 
-            progressPaint
-        )
-        
-        // Texte de progression
-        val progressText = "Temps de chute: ${((sustainedTime / 1000f) * 100 / (duration / 1000f)).toInt()}%"
-        canvas.drawText(progressText, gaugeX, gaugeY + gaugeHeight + 35f, legendPaint)
-        
-        // Animation de pulsation quand près de la chute
-        if (timeProgress > 0.7f) {
-            val pulse = sin(System.currentTimeMillis() * 0.01f) * 0.5f + 0.5f
-            val pulsePaint = Paint().apply {
-                color = Color.argb((100 * pulse).toInt(), 255, 0, 0)
-                isAntiAlias = true
-            }
-            canvas.drawRect(
-                gaugeX - 5f, gaugeY - 5f,
-                gaugeX + gaugeWidth + 5f, gaugeY + gaugeHeight + 25f,
-                pulsePaint
-            )
-        }
-    }
-    
-    // ==================== LÉGENDES EXPLICATIVES ====================
-    
-    private fun drawLegends(canvas: Canvas) {
-        val legendY = gaugeY + gaugeHeight + 90f
-        
-        // Ligne 1: Zones colorées
-        canvas.drawText("🟢 Calme", gaugeX, legendY, legendPaint)
-        canvas.drawText("🟡 Léger", gaugeX + 80f, legendY, legendPaint)
-        canvas.drawText("🔴 CHUTE!", gaugeX + 160f, legendY, legendPaint)
-        
-        // Ligne 2: Types d'aiguilles
-        canvas.drawText("⚪ Vent lissé (compte)", gaugeX, legendY + 25f, legendPaint)
-        canvas.drawText("🟡 Vent brut (instantané)", gaugeX, legendY + 50f, legendPaint)
-        
-        // Instructions
-        val instructionPaint = Paint().apply {
-            color = Color.argb(200, 255, 255, 255)
-            textSize = 16f
-            isAntiAlias = true
-        }
-        canvas.drawText("💡 Gardez l'aiguille blanche dans la zone rouge!", gaugeX, legendY + 80f, instructionPaint)
-    }
-    
-    // ==================== JAUGE AVEC STYLE AMÉLIORÉ ====================
-    
-    fun drawEnhanced(
-        canvas: Canvas,
-        currentWindForce: Float,
-        windForceSmoothed: Float,
-        sustainedWindTime: Float,
-        extremeWindThreshold: Float,
-        extremeWindDuration: Float
-    ) {
-        // Version améliorée avec effets visuels supplémentaires
-        drawGlowEffect(canvas, windForceSmoothed)
-        draw(canvas, currentWindForce, windForceSmoothed, sustainedWindTime, extremeWindThreshold, extremeWindDuration)
-        drawSparkles(canvas, windForceSmoothed)
-    }
-    
-    private fun drawGlowEffect(canvas: Canvas, windForce: Float) {
-        if (windForce > 0.5f) {
-            val glowIntensity = (windForce - 0.5f) * 2f
-            val glowPaint = Paint().apply {
-                color = Color.argb((50 * glowIntensity).toInt(), 255, 255, 255)
-                isAntiAlias = true
-                maskFilter = BlurMaskFilter(15f, BlurMaskFilter.Blur.NORMAL)
+        for (i in 0..10) {
+            val percentage = i * 10
+            val angle = 135f + (i * 27f)
+            val angleRad = Math.toRadians(angle.toDouble())
+            
+            val textX = gaugeCenterX + cos(angleRad) * (gaugeRadius - 40f)
+            val textY = gaugeCenterY + sin(angleRad) * (gaugeRadius - 40f) + 6f
+            
+            // Effet de lueur pour les nombres critiques
+            if (percentage >= 90) {
+                textPaint.setShadowLayer(8f, 0f, 0f, bloodRedColor)
+            } else {
+                textPaint.setShadowLayer(3f, 2f, 2f, Color.BLACK)
             }
             
-            val glowRect = RectF(
-                gaugeX - 10f, gaugeY - 10f,
-                gaugeX + gaugeWidth + 10f, gaugeY + gaugeHeight + 10f
-            )
-            canvas.drawRoundRect(glowRect, 30f, 30f, glowPaint)
+            canvas.drawText("$percentage", textX.toFloat(), textY.toFloat(), textPaint)
         }
     }
     
-    private fun drawSparkles(canvas: Canvas, windForce: Float) {
-        if (windForce > 0.8f) {
-            val sparklePaint = Paint().apply {
-                color = Color.WHITE
-                isAntiAlias = true
-            }
+    private fun drawSinisterNeedles(canvas: Canvas, rawForce: Float, smoothedForce: Float) {
+        // Aiguille brute (jaune sinistre, tremblante)
+        drawSinisterNeedle(canvas, rawForce, ominousYellow, 5f, gaugeRadius - 30f, true)
+        
+        // Aiguille lissée (blanc fantomatique, stable)
+        drawSinisterNeedle(canvas, smoothedForce, ghostWhite, 7f, gaugeRadius - 25f, false)
+    }
+    
+    private fun drawSinisterNeedle(canvas: Canvas, force: Float, color: Int, width: Float, length: Float, trembling: Boolean) {
+        val baseAngle = 135f + (force * 270f)
+        val tremble = if (trembling && force > 0.8f) sin(System.currentTimeMillis() * 0.05f) * 2f else 0f
+        val angle = baseAngle + tremble
+        val angleRad = Math.toRadians(angle.toDouble())
+        
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = width
+        paint.color = color
+        paint.strokeCap = Paint.Cap.ROUND
+        
+        // Effet de lueur pour l'aiguille
+        if (force > 0.9f) {
+            paint.setShadowLayer(12f, 0f, 0f, color)
+        } else {
+            paint.setShadowLayer(4f, 1f, 1f, Color.BLACK)
+        }
+        
+        val endX = gaugeCenterX + cos(angleRad) * length
+        val endY = gaugeCenterY + sin(angleRad) * length
+        
+        canvas.drawLine(gaugeCenterX, gaugeCenterY, endX.toFloat(), endY.toFloat(), paint)
+        
+        // Centre métallique sombre
+        paint.style = Paint.Style.FILL
+        paint.setShadowLayer(0f, 0f, 0f, Color.TRANSPARENT)
+        paint.color = darkMetal
+        canvas.drawCircle(gaugeCenterX, gaugeCenterY, 6f, paint)
+        
+        // Point central lumineux
+        paint.color = color
+        canvas.drawCircle(gaugeCenterX, gaugeCenterY, 3f, paint)
+    }
+    
+    private fun drawDeathThreshold(canvas: Canvas) {
+        // Ligne de mort à 100% - pulsante et menaçante
+        val angle = 405f
+        val angleRad = Math.toRadians(angle.toDouble())
+        
+        val pulseWidth = 4f + pulseIntensity * 2f
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = pulseWidth
+        paint.color = bloodRedColor
+        paint.setShadowLayer(8f, 0f, 0f, bloodRedColor)
+        
+        val innerRadius = gaugeRadius - 45f
+        val outerRadius = gaugeRadius - 12f
+        
+        val startX = gaugeCenterX + cos(angleRad) * innerRadius
+        val startY = gaugeCenterY + sin(angleRad) * innerRadius
+        val endX = gaugeCenterX + cos(angleRad) * outerRadius
+        val endY = gaugeCenterY + sin(angleRad) * outerRadius
+        
+        canvas.drawLine(startX.toFloat(), startY.toFloat(), endX.toFloat(), endY.toFloat(), paint)
+        
+        // Symbole de mort au niveau du seuil
+        paint.setShadowLayer(0f, 0f, 0f, Color.TRANSPARENT)
+        textPaint.textSize = 12f
+        textPaint.color = bloodRedColor
+        textPaint.setShadowLayer(6f, 0f, 0f, bloodRedColor)
+        canvas.drawText("☠", endX.toFloat() + 15f, endY.toFloat() + 4f, textPaint)
+    }
+    
+    private fun drawDarkForceText(canvas: Canvas) {
+        textPaint.textSize = 22f
+        textPaint.color = ghostWhite
+        textPaint.setShadowLayer(4f, 2f, 2f, Color.BLACK)
+        
+        val displayForce = (smoothedForce * 100).toInt()
+        val text = "${displayForce}%"
+        
+        // Effet de pulsation pour les valeurs dangereuses
+        if (smoothedForce > 0.9f) {
+            textPaint.setShadowLayer(10f, 0f, 0f, bloodRedColor)
+            textPaint.textSize = 22f + pulseIntensity * 4f
+        }
+        
+        canvas.drawText(text, gaugeCenterX, gaugeCenterY + 35f, textPaint)
+        
+        // Statut sinistre
+        textPaint.textSize = 14f
+        val (status, statusColor) = when {
+            smoothedForce < 0.7f -> "CALME" to darkGreenColor
+            smoothedForce < 0.9f -> "INQUIÉTANT" to ominousYellow
+            else -> "MORTEL" to bloodRedColor
+        }
+        
+        textPaint.color = statusColor
+        if (smoothedForce > 0.9f) {
+            textPaint.setShadowLayer(8f, 0f, 0f, statusColor)
+        } else {
+            textPaint.setShadowLayer(3f, 1f, 1f, Color.BLACK)
+        }
+        
+        canvas.drawText(status, gaugeCenterX, gaugeCenterY + 55f, textPaint)
+        
+        // Info technique sombre
+        textPaint.textSize = 10f
+        textPaint.color = Color.rgb(120, 120, 130)
+        textPaint.setShadowLayer(2f, 1f, 1f, Color.BLACK)
+        canvas.drawText("Sensibilité: 80%", gaugeCenterX, gaugeCenterY + 75f, textPaint)
+        canvas.drawText("Corbeau Digital", gaugeCenterX, gaugeCenterY + 90f, textPaint)
+    }
+    
+    private fun drawAuraEffect(canvas: Canvas) {
+        // Aura sombre qui s'intensifie avec la force
+        if (smoothedForce > 0.3f) {
+            val auraIntensity = (smoothedForce - 0.3f) * 100f
+            val auraRadius = gaugeRadius * (1.3f + smoothedForce * 0.5f)
             
-            for (i in 0..5) {
-                val sparkleX = gaugeX + kotlin.random.Random.nextFloat() * gaugeWidth
-                val sparkleY = gaugeY + kotlin.random.Random.nextFloat() * gaugeHeight
-                val sparkleSize = kotlin.random.Random.nextFloat() * 3f + 1f
-                
-                canvas.drawCircle(sparkleX, sparkleY, sparkleSize, sparklePaint)
-            }
+            val auraGradient = RadialGradient(
+                gaugeCenterX, gaugeCenterY, auraRadius,
+                intArrayOf(
+                    Color.argb((auraIntensity * 0.6f).toInt(), 20, 0, 0),
+                    Color.argb((auraIntensity * 0.3f).toInt(), 10, 0, 0),
+                    Color.argb(0, 0, 0, 0)
+                ),
+                floatArrayOf(0f, 0.7f, 1f),
+                Shader.TileMode.CLAMP
+            )
+            
+            glowPaint.shader = auraGradient
+            canvas.drawCircle(gaugeCenterX, gaugeCenterY, auraRadius, glowPaint)
+            glowPaint.shader = null
         }
-    }
-    
-    // ==================== JAUGE COMPACTE ====================
-    
-    fun drawCompact(
-        canvas: Canvas,
-        windForceSmoothed: Float,
-        sustainedWindTime: Float,
-        extremeWindThreshold: Float,
-        extremeWindDuration: Float
-    ) {
-        // Version compacte pour économiser l'espace
-        val compactHeight = 20f
-        val compactY = screenHeight * 0.02f
-        
-        // Fond compact
-        val compactRect = RectF(gaugeX, compactY, gaugeX + gaugeWidth, compactY + compactHeight)
-        canvas.drawRoundRect(compactRect, 10f, 10f, backgroundPaint)
-        
-        // Zone de danger uniquement
-        val dangerZone = RectF(
-            gaugeX + gaugeWidth * extremeWindThreshold, compactY,
-            gaugeX + gaugeWidth, compactY + compactHeight
-        )
-        canvas.drawRect(dangerZone, redZonePaint)
-        
-        // Aiguille simple
-        val needlePos = gaugeX + windForceSmoothed * gaugeWidth
-        canvas.drawLine(needlePos, compactY, needlePos, compactY + compactHeight, needlePaint)
-        
-        // Pourcentage seulement
-        val compactText = "${(windForceSmoothed * 100).toInt()}%"
-        canvas.drawText(compactText, gaugeX, compactY - 5f, legendPaint)
-    }
-    
-    // ==================== FONCTIONS UTILITAIRES ====================
-    
-    fun getGaugeRect(): RectF {
-        return RectF(gaugeX, gaugeY, gaugeX + gaugeWidth, gaugeY + gaugeHeight + 120f)
-    }
-    
-    fun isPointInGauge(x: Float, y: Float): Boolean {
-        return x >= gaugeX && x <= gaugeX + gaugeWidth && 
-               y >= gaugeY && y <= gaugeY + gaugeHeight + 120f
-    }
-    
-    fun getWindValueAtPosition(x: Float): Float {
-        if (x < gaugeX) return 0f
-        if (x > gaugeX + gaugeWidth) return 1f
-        return (x - gaugeX) / gaugeWidth
-    }
-    
-    fun cleanup() {
-        // Nettoyer les ressources si nécessaire
-    }
-    
-    // ==================== THÈMES VISUELS ====================
-    
-    fun setDarkTheme() {
-        backgroundPaint.color = Color.argb(180, 30, 30, 30)
-        textPaint.color = Color.WHITE
-        legendPaint.color = Color.rgb(192, 192, 192) // LIGHT_GRAY equivalent
-    }
-    
-    fun setLightTheme() {
-        backgroundPaint.color = Color.argb(180, 240, 240, 240)
-        textPaint.color = Color.BLACK
-        legendPaint.color = Color.rgb(64, 64, 64) // DARK_GRAY equivalent
-    }
-    
-    fun setRainbowTheme() {
-        // Thème arc-en-ciel pour s'amuser
-        greenZonePaint.color = Color.argb(120, 0, 255, 127)
-        yellowZonePaint.color = Color.argb(120, 255, 215, 0)
-        redZonePaint.color = Color.argb(120, 255, 20, 147)
     }
 }
