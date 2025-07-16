@@ -3,7 +3,7 @@ package com.example.windbird
 import android.graphics.Canvas
 import kotlin.math.*
 import kotlin.random.Random
- 
+  
 // Classes de données publiques
 data class Tear(var x: Float, var y: Float, var velocityX: Float, var velocityY: Float, var life: Float)
 data class FlyingFeather(var x: Float, var y: Float, var vx: Float, var vy: Float, var rotation: Float, var life: Float)
