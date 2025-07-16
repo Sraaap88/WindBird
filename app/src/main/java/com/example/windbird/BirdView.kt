@@ -21,12 +21,10 @@ class BirdView @JvmOverloads constructor(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         
-        // Initialisation des composants
         birdAnimationManager = BirdAnimationManager(w.toFloat(), h.toFloat())
         birdRenderer = BirdRenderer(w.toFloat(), h.toFloat())
         windGauge = WindGauge(w.toFloat(), h.toFloat())
         
-        // Liaison des composants
         birdAnimationManager?.setBirdRenderer(birdRenderer!!)
     }
     
@@ -37,22 +35,16 @@ class BirdView @JvmOverloads constructor(
         val deltaTime = (currentTime - lastFrameTime).toFloat()
         lastFrameTime = currentTime
         
-        // Mise à jour de l'animation
         birdAnimationManager?.updateWind(rawWindForce, deltaTime)
         
-        // Dessin de l'oiseau et effets
         birdAnimationManager?.draw(canvas)
         
-        // Dessin de la jauge de vent
         windGauge?.draw(canvas, rawWindForce)
         
-        // Redessiner en continu
         invalidate()
     }
     
     fun updateWindForce(force: Float) {
-        // Force brute reçue du micro (0.0 à 1.0)
-        // La réduction de sensibilité se fait dans BirdAnimationManager
         rawWindForce = force.coerceIn(0f, 1f)
     }
     
