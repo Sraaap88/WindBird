@@ -8,17 +8,14 @@ class WindGauge(private val screenWidth: Float, private val screenHeight: Float)
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     
-    // Position et taille de la jauge
     private val gaugeRadius = min(screenWidth, screenHeight) * 0.15f
     private val gaugeCenterX = screenWidth - gaugeRadius - 50f
     private val gaugeCenterY = gaugeRadius + 50f
     
-    // Couleurs des zones
     private val greenZoneColor = Color.rgb(76, 175, 80)
     private val yellowZoneColor = Color.rgb(255, 193, 7)
     private val redZoneColor = Color.rgb(244, 67, 54)
     
-    // Variables pour l'aiguille lissée
     private var smoothedForce = 0f
     private val smoothingFactor = 0.85f
     
@@ -31,7 +28,6 @@ class WindGauge(private val screenWidth: Float, private val screenHeight: Float)
     }
     
     fun draw(canvas: Canvas, rawForce: Float) {
-        // Mise à jour de l'aiguille lissée
         smoothedForce = smoothedForce * smoothingFactor + rawForce * (1f - smoothingFactor)
         
         drawGaugeBackground(canvas)
@@ -49,7 +45,6 @@ class WindGauge(private val screenWidth: Float, private val screenHeight: Float)
         
         canvas.drawCircle(gaugeCenterX, gaugeCenterY, gaugeRadius, paint)
         
-        // Fond semi-transparent
         paint.style = Paint.Style.FILL
         paint.color = Color.argb(100, 0, 0, 0)
         canvas.drawCircle(gaugeCenterX, gaugeCenterY, gaugeRadius - 4f, paint)
@@ -68,15 +63,15 @@ class WindGauge(private val screenWidth: Float, private val screenHeight: Float)
         
         // Zone verte (0-70%) - Plus large car sensibilité réduite
         paint.color = greenZoneColor
-        canvas.drawArc(rect, 135f, 126f, false, paint) // 0% à 70%
+        canvas.drawArc(rect, 135f, 126f, false, paint)
         
-        // Zone jaune (70-90%) 
+        // Zone jaune (70-90%)
         paint.color = yellowZoneColor
-        canvas.drawArc(rect, 261f, 36f, false, paint) // 70% à 90%
+        canvas.drawArc(rect, 261f, 36f, false, paint)
         
-        // Zone rouge (90-100%) - Zone critique avant chute
+        // Zone rouge (90-100%) - Zone critique
         paint.color = redZoneColor
-        canvas.drawArc(rect, 297f, 18f, false, paint) // 90% à 100%
+        canvas.drawArc(rect, 297f, 18f, false, paint)
     }
     
     private fun drawGaugeNumbers(canvas: Canvas) {
@@ -85,7 +80,7 @@ class WindGauge(private val screenWidth: Float, private val screenHeight: Float)
         
         for (i in 0..10) {
             val percentage = i * 10
-            val angle = 135f + (i * 27f) // 270° répartis sur 10 segments
+            val angle = 135f + (i * 27f)
             val angleRad = Math.toRadians(angle.toDouble())
             
             val textX = gaugeCenterX + cos(angleRad) * (gaugeRadius - 35f)
@@ -104,7 +99,7 @@ class WindGauge(private val screenWidth: Float, private val screenHeight: Float)
     }
     
     private fun drawNeedle(canvas: Canvas, force: Float, color: Int, width: Float, length: Float) {
-        val angle = 135f + (force * 270f) // 0% = 135°, 100% = 405° (45°)
+        val angle = 135f + (force * 270f)
         val angleRad = Math.toRadians(angle.toDouble())
         
         paint.style = Paint.Style.STROKE
@@ -117,14 +112,13 @@ class WindGauge(private val screenWidth: Float, private val screenHeight: Float)
         
         canvas.drawLine(gaugeCenterX, gaugeCenterY, endX.toFloat(), endY.toFloat(), paint)
         
-        // Point central
         paint.style = Paint.Style.FILL
         canvas.drawCircle(gaugeCenterX, gaugeCenterY, 5f, paint)
     }
     
     private fun drawFallThreshold(canvas: Canvas) {
         // Ligne rouge pour le seuil de chute à 100%
-        val angle = 405f // 100% = 405° (45°)
+        val angle = 405f
         val angleRad = Math.toRadians(angle.toDouble())
         
         paint.style = Paint.Style.STROKE
@@ -151,7 +145,6 @@ class WindGauge(private val screenWidth: Float, private val screenHeight: Float)
         
         canvas.drawText(text, gaugeCenterX, gaugeCenterY + 30f, textPaint)
         
-        // Statut
         textPaint.textSize = 16f
         val status = when {
             smoothedForce < 0.7f -> "CALME"
@@ -167,7 +160,6 @@ class WindGauge(private val screenWidth: Float, private val screenHeight: Float)
         
         canvas.drawText(status, gaugeCenterX, gaugeCenterY + 50f, textPaint)
         
-        // Info sensibilité
         textPaint.textSize = 12f
         textPaint.color = Color.LTGRAY
         canvas.drawText("Sensibilité: 80%", gaugeCenterX, gaugeCenterY + 70f, textPaint)
