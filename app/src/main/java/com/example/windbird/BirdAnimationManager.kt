@@ -3,8 +3,7 @@ package com.example.windbird
 import android.graphics.Canvas
 import kotlin.math.*
 import kotlin.random.Random
-  
-// Classes de données publiques
+
 data class Tear(var x: Float, var y: Float, var velocityX: Float, var velocityY: Float, var life: Float)
 data class FlyingFeather(var x: Float, var y: Float, var vx: Float, var vy: Float, var rotation: Float, var life: Float)
 data class DustParticle(var x: Float, var y: Float, var vx: Float, var vy: Float, var life: Float, var size: Float)
@@ -20,20 +19,17 @@ enum class EyeState {
 
 class BirdAnimationManager(private val screenWidth: Float, private val screenHeight: Float) {
     
-    // Paramètres principaux - NOUVEAU SYSTÈME
-    private val FALL_THRESHOLD = 1.0f  // 100% pour faire tomber
-    private val SENSITIVITY_MULTIPLIER = 0.8f  // Réduit de 20% (était 1.0f)
+    // Paramètres - sensibilité réduite de 20%
+    private val FALL_THRESHOLD = 1.0f
+    private val SENSITIVITY_REDUCTION = 0.8f // 20% moins sensible
     
-    // Timing des animations
-    private val fallDuration = 800f  // 0.8 secondes de chute
-    private val impactDuration = 2500f  // 2.5 secondes au sol
-    private val respawnDuration = 1500f  // 1.5 secondes de respawn
+    private val fallDuration = 800f
+    private val impactDuration = 2500f
+    private val respawnDuration = 1500f
     
-    // État actuel
     var currentState = BirdState.PERCHED
         private set
     
-    // Variables d'animation
     private var fallTimer = 0f
     private var impactTimer = 0f
     private var respawnTimer = 0f
@@ -41,19 +37,16 @@ class BirdAnimationManager(private val screenWidth: Float, private val screenHei
     private var bodyLean = 0f
     private var eyeState = EyeState.NORMAL
     
-    // Position et taille
     val birdSize = screenWidth * 0.7f
     val birdCenterX = screenWidth / 2f
     val birdCenterY = screenHeight * 0.4f
     val branchY = birdCenterY + birdSize * 0.5f
     
-    // Particules
     private val tears = mutableListOf<Tear>()
     private val flyingFeathers = mutableListOf<FlyingFeather>()
     private val dustParticles = mutableListOf<DustParticle>()
     private val fallingLeaves = mutableListOf<FallingLeaf>()
     
-    // Renderer pour le dessin
     private lateinit var birdRenderer: BirdRenderer
     
     fun setBirdRenderer(renderer: BirdRenderer) {
@@ -61,17 +54,15 @@ class BirdAnimationManager(private val screenWidth: Float, private val screenHei
     }
     
     fun updateWind(rawForce: Float, deltaTime: Float) {
-        // Application de la sensibilité réduite
-        val adjustedForce = (rawForce * SENSITIVITY_MULTIPLIER).coerceIn(0f, 1f)
+        // Appliquer la réduction de sensibilité
+        val adjustedForce = (rawForce * SENSITIVITY_REDUCTION).coerceIn(0f, 1f)
         lastWindForce = adjustedForce
         
         when (currentState) {
             BirdState.PERCHED -> {
-                // Chute instantanée si on atteint 100%
                 if (adjustedForce >= FALL_THRESHOLD) {
                     startFalling()
                 }
-                // Animations visuelles selon la force
                 updatePerchedAnimations(adjustedForce)
             }
             
@@ -99,28 +90,23 @@ class BirdAnimationManager(private val screenWidth: Float, private val screenHei
             }
         }
         
-        // Mise à jour des particules
         updateAllParticles(deltaTime)
     }
     
     private fun updatePerchedAnimations(force: Float) {
         when {
             force < 0.3f -> {
-                // Calme - yeux normaux
                 eyeState = EyeState.NORMAL
                 bodyLean = 0f
             }
             force < 0.7f -> {
-                // Vent moyen - commence à plisser les yeux
                 eyeState = EyeState.SQUINTING
                 bodyLean = force * 5f
             }
             force < 1.0f -> {
-                // Vent fort - joues gonflées, prêt à tomber
                 eyeState = EyeState.STRUGGLING
                 bodyLean = force * 10f
                 if (force > 0.9f) {
-                    // Commence les larmes avant la chute
                     addTears()
                 }
             }
@@ -132,12 +118,10 @@ class BirdAnimationManager(private val screenWidth: Float, private val screenHei
         fallTimer = 0f
         eyeState = EyeState.PANICKED
         
-        // Ajouter des plumes qui s'envolent
         repeat(8) {
             addFlyingFeather()
         }
         
-        // Quelques larmes de panique
         repeat(3) {
             addTears()
         }
@@ -147,12 +131,10 @@ class BirdAnimationManager(private val screenWidth: Float, private val screenHei
         currentState = BirdState.FALLEN
         impactTimer = 0f
         
-        // Explosion de poussière à l'impact
         repeat(15) {
             addDustParticle()
         }
         
-        // Quelques feuilles qui tombent
         repeat(5) {
             addFallingLeaf()
         }
@@ -171,14 +153,12 @@ class BirdAnimationManager(private val screenWidth: Float, private val screenHei
         bodyLean = 0f
         eyeState = EyeState.NORMAL
         
-        // Nettoyer les particules
         tears.clear()
         flyingFeathers.clear()
         dustParticles.clear()
         fallingLeaves.clear()
     }
     
-    // Gestion des particules
     private fun addTears() {
         val tearX = birdCenterX + Random.nextFloat() * 20f - 10f
         val tearY = birdCenterY + Random.nextFloat() * 20f - 10f
@@ -240,40 +220,36 @@ class BirdAnimationManager(private val screenWidth: Float, private val screenHei
     }
     
     private fun updateAllParticles(deltaTime: Float) {
-        // Mise à jour des larmes
         tears.removeAll { tear ->
             tear.x += tear.velocityX * deltaTime / 16f
             tear.y += tear.velocityY * deltaTime / 16f
-            tear.velocityY += 0.3f * deltaTime / 16f // gravité
+            tear.velocityY += 0.3f * deltaTime / 16f
             tear.life -= deltaTime / 1000f
             tear.life <= 0f || tear.y > screenHeight
         }
         
-        // Mise à jour des plumes volantes
         flyingFeathers.removeAll { feather ->
             feather.x += feather.vx * deltaTime / 16f
             feather.y += feather.vy * deltaTime / 16f
-            feather.vy += 0.1f * deltaTime / 16f // légère gravité
+            feather.vy += 0.1f * deltaTime / 16f
             feather.rotation += 3f * deltaTime / 16f
             feather.life -= deltaTime / 2000f
             feather.life <= 0f || feather.y > screenHeight
         }
         
-        // Mise à jour des particules de poussière
         dustParticles.removeAll { dust ->
             dust.x += dust.vx * deltaTime / 16f
             dust.y += dust.vy * deltaTime / 16f
-            dust.vx *= 0.98f // friction
+            dust.vx *= 0.98f
             dust.vy *= 0.98f
             dust.life -= deltaTime / 1500f
             dust.life <= 0f
         }
         
-        // Mise à jour des feuilles qui tombent
         fallingLeaves.removeAll { leaf ->
             leaf.x += leaf.vx * deltaTime / 16f
             leaf.y += leaf.vy * deltaTime / 16f
-            leaf.vx += (Random.nextFloat() - 0.5f) * 0.1f * deltaTime / 16f // flottement
+            leaf.vx += (Random.nextFloat() - 0.5f) * 0.1f * deltaTime / 16f
             leaf.rotation += 2f * deltaTime / 16f
             leaf.life -= deltaTime / 3000f
             leaf.life <= 0f || leaf.y > screenHeight
@@ -287,7 +263,6 @@ class BirdAnimationManager(private val screenWidth: Float, private val screenHei
         }
     }
     
-    // Getters pour le renderer
     fun getFallProgress(): Float = if (currentState == BirdState.FALLING) fallTimer / fallDuration else 0f
     fun getRespawnProgress(): Float = if (currentState == BirdState.RESPAWNING) respawnTimer / respawnDuration else 0f
     fun getBodyLean(): Float = bodyLean
@@ -297,8 +272,7 @@ class BirdAnimationManager(private val screenWidth: Float, private val screenHei
     fun getCurrentState(): String {
         return "État: ${currentState.name}\n" +
                 "Force vent: ${(lastWindForce * 100).toInt()}%\n" +
-                "Seuil chute: ${(FALL_THRESHOLD * 100).toInt()}%\n" +
-                "Sensibilité: ${(SENSITIVITY_MULTIPLIER * 100).toInt()}%\n" +
+                "Sensibilité: 80%\n" +
                 "Inclinaison: ${bodyLean.toInt()}°\n" +
                 "Yeux: ${eyeState.name}"
     }
