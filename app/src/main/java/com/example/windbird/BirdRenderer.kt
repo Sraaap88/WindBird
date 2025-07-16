@@ -4,908 +4,531 @@ import android.graphics.*
 import kotlin.math.*
 import kotlin.random.Random
 
-class BirdRenderer(
-    private val birdSize: Float,
-    private val birdCenterX: Float,
-    private val birdCenterY: Float,
-    private val branchY: Float,
-    private val branchStartX: Float,
-    private val branchEndX: Float,
-    private val screenWidth: Int,
-    private val screenHeight: Int
-) {
+class BirdRenderer(private val screenWidth: Float, private val screenHeight: Float) {
     
-    // ==================== COULEURS ET PINCEAUX AMÉLIORÉS ====================
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     
-    // Corps avec dégradé
-    private val bodyPaint = Paint().apply {
-        isAntiAlias = true
-        shader = RadialGradient(
-            0f, 0f, birdSize * 0.3f,
-            Color.rgb(160, 82, 45), Color.rgb(101, 67, 33),
-            Shader.TileMode.CLAMP
-        )
+    // Couleurs sombres et réalistes
+    private val darkFeatherColor = Color.rgb(28, 28, 35)
+    private val midFeatherColor = Color.rgb(45, 45, 55)
+    private val lightFeatherColor = Color.rgb(65, 65, 75)
+    private val bellyColor = Color.rgb(85, 85, 95)
+    private val beakColor = Color.rgb(40, 40, 45)
+    private val eyeColor = Color.rgb(15, 15, 20)
+    private val bloodRedColor = Color.rgb(120, 20, 20)
+    private val ashGray = Color.rgb(50, 50, 55)
+    
+    // Gradients pour plus de réalisme
+    private var bodyGradient: LinearGradient? = null
+    private var wingGradient: RadialGradient? = null
+    
+    init {
+        paint.style = Paint.Style.FILL
+        shadowPaint.style = Paint.Style.FILL
+        shadowPaint.color = Color.argb(60, 0, 0, 0)
     }
     
-    // Ventre doux
-    private val bellyPaint = Paint().apply {
-        color = Color.rgb(255, 248, 220) // Crème
-        isAntiAlias = true
-    }
-    
-    // Yeux expressifs
-    private val eyePaint = Paint().apply {
-        color = Color.rgb(20, 20, 20)
-        isAntiAlias = true
-    }
-    
-    private val eyeWhitePaint = Paint().apply {
-        color = Color.rgb(255, 255, 250)
-        isAntiAlias = true
-    }
-    
-    // Reflet dans les yeux
-    private val eyeShimmerPaint = Paint().apply {
-        color = Color.rgb(255, 255, 255)
-        isAntiAlias = true
-    }
-    
-    // Bec avec dégradé
-    private val beakPaint = Paint().apply {
-        isAntiAlias = true
-        shader = LinearGradient(
-            0f, 0f, birdSize * 0.1f, birdSize * 0.08f,
-            Color.rgb(255, 165, 0), Color.rgb(255, 140, 0),
-            Shader.TileMode.CLAMP
-        )
-    }
-    
-    // Branche texturée
-    private val branchPaint = Paint().apply {
-        color = Color.rgb(92, 51, 23)
-        isAntiAlias = true
-        strokeWidth = 25f
-        style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.ROUND
-    }
-    
-    // Détails de la branche
-    private val branchDetailPaint = Paint().apply {
-        color = Color.rgb(139, 69, 19)
-        isAntiAlias = true
-        strokeWidth = 3f
-        style = Paint.Style.STROKE
-    }
-    
-    // Plumes détaillées
-    private val featherPaint = Paint().apply {
-        color = Color.rgb(139, 90, 43)
-        isAntiAlias = true
-    }
-    
-    private val featherDetailPaint = Paint().apply {
-        color = Color.rgb(101, 67, 33)
-        isAntiAlias = true
-        strokeWidth = 2f
-        style = Paint.Style.STROKE
-    }
-    
-    // Ombres douces
-    private val shadowPaint = Paint().apply {
-        color = Color.argb(50, 0, 0, 0)
-        isAntiAlias = true
-        maskFilter = BlurMaskFilter(8f, BlurMaskFilter.Blur.NORMAL)
-    }
-    
-    // ==================== FONCTION PRINCIPALE DE DESSIN ====================
-    
-    fun draw(canvas: Canvas, data: BirdAnimationData) {
-        when (data.birdState) {
-            BirdAnimationManager.BirdState.PERCHED -> drawPerchedBird(canvas, data)
-            BirdAnimationManager.BirdState.FALLING -> drawFallingBird(canvas, data)
-            BirdAnimationManager.BirdState.FALLEN -> drawImpactEffect(canvas, data)
-            BirdAnimationManager.BirdState.RESPAWNING -> drawRespawningBird(canvas, data)
-        }
+    fun drawBird(canvas: Canvas, animationManager: BirdAnimationManager) {
+        val birdSize = animationManager.birdSize
+        val centerX = animationManager.birdCenterX
+        val centerY = animationManager.birdCenterY
+        val lean = animationManager.getBodyLean()
+        val windForce = animationManager.getLastWindForce()
+        val eyeState = animationManager.getEyeState()
+        val state = animationManager.currentState
         
-        drawParticleEffects(canvas, data)
-    }
-    
-    // ==================== MODES DE RENDU ====================
-    
-    private fun drawPerchedBird(canvas: Canvas, data: BirdAnimationData) {
         canvas.save()
         
-        // Appliquer l'inclinaison du corps
-        canvas.translate(birdCenterX, birdCenterY)
-        canvas.rotate(data.bodyLeanAngle)
-        canvas.translate(-birdCenterX, -birdCenterY)
-        
-        drawBranch(canvas, data)
-        drawBirdShadow(canvas)
-        drawFeet(canvas, data)
-        drawTail(canvas, data)
-        drawBirdBody(canvas, data)
-        drawWings(canvas, data)
-        drawBirdHead(canvas, data)
-        drawEyes(canvas, data)
-        drawBeak(canvas, data)
+        when (state) {
+            BirdState.PERCHED -> {
+                canvas.translate(lean * 2f, 0f)
+                canvas.rotate(lean * 0.5f, centerX, centerY)
+                drawPerchedBird(canvas, centerX, centerY, birdSize, windForce, eyeState)
+            }
+            BirdState.FALLING -> {
+                val fallProgress = animationManager.getFallProgress()
+                val rotation = fallProgress * 180f + sin(fallProgress * 12f) * 30f
+                val dropY = fallProgress * (screenHeight - centerY) * 0.6f
+                canvas.rotate(rotation, centerX, centerY + dropY)
+                drawFallingBird(canvas, centerX, centerY + dropY, birdSize, fallProgress)
+            }
+            BirdState.FALLEN -> {
+                val groundY = animationManager.branchY + birdSize * 0.3f
+                drawFallenBird(canvas, centerX, groundY, birdSize)
+            }
+            BirdState.RESPAWNING -> {
+                val respawnProgress = animationManager.getRespawnProgress()
+                val alpha = (sin(respawnProgress * PI * 3).toFloat() * 128 + 127).toInt()
+                paint.alpha = alpha
+                drawPerchedBird(canvas, centerX, centerY, birdSize, 0f, EyeState.NORMAL)
+                paint.alpha = 255
+            }
+        }
         
         canvas.restore()
     }
     
-    private fun drawFallingBird(canvas: Canvas, data: BirdAnimationData) {
-        canvas.save()
-        canvas.translate(birdCenterX, data.fallPositionY)
-        canvas.rotate(data.fallRotation)
-        canvas.translate(-birdCenterX, -data.fallPositionY)
+    private fun drawPerchedBird(canvas: Canvas, centerX: Float, centerY: Float, size: Float, windForce: Float, eyeState: EyeState) {
+        val headSize = size * 0.35f
+        val bodyWidth = size * 0.4f
+        val bodyHeight = size * 0.6f
         
-        drawBirdShadow(canvas)
-        drawTail(canvas, data)
-        drawBirdBody(canvas, data)
-        drawWings(canvas, data)
-        drawBirdHead(canvas, data)
-        drawEyes(canvas, data)
-        drawBeak(canvas, data)
+        // Ombre projetée
+        drawBirdShadow(canvas, centerX, centerY + size * 0.1f, size)
         
-        canvas.restore()
-    }
-    
-    private fun drawRespawningBird(canvas: Canvas, data: BirdAnimationData) {
-        // Nouvel oiseau qui descend avec effet magique
-        val respawnY = lerp(-birdSize, birdCenterY, minOf(data.respawnTimer, 1f))
-        val alpha = (data.respawnTimer * 255).toInt().coerceIn(0, 255)
+        // Corps principal avec texture réaliste
+        drawRealisticBody(canvas, centerX, centerY, bodyWidth, bodyHeight, windForce)
         
-        // Effet de matérialisation
-        val materializePaint = Paint().apply {
-            color = Color.argb(alpha / 2, 255, 255, 255)
-            isAntiAlias = true
-            maskFilter = BlurMaskFilter(10f, BlurMaskFilter.Blur.NORMAL)
-        }
+        // Ailes avec détails de plumes
+        drawDetailedWings(canvas, centerX, centerY, size, windForce)
         
-        canvas.save()
-        canvas.translate(birdCenterX, respawnY)
-        
-        // Aura de respawn
-        canvas.drawCircle(0f, 0f, birdSize * 0.6f, materializePaint)
-        
-        // Oiseau qui se matérialise
-        bodyPaint.alpha = alpha
-        bellyPaint.alpha = alpha
-        eyePaint.alpha = alpha
-        eyeWhitePaint.alpha = alpha
-        beakPaint.alpha = alpha
-        featherPaint.alpha = alpha
-        
-        drawBirdBody(canvas, data)
-        drawBirdHead(canvas, data)
-        drawEyes(canvas, data)
-        drawBeak(canvas, data)
-        
-        // Restaurer l'alpha
-        bodyPaint.alpha = 255
-        bellyPaint.alpha = 255
-        eyePaint.alpha = 255
-        eyeWhitePaint.alpha = 255
-        beakPaint.alpha = 255
-        featherPaint.alpha = 255
-        
-        canvas.restore()
-        
-        // Redessiner la branche
-        canvas.drawLine(branchStartX, branchY, branchEndX, branchY, branchPaint)
-        drawBarkDetails(canvas)
-    }
-    
-    // ==================== PARTIES DU CORPS ====================
-    
-    private fun drawBirdShadow(canvas: Canvas) {
-        // Ombre douce sous l'oiseau
-        val shadowOffset = 15f
-        canvas.drawOval(
-            birdCenterX - birdSize * 0.35f,
-            birdCenterY - birdSize * 0.1f + shadowOffset,
-            birdCenterX + birdSize * 0.35f,
-            birdCenterY + birdSize * 0.35f + shadowOffset,
-            shadowPaint
-        )
-    }
-    
-    private fun drawBirdBody(canvas: Canvas, data: BirdAnimationData) {
-        val centerX = birdCenterX
-        val centerY = birdCenterY
-        val baseWidth = birdSize * 0.35f
-        val baseHeight = birdSize * 0.3f
-        
-        // Corps principal avec forme organique (path courbe)
-        val bodyPath = Path()
-        
-        // Forme de goutte/oeuf naturelle
-        bodyPath.moveTo(centerX, centerY - baseHeight * 0.8f) // Haut
-        bodyPath.cubicTo(
-            centerX + baseWidth * 0.8f, centerY - baseHeight * 0.6f, // Contrôle haut droit
-            centerX + baseWidth, centerY + baseHeight * 0.2f,        // Contrôle milieu droit
-            centerX + baseWidth * 0.6f, centerY + baseHeight * 1.2f  // Bas droit
-        )
-        bodyPath.cubicTo(
-            centerX + baseWidth * 0.2f, centerY + baseHeight * 1.4f, // Contrôle bas
-            centerX - baseWidth * 0.2f, centerY + baseHeight * 1.4f, // Contrôle bas
-            centerX - baseWidth * 0.6f, centerY + baseHeight * 1.2f  // Bas gauche
-        )
-        bodyPath.cubicTo(
-            centerX - baseWidth, centerY + baseHeight * 0.2f,        // Contrôle milieu gauche
-            centerX - baseWidth * 0.8f, centerY - baseHeight * 0.6f, // Contrôle haut gauche
-            centerX, centerY - baseHeight * 0.8f                     // Retour au haut
-        )
-        bodyPath.close()
-        
-        // Ombre du corps
-        canvas.save()
-        canvas.translate(4f, 4f)
-        canvas.drawPath(bodyPath, shadowPaint)
-        canvas.restore()
-        
-        // Corps principal
-        canvas.drawPath(bodyPath, bodyPaint)
-        
-        // Ventre avec forme naturelle
-        val bellyPath = Path()
-        val bellyWidth = baseWidth * 0.6f
-        val bellyHeight = baseHeight * 0.8f
-        
-        bellyPath.moveTo(centerX, centerY - bellyHeight * 0.2f)
-        bellyPath.cubicTo(
-            centerX + bellyWidth * 0.7f, centerY - bellyHeight * 0.1f,
-            centerX + bellyWidth * 0.8f, centerY + bellyHeight * 0.8f,
-            centerX, centerY + bellyHeight * 1.1f
-        )
-        bellyPath.cubicTo(
-            centerX - bellyWidth * 0.8f, centerY + bellyHeight * 0.8f,
-            centerX - bellyWidth * 0.7f, centerY - bellyHeight * 0.1f,
-            centerX, centerY - bellyHeight * 0.2f
-        )
-        bellyPath.close()
-        
-        canvas.drawPath(bellyPath, bellyPaint)
-        
-        // Motifs de plumage organiques
-        drawOrganicFeatherPattern(canvas, data, centerX, centerY, baseWidth, baseHeight)
-    }
-    
-    private fun drawOrganicFeatherPattern(canvas: Canvas, data: BirdAnimationData, centerX: Float, centerY: Float, width: Float, height: Float) {
-        // Motifs de plumes stylisés avec courbes naturelles
-        val patternPaint = Paint().apply {
-            color = Color.argb(80, 101, 67, 33)
-            isAntiAlias = true
-            strokeWidth = 3f
-            style = Paint.Style.STROKE
-            strokeCap = Paint.Cap.ROUND
-        }
-        
-        // Plumes latérales courbes
-        for (side in arrayOf(-1, 1)) {
-            for (i in 0..3) {
-                val startX = centerX + side * width * 0.6f
-                val startY = centerY - height * 0.3f + i * height * 0.3f
-                
-                val path = Path()
-                path.moveTo(startX, startY)
-                path.quadTo(
-                    startX + side * width * 0.3f, startY + height * 0.1f,
-                    startX + side * width * 0.2f, startY + height * 0.2f
-                )
-                canvas.drawPath(path, patternPaint)
-            }
-        }
-        
-        // Plumes du dos
-        for (i in 0..4) {
-            val x = centerX - width * 0.3f + i * width * 0.15f
-            val y = centerY - height * 0.5f
-            val wave = sin(data.featherWavePhase + i * 0.5f) * 5f
-            
-            val featherPath = Path()
-            featherPath.moveTo(x, y)
-            featherPath.quadTo(x + wave, y - height * 0.1f, x + wave * 0.5f, y - height * 0.15f)
-            canvas.drawPath(featherPath, patternPaint)
-        }
-    }
-    
-    private fun drawBirdHead(canvas: Canvas, data: BirdAnimationData) {
-        val headRadius = birdSize * 0.28f
-        val headY = birdCenterY - birdSize * 0.18f
-        
-        // Forme de tête organique au lieu d'un cercle parfait
-        val headPath = Path()
-        headPath.moveTo(birdCenterX, headY - headRadius)
-        headPath.cubicTo(
-            birdCenterX + headRadius * 0.9f, headY - headRadius * 0.8f,
-            birdCenterX + headRadius, headY + headRadius * 0.2f,
-            birdCenterX + headRadius * 0.7f, headY + headRadius * 0.9f
-        )
-        headPath.cubicTo(
-            birdCenterX + headRadius * 0.3f, headY + headRadius * 1.1f,
-            birdCenterX - headRadius * 0.3f, headY + headRadius * 1.1f,
-            birdCenterX - headRadius * 0.7f, headY + headRadius * 0.9f
-        )
-        headPath.cubicTo(
-            birdCenterX - headRadius, headY + headRadius * 0.2f,
-            birdCenterX - headRadius * 0.9f, headY - headRadius * 0.8f,
-            birdCenterX, headY - headRadius
-        )
-        headPath.close()
-        
-        // Ombre de la tête
-        canvas.save()
-        canvas.translate(3f, 3f)
-        canvas.drawPath(headPath, shadowPaint)
-        canvas.restore()
-        
-        // Joues gonflées avec forme naturelle
-        if (data.cheekPuffLevel > 0f) {
-            val puffPath = Path()
-            val puffRadius = headRadius * (1f + data.cheekPuffLevel * 0.4f)
-            
-            puffPath.addCircle(birdCenterX, headY, puffRadius, Path.Direction.CW)
-            canvas.drawPath(puffPath, bellyPaint)
-        }
-        
-        // Tête principale
-        canvas.drawPath(headPath, bodyPaint)
-        
-        // Crête de plumes plus naturelle
-        if (data.headCrestHeight > 0f) {
-            drawNaturalCrest(canvas, data, birdCenterX, headY - headRadius * 0.9f)
-        }
-        
-        // Motifs décoratifs sur la tête plus stylisés
-        drawHeadMarkings(canvas, birdCenterX, headY, headRadius)
-    }
-    
-    private fun drawNaturalCrest(canvas: Canvas, data: BirdAnimationData, centerX: Float, topY: Float) {
-        val crestHeight = data.headCrestHeight * birdSize * 0.25f
-        val featherCount = 9
-        
-        for (i in -(featherCount/2)..(featherCount/2)) {
-            val baseX = centerX + i * birdSize * 0.03f
-            val waveOffset = sin(data.featherWavePhase + i * 0.7f) * birdSize * 0.04f
-            val individualHeight = crestHeight * (1f - abs(i) * 0.08f)
-            
-            // Plume avec forme courbe naturelle
-            val featherPath = Path()
-            featherPath.moveTo(baseX, topY)
-            featherPath.quadTo(
-                baseX + waveOffset * 0.5f, topY - individualHeight * 0.6f,
-                baseX + waveOffset, topY - individualHeight
-            )
-            
-            // Épaisseur de plume variable
-            val featherPaint = Paint().apply {
-                color = Color.rgb(139 + i * 2, 90 + i, 43)
-                isAntiAlias = true
-                strokeWidth = 4f - abs(i) * 0.3f
-                strokeCap = Paint.Cap.ROUND
-                style = Paint.Style.STROKE
-            }
-            
-            canvas.drawPath(featherPath, featherPaint)
-            
-            // Détails de barbules sur chaque plume
-            if (abs(i) < 3) {
-                val barbuleY = topY - individualHeight * 0.3f
-                val barbulePath = Path()
-                barbulePath.moveTo(baseX - 2f, barbuleY)
-                barbulePath.lineTo(baseX + 2f, barbuleY - 3f)
-                
-                val barbulePaint = Paint().apply {
-                    color = Color.argb(150, 101, 67, 33)
-                    strokeWidth = 1f
-                    isAntiAlias = true
-                    style = Paint.Style.STROKE
-                }
-                canvas.drawPath(barbulePath, barbulePaint)
-            }
-        }
-    }
-    
-    private fun drawHeadMarkings(canvas: Canvas, centerX: Float, centerY: Float, radius: Float) {
-        // Motifs stylisés plus artistiques
-        val markingPaint = Paint().apply {
-            color = Color.argb(120, 101, 67, 33)
-            isAntiAlias = true
-            strokeWidth = 2.5f
-            style = Paint.Style.STROKE
-            strokeCap = Paint.Cap.ROUND
-        }
-        
-        // Motifs en forme de croissant près des yeux
-        for (side in arrayOf(-1, 1)) {
-            val crescentPath = Path()
-            val startX = centerX + side * radius * 0.4f
-            val startY = centerY - radius * 0.3f
-            
-            crescentPath.moveTo(startX, startY)
-            crescentPath.quadTo(
-                startX + side * radius * 0.2f, startY - radius * 0.1f,
-                startX + side * radius * 0.15f, startY + radius * 0.1f
-            )
-            canvas.drawPath(crescentPath, markingPaint)
-        }
-        
-        // Motif central décoratif
-        val centralPath = Path()
-        centralPath.moveTo(centerX, centerY - radius * 0.6f)
-        centralPath.quadTo(centerX - radius * 0.1f, centerY - radius * 0.4f, centerX, centerY - radius * 0.3f)
-        centralPath.quadTo(centerX + radius * 0.1f, centerY - radius * 0.4f, centerX, centerY - radius * 0.6f)
-        
-        val centralPaint = Paint().apply {
-            color = Color.argb(80, 160, 82, 45)
-            isAntiAlias = true
-            style = Paint.Style.FILL
-        }
-        canvas.drawPath(centralPath, centralPaint)
-    }
-    
-    private fun drawEyes(canvas: Canvas, data: BirdAnimationData) {
-        val eyeRadius = birdSize * 0.09f
-        val eyeY = birdCenterY - birdSize * 0.2f
-        val eyeSpacing = birdSize * 0.14f
-        
-        for (side in arrayOf(-1, 1)) {
-            val eyeX = birdCenterX + side * eyeSpacing
-            
-            // Ombre de l'œil
-            canvas.drawCircle(eyeX + 2f, eyeY + 2f, eyeRadius, shadowPaint)
-            
-            // Blanc de l'œil avec forme plus réaliste
-            val squintFactor = 1f - data.eyeSquintLevel * 0.6f
-            val eyeHeight = eyeRadius * squintFactor
-            
-            canvas.drawOval(
-                eyeX - eyeRadius, eyeY - eyeHeight,
-                eyeX + eyeRadius, eyeY + eyeHeight,
-                eyeWhitePaint
-            )
-            
-            // Pupille avec mouvement plus naturel
-            val pupilRadius = eyeRadius * 0.6f * squintFactor
-            val pupilOffsetX = (data.eyeRollAngle * 0.008f) * side
-            val pupilOffsetY = data.eyeRollAngle * 0.005f
-            
-            canvas.drawCircle(
-                eyeX + pupilOffsetX,
-                eyeY + pupilOffsetY,
-                pupilRadius,
-                eyePaint
-            )
-            
-            // Reflet dans l'œil
-            canvas.drawCircle(
-                eyeX + pupilOffsetX - pupilRadius * 0.3f,
-                eyeY + pupilOffsetY - pupilRadius * 0.3f,
-                pupilRadius * 0.25f,
-                eyeShimmerPaint
-            )
-            
-            // Cils
-            if (data.eyeSquintLevel < 0.5f) {
-                drawEyelashes(canvas, eyeX, eyeY - eyeHeight, eyeRadius)
-            }
-        }
-    }
-    
-    private fun drawEyelashes(canvas: Canvas, eyeX: Float, eyeY: Float, radius: Float) {
-        val lashPaint = Paint().apply {
-            color = Color.rgb(50, 50, 50)
-            isAntiAlias = true
-            strokeWidth = 1.5f
-            strokeCap = Paint.Cap.ROUND
-        }
-        
-        for (i in -2..2) {
-            val angle = i * 15f
-            val startX = eyeX + cos(Math.toRadians((angle + 270).toDouble())).toFloat() * radius
-            val startY = eyeY + sin(Math.toRadians((angle + 270).toDouble())).toFloat() * radius * 0.3f
-            val endX = startX + cos(Math.toRadians((angle + 270).toDouble())).toFloat() * radius * 0.3f
-            val endY = startY + sin(Math.toRadians((angle + 270).toDouble())).toFloat() * radius * 0.3f
-            
-            canvas.drawLine(startX, startY, endX, endY, lashPaint)
-        }
-    }
-    
-    private fun drawBeak(canvas: Canvas, data: BirdAnimationData) {
-        val beakY = birdCenterY - birdSize * 0.05f
-        val beakWidth = birdSize * 0.12f
-        val beakHeight = birdSize * 0.1f * (1f + data.beakOpenness * 0.6f)
-        
-        // Ombre du bec
-        val shadowPath = Path()
-        shadowPath.moveTo(birdCenterX + 2f, beakY + 2f)
-        shadowPath.lineTo(birdCenterX - beakWidth + 2f, beakY + beakHeight + 2f)
-        shadowPath.lineTo(birdCenterX + beakWidth + 2f, beakY + beakHeight + 2f)
-        shadowPath.close()
-        canvas.drawPath(shadowPath, shadowPaint)
-        
-        // Bec principal avec forme plus naturelle
-        val beakPath = Path()
-        beakPath.moveTo(birdCenterX, beakY)
-        beakPath.quadTo(birdCenterX - beakWidth * 0.7f, beakY + beakHeight * 0.3f, birdCenterX - beakWidth, beakY + beakHeight)
-        beakPath.lineTo(birdCenterX + beakWidth, beakY + beakHeight)
-        beakPath.quadTo(birdCenterX + beakWidth * 0.7f, beakY + beakHeight * 0.3f, birdCenterX, beakY)
-        beakPath.close()
-        
-        canvas.drawPath(beakPath, beakPaint)
-        
-        // Détails du bec
-        val detailPaint = Paint().apply {
-            color = Color.rgb(200, 120, 0)
-            isAntiAlias = true
-            strokeWidth = 1f
-        }
-        canvas.drawLine(birdCenterX, beakY + beakHeight * 0.7f, birdCenterX, beakY + beakHeight, detailPaint)
-        
-        // Narines
-        val nostrilPaint = Paint().apply {
-            color = Color.rgb(150, 100, 0)
-            isAntiAlias = true
-        }
-        canvas.drawCircle(birdCenterX - beakWidth * 0.2f, beakY + beakHeight * 0.3f, 2f, nostrilPaint)
-        canvas.drawCircle(birdCenterX + beakWidth * 0.2f, beakY + beakHeight * 0.3f, 2f, nostrilPaint)
-        
-        // Langue qui sort plus détaillée
-        if (data.tongueOut > 0f) {
-            val tonguePaint = Paint().apply {
-                color = Color.rgb(255, 100, 150)
-                isAntiAlias = true
-            }
-            val tongueY = beakY + beakHeight + data.tongueOut * birdSize * 0.06f
-            canvas.drawOval(
-                birdCenterX - 4f, tongueY - 2f,
-                birdCenterX + 4f, tongueY + 6f,
-                tonguePaint
-            )
-        }
-    }
-    
-    private fun drawWings(canvas: Canvas, data: BirdAnimationData) {
-        if (data.wingOpenness <= 0f) return
-        
-        val wingSpan = birdSize * 0.6f * data.wingOpenness
-        val wingHeight = birdSize * 0.4f
-        
-        for (side in arrayOf(-1, 1)) {
-            val wingBaseX = birdCenterX + side * birdSize * 0.32f
-            val wingTipX = wingBaseX + side * wingSpan
-            val wingY = birdCenterY
-            
-            // Aile avec forme organique (pas ovale)
-            val wingPath = Path()
-            wingPath.moveTo(wingBaseX, wingY - wingHeight * 0.3f)
-            wingPath.cubicTo(
-                wingBaseX + side * wingSpan * 0.3f, wingY - wingHeight * 0.5f,
-                wingBaseX + side * wingSpan * 0.8f, wingY - wingHeight * 0.2f,
-                wingTipX, wingY
-            )
-            wingPath.cubicTo(
-                wingBaseX + side * wingSpan * 0.9f, wingY + wingHeight * 0.3f,
-                wingBaseX + side * wingSpan * 0.4f, wingY + wingHeight * 0.4f,
-                wingBaseX, wingY + wingHeight * 0.2f
-            )
-            wingPath.close()
-            
-            // Ombre de l'aile
-            canvas.save()
-            canvas.translate(3f, 3f)
-            canvas.drawPath(wingPath, shadowPaint)
-            canvas.restore()
-            
-            // Aile principale
-            canvas.drawPath(wingPath, featherPaint)
-            
-            // Plumes primaires individuelles
-            drawWingFeathers(canvas, wingBaseX, wingTipX, wingY, wingHeight, side)
-        }
-    }
-    
-    private fun drawWingFeathers(canvas: Canvas, baseX: Float, tipX: Float, wingY: Float, height: Float, side: Int) {
-        val featherCount = 7
-        val span = abs(tipX - baseX)
-        
-        for (i in 0 until featherCount) {
-            val progress = i.toFloat() / (featherCount - 1)
-            val featherX = baseX + side * span * progress
-            val featherLength = height * (0.6f - progress * 0.3f)
-            val featherY = wingY - height * 0.2f + i * height * 0.08f
-            
-            // Plume individuelle avec forme naturelle
-            val featherPath = Path()
-            featherPath.moveTo(featherX, featherY)
-            featherPath.quadTo(
-                featherX + side * featherLength * 0.3f, featherY - featherLength * 0.3f,
-                featherX + side * featherLength * 0.8f, featherY - featherLength * 0.1f
-            )
-            featherPath.quadTo(
-                featherX + side * featherLength, featherY,
-                featherX + side * featherLength * 0.8f, featherY + featherLength * 0.1f
-            )
-            featherPath.quadTo(
-                featherX + side * featherLength * 0.3f, featherY + featherLength * 0.3f,
-                featherX, featherY
-            )
-            
-            val featherPaint = Paint().apply {
-                color = Color.argb(200 - i * 15, 139 - i * 5, 90 - i * 3, 43)
-                isAntiAlias = true
-                style = Paint.Style.FILL
-            }
-            
-            canvas.drawPath(featherPath, featherPaint)
-            
-            // Rachis (tige centrale de la plume)
-            val rachisPaint = Paint().apply {
-                color = Color.argb(150, 80, 50, 25)
-                strokeWidth = 1.5f
-                isAntiAlias = true
-                strokeCap = Paint.Cap.ROUND
-            }
-            canvas.drawLine(
-                featherX, featherY,
-                featherX + side * featherLength * 0.9f, featherY,
-                rachisPaint
-            )
-        }
-    }
-    
-    private fun drawTail(canvas: Canvas, data: BirdAnimationData) {
-        canvas.save()
-        canvas.translate(birdCenterX, birdCenterY + birdSize * 0.35f)
-        canvas.rotate(data.tailCounterbalance)
-        
-        val tailWidth = birdSize * 0.2f
-        val tailLength = birdSize * 0.35f
-        
-        // Ombre de la queue
-        canvas.save()
-        canvas.translate(2f, 2f)
-        drawTailFeathers(canvas, tailWidth, tailLength, shadowPaint)
-        canvas.restore()
+        // Tête avec expression sinistre
+        drawDarkHead(canvas, centerX, centerY - bodyHeight * 0.3f, headSize, eyeState, windForce)
         
         // Queue avec plumes individuelles
-        drawTailFeathers(canvas, tailWidth, tailLength, featherPaint)
+        drawRealisticTail(canvas, centerX, centerY, size, windForce)
         
+        // Pattes agrippées à la branche
+        drawClaws(canvas, centerX, centerY + bodyHeight * 0.4f, size * 0.15f)
+        
+        // Branche morte
+        drawDeadBranch(canvas, centerY + bodyHeight * 0.5f)
+    }
+    
+    private fun drawRealisticBody(canvas: Canvas, centerX: Float, centerY: Float, width: Float, height: Float, windForce: Float) {
+        // Gradient du corps
+        bodyGradient = LinearGradient(
+            centerX - width/2, centerY - height/2,
+            centerX + width/2, centerY + height/2,
+            intArrayOf(darkFeatherColor, midFeatherColor, lightFeatherColor),
+            floatArrayOf(0f, 0.6f, 1f),
+            Shader.TileMode.CLAMP
+        )
+        paint.shader = bodyGradient
+        
+        // Corps principal avec déformation selon le vent
+        val bodyPath = Path()
+        val deformation = windForce * 15f
+        
+        bodyPath.moveTo(centerX - width/2 + deformation, centerY - height/2)
+        bodyPath.quadTo(centerX + width/2 + deformation, centerY - height/4, centerX + width/3, centerY)
+        bodyPath.quadTo(centerX + width/4, centerY + height/2, centerX, centerY + height/3)
+        bodyPath.quadTo(centerX - width/4, centerY + height/2, centerX - width/3, centerY)
+        bodyPath.quadTo(centerX - width/2 + deformation, centerY - height/4, centerX - width/2 + deformation, centerY - height/2)
+        bodyPath.close()
+        
+        canvas.drawPath(bodyPath, paint)
+        paint.shader = null
+        
+        // Texture de plumes
+        drawFeatherTexture(canvas, centerX, centerY, width, height)
+        
+        // Ventre plus clair avec des stries
+        paint.color = bellyColor
+        val bellyOval = RectF(centerX - width*0.2f, centerY - height*0.1f, centerX + width*0.2f, centerY + height*0.3f)
+        canvas.drawOval(bellyOval, paint)
+        
+        // Stries sombres sur le ventre
+        paint.color = Color.argb(80, 30, 30, 40)
+        paint.strokeWidth = 2f
+        paint.style = Paint.Style.STROKE
+        for (i in 0..4) {
+            val y = centerY + (i - 2) * height * 0.08f
+            canvas.drawLine(centerX - width*0.15f, y, centerX + width*0.15f, y, paint)
+        }
+        paint.style = Paint.Style.FILL
+    }
+    
+    private fun drawFeatherTexture(canvas: Canvas, centerX: Float, centerY: Float, width: Float, height: Float) {
+        paint.color = Color.argb(40, 20, 20, 25)
+        paint.strokeWidth = 1f
+        paint.style = Paint.Style.STROKE
+        
+        // Motifs de plumes subtils
+        for (i in 0..8) {
+            for (j in 0..6) {
+                val x = centerX - width/2 + (i * width/8f)
+                val y = centerY - height/2 + (j * height/6f)
+                val featherPath = Path()
+                featherPath.moveTo(x, y)
+                featherPath.quadTo(x + 8f, y - 4f, x + 12f, y)
+                featherPath.quadTo(x + 8f, y + 4f, x, y)
+                canvas.drawPath(featherPath, paint)
+            }
+        }
+        paint.style = Paint.Style.FILL
+    }
+    
+    private fun drawDetailedWings(canvas: Canvas, centerX: Float, centerY: Float, size: Float, windForce: Float) {
+        val wingSpan = size * 0.35f
+        val wingHeight = size * 0.4f
+        val wingFlap = sin(System.currentTimeMillis() * 0.01f + windForce * 20f) * windForce * 10f
+        
+        // Aile gauche
+        drawSingleWing(canvas, centerX - wingSpan/2, centerY, wingSpan, wingHeight, -wingFlap, true)
+        
+        // Aile droite  
+        drawSingleWing(canvas, centerX + wingSpan/2, centerY, wingSpan, wingHeight, wingFlap, false)
+    }
+    
+    private fun drawSingleWing(canvas: Canvas, x: Float, y: Float, width: Float, height: Float, angle: Float, isLeft: Boolean) {
+        canvas.save()
+        canvas.rotate(angle, x, y)
+        
+        // Gradient de l'aile
+        wingGradient = RadialGradient(
+            x, y, width,
+            intArrayOf(darkFeatherColor, midFeatherColor, ashGray),
+            floatArrayOf(0f, 0.7f, 1f),
+            Shader.TileMode.CLAMP
+        )
+        paint.shader = wingGradient
+        
+        // Forme de l'aile
+        val wingPath = Path()
+        val direction = if (isLeft) -1f else 1f
+        
+        wingPath.moveTo(x, y)
+        wingPath.quadTo(x + direction * width * 0.3f, y - height * 0.4f, x + direction * width, y - height * 0.2f)
+        wingPath.quadTo(x + direction * width * 0.8f, y, x + direction * width, y + height * 0.3f)
+        wingPath.quadTo(x + direction * width * 0.4f, y + height * 0.4f, x, y + height * 0.1f)
+        wingPath.close()
+        
+        canvas.drawPath(wingPath, paint)
+        paint.shader = null
+        
+        // Plumes primaires
+        paint.color = Color.argb(120, 25, 25, 30)
+        paint.strokeWidth = 3f
+        paint.style = Paint.Style.STROKE
+        
+        for (i in 1..5) {
+            val featherX = x + direction * width * (0.4f + i * 0.12f)
+            val featherY1 = y - height * 0.2f
+            val featherY2 = y + height * 0.2f
+            canvas.drawLine(featherX, featherY1, featherX, featherY2, paint)
+        }
+        
+        paint.style = Paint.Style.FILL
         canvas.restore()
     }
     
-    private fun drawTailFeathers(canvas: Canvas, width: Float, length: Float, paint: Paint) {
-        val featherCount = 7
+    private fun drawDarkHead(canvas: Canvas, centerX: Float, centerY: Float, size: Float, eyeState: EyeState, windForce: Float) {
+        // Tête avec gradient sombre
+        val headGradient = RadialGradient(
+            centerX, centerY, size,
+            intArrayOf(midFeatherColor, darkFeatherColor, Color.rgb(15, 15, 20)),
+            floatArrayOf(0f, 0.7f, 1f),
+            Shader.TileMode.CLAMP
+        )
+        paint.shader = headGradient
         
-        for (i in 0 until featherCount) {
-            val progress = (i - (featherCount - 1) / 2f) / (featherCount - 1) * 2f // -1 à 1
-            val featherX = progress * width * 0.8f
-            val featherLength = length * (1f - abs(progress) * 0.2f) // Plumes centrales plus longues
+        // Déformation de la tête selon le vent
+        val headDeform = windForce * 8f
+        val headOval = RectF(
+            centerX - size/2 - headDeform, centerY - size/2,
+            centerX + size/2 + headDeform, centerY + size/2
+        )
+        canvas.drawOval(headOval, paint)
+        paint.shader = null
+        
+        // Crête hérissée
+        drawSpikyCrest(canvas, centerX, centerY - size/2, size, windForce)
+        
+        // Bec menaçant
+        drawMenacingBeak(canvas, centerX + size/2, centerY, size * 0.3f)
+        
+        // Yeux sinistres
+        drawDarkEyes(canvas, centerX, centerY, size, eyeState, windForce)
+    }
+    
+    private fun drawSpikyCrest(canvas: Canvas, centerX: Float, topY: Float, headSize: Float, windForce: Float) {
+        paint.color = darkFeatherColor
+        
+        val crestPath = Path()
+        val spikes = 7
+        val crestWidth = headSize * 0.6f
+        val crestHeight = headSize * 0.3f * (1f + windForce * 0.5f)
+        
+        crestPath.moveTo(centerX - crestWidth/2, topY)
+        
+        for (i in 0..spikes) {
+            val x = centerX - crestWidth/2 + (i * crestWidth / spikes)
+            val spikeHeight = crestHeight * (0.5f + Random.nextFloat() * 0.5f)
+            val windSway = sin(i.toFloat()) * windForce * 5f
             
-            // Forme de plume naturelle
+            if (i % 2 == 0) {
+                crestPath.lineTo(x + windSway, topY - spikeHeight)
+            } else {
+                crestPath.lineTo(x + windSway, topY - spikeHeight * 0.6f)
+            }
+        }
+        
+        crestPath.lineTo(centerX + crestWidth/2, topY)
+        canvas.drawPath(crestPath, paint)
+    }
+    
+    private fun drawMenacingBeak(canvas: Canvas, startX: Float, startY: Float, length: Float) {
+        // Bec crochu et pointu
+        paint.color = beakColor
+        
+        val beakPath = Path()
+        beakPath.moveTo(startX, startY - length * 0.2f)
+        beakPath.lineTo(startX + length, startY - length * 0.1f)
+        beakPath.quadTo(startX + length * 1.1f, startY, startX + length * 0.9f, startY + length * 0.15f)
+        beakPath.lineTo(startX, startY + length * 0.2f)
+        beakPath.close()
+        
+        canvas.drawPath(beakPath, paint)
+        
+        // Ligne de séparation du bec
+        paint.color = Color.argb(100, 20, 20, 25)
+        paint.strokeWidth = 2f
+        paint.style = Paint.Style.STROKE
+        canvas.drawLine(startX, startY, startX + length * 0.8f, startY, paint)
+        paint.style = Paint.Style.FILL
+        
+        // Narine
+        paint.color = Color.argb(150, 10, 10, 15)
+        canvas.drawCircle(startX + length * 0.2f, startY - length * 0.08f, 3f, paint)
+    }
+    
+    private fun drawDarkEyes(canvas: Canvas, centerX: Float, centerY: Float, headSize: Float, eyeState: EyeState, windForce: Float) {
+        val eyeSize = headSize * 0.12f
+        val leftEyeX = centerX - headSize * 0.2f
+        val rightEyeX = centerX + headSize * 0.2f
+        val eyeY = centerY - headSize * 0.1f
+        
+        for ((eyeX, isLeft) in listOf(leftEyeX to true, rightEyeX to false)) {
+            // Contour de l'œil
+            paint.color = Color.rgb(10, 10, 15)
+            canvas.drawCircle(eyeX, eyeY, eyeSize, paint)
+            
+            // Blanc de l'œil (très réduit pour un look sinistre)
+            paint.color = Color.rgb(180, 180, 185)
+            val whiteSize = when (eyeState) {
+                EyeState.NORMAL -> eyeSize * 0.7f
+                EyeState.SQUINTING -> eyeSize * 0.4f
+                EyeState.STRUGGLING -> eyeSize * 0.3f
+                EyeState.PANICKED -> eyeSize * 0.9f
+            }
+            canvas.drawCircle(eyeX, eyeY, whiteSize, paint)
+            
+            // Pupille dilatée et menaçante
+            paint.color = eyeColor
+            val pupilSize = when (eyeState) {
+                EyeState.NORMAL -> whiteSize * 0.6f
+                EyeState.SQUINTING -> whiteSize * 0.8f
+                EyeState.STRUGGLING -> whiteSize * 0.9f
+                EyeState.PANICKED -> whiteSize * 0.4f
+            }
+            
+            val pupilOffsetX = windForce * (if (isLeft) -3f else 3f)
+            canvas.drawCircle(eyeX + pupilOffsetX, eyeY, pupilSize, paint)
+            
+            // Reflet inquiétant
+            paint.color = Color.argb(100, 200, 200, 210)
+            canvas.drawCircle(eyeX + pupilSize * 0.3f, eyeY - pupilSize * 0.3f, pupilSize * 0.2f, paint)
+            
+            // Vaisseaux sanguins si stressé
+            if (windForce > 0.7f) {
+                paint.color = bloodRedColor
+                paint.strokeWidth = 1f
+                paint.style = Paint.Style.STROKE
+                for (i in 0..2) {
+                    val angle = i * 120f + Random.nextFloat() * 20f
+                    val endX = eyeX + cos(Math.toRadians(angle.toDouble())) * whiteSize * 0.8f
+                    val endY = eyeY + sin(Math.toRadians(angle.toDouble())) * whiteSize * 0.8f
+                    canvas.drawLine(eyeX, eyeY, endX.toFloat(), endY.toFloat(), paint)
+                }
+                paint.style = Paint.Style.FILL
+            }
+        }
+    }
+    
+    private fun drawRealisticTail(canvas: Canvas, centerX: Float, centerY: Float, size: Float, windForce: Float) {
+        val tailFeathers = 5
+        val tailLength = size * 0.3f
+        val tailSpread = size * 0.15f
+        
+        for (i in 0 until tailFeathers) {
+            val angle = -30f + (i * 15f) + windForce * 20f
+            val length = tailLength * (0.8f + Random.nextFloat() * 0.4f)
+            
+            canvas.save()
+            canvas.rotate(angle, centerX, centerY)
+            
+            paint.color = when (i % 3) {
+                0 -> darkFeatherColor
+                1 -> midFeatherColor
+                else -> lightFeatherColor
+            }
+            
             val featherPath = Path()
-            featherPath.moveTo(featherX, 0f)
-            featherPath.quadTo(
-                featherX - width * 0.08f, featherLength * 0.3f,
-                featherX - width * 0.05f, featherLength * 0.7f
-            )
-            featherPath.quadTo(
-                featherX, featherLength,
-                featherX + width * 0.05f, featherLength * 0.7f
-            )
-            featherPath.quadTo(
-                featherX + width * 0.08f, featherLength * 0.3f,
-                featherX, 0f
-            )
+            featherPath.moveTo(centerX - tailSpread/2, centerY + size * 0.2f)
+            featherPath.quadTo(centerX - tailSpread/4, centerY + size * 0.2f + length/2, centerX, centerY + size * 0.2f + length)
+            featherPath.quadTo(centerX + tailSpread/4, centerY + size * 0.2f + length/2, centerX + tailSpread/2, centerY + size * 0.2f)
+            featherPath.close()
             
-            // Couleur variable par plume
-            val featherPaint = Paint(paint).apply {
-                if (paint != shadowPaint) {
-                    color = Color.argb(
-                        200,
-                        139 + (i * 5),
-                        90 + (i * 3),
-                        43 + (i * 2)
-                    )
-                }
-            }
-            
-            canvas.drawPath(featherPath, featherPaint)
-            
-            // Rachis de la plume
-            if (paint != shadowPaint) {
-                val rachisP = Paint().apply {
-                    color = Color.argb(150, 80, 50, 25)
-                    strokeWidth = 1.5f
-                    isAntiAlias = true
-                    strokeCap = Paint.Cap.ROUND
-                }
-                canvas.drawLine(featherX, 0f, featherX, featherLength * 0.9f, rachisP)
-            }
+            canvas.drawPath(featherPath, paint)
+            canvas.restore()
         }
     }
     
-    private fun drawFeet(canvas: Canvas, data: BirdAnimationData) {
-        val footY = branchY
-        val footSpacing = birdSize * 0.18f
-        val slipOffset = data.footSlipProgress * birdSize * 0.12f
+    private fun drawClaws(canvas: Canvas, centerX: Float, y: Float, size: Float) {
+        paint.color = Color.rgb(25, 25, 30)
+        paint.strokeWidth = 4f
+        paint.style = Paint.Style.STROKE
+        paint.strokeCap = Paint.Cap.ROUND
         
-        for (side in arrayOf(-1, 1)) {
-            val footX = birdCenterX + side * footSpacing + side * slipOffset
-            
-            // Ombre du pied
-            canvas.drawCircle(footX + 1f, footY + 1f, birdSize * 0.04f, shadowPaint)
-            
-            // Pied plus détaillé
-            canvas.drawCircle(footX, footY, birdSize * 0.04f, beakPaint)
-            
-            // Griffes plus réalistes
-            for (i in 0..2) {
-                val clawAngle = (i - 1) * 25f
-                val clawLength = birdSize * 0.06f
-                val clawWidth = 2f
-                
-                val endX = footX + sin(Math.toRadians(clawAngle.toDouble())).toFloat() * clawLength
-                val endY = footY + cos(Math.toRadians(clawAngle.toDouble())).toFloat() * clawLength
-                
-                val clawPaint = Paint().apply {
-                    color = Color.rgb(100, 60, 30)
-                    isAntiAlias = true
-                    strokeWidth = clawWidth
-                    strokeCap = Paint.Cap.ROUND
-                }
-                
-                canvas.drawLine(footX, footY, endX, endY, clawPaint)
-            }
+        // Pattes agrippées
+        val clawPositions = arrayOf(-size, -size/3, size/3, size)
+        
+        for (clawX in clawPositions) {
+            val x = centerX + clawX
+            // Patte qui descend
+            canvas.drawLine(x, y - size/2, x, y + size/2, paint)
+            // Griffe recourbée
+            canvas.drawLine(x, y + size/2, x - 8f, y + size/2 + 12f, paint)
+            canvas.drawLine(x, y + size/2, x + 8f, y + size/2 + 12f, paint)
         }
+        
+        paint.style = Paint.Style.FILL
     }
     
-    private fun drawBranch(canvas: Canvas, data: BirdAnimationData) {
-        canvas.save()
-        
-        // Vibration de la branche
-        val vibrateOffset = sin(System.currentTimeMillis() * 0.06f) * data.branchVibrateIntensity
-        canvas.translate(0f, vibrateOffset)
-        canvas.rotate(data.branchOscillateAngle, screenWidth / 2f, branchY)
-        
-        // Ombre de la branche
-        canvas.drawLine(branchStartX + 3f, branchY + 3f, branchEndX + 3f, branchY + 3f, shadowPaint)
+    private fun drawDeadBranch(canvas: Canvas, y: Float) {
+        paint.color = Color.rgb(40, 35, 30)
+        paint.strokeWidth = 12f
+        paint.style = Paint.Style.STROKE
+        paint.strokeCap = Paint.Cap.ROUND
         
         // Branche principale
-        canvas.drawLine(branchStartX, branchY, branchEndX, branchY, branchPaint)
+        canvas.drawLine(0f, y, screenWidth, y, paint)
         
-        // Détails d'écorce
-        drawBarkDetails(canvas)
+        // Écorce rugueuse
+        paint.strokeWidth = 2f
+        paint.color = Color.rgb(30, 25, 20)
+        for (i in 0..20) {
+            val x = i * screenWidth / 20f
+            canvas.drawLine(x, y - 6f, x, y + 6f, paint)
+        }
         
+        paint.style = Paint.Style.FILL
+    }
+    
+    private fun drawFallingBird(canvas: Canvas, centerX: Float, centerY: Float, size: Float, fallProgress: Float) {
+        // Oiseau qui tombe avec ailes déployées dans la panique
+        val wingSpread = size * (0.6f + fallProgress * 0.4f)
+        val panicFlap = sin(fallProgress * 30f) * 20f
+        
+        // Corps en chute
+        paint.color = darkFeatherColor
+        val bodyOval = RectF(centerX - size*0.2f, centerY - size*0.3f, centerX + size*0.2f, centerY + size*0.3f)
+        canvas.drawOval(bodyOval, paint)
+        
+        // Ailes battant frénétiquement
+        drawPanicWings(canvas, centerX, centerY, wingSpread, panicFlap)
+        
+        // Tête en panique
+        drawDarkHead(canvas, centerX, centerY - size*0.3f, size*0.3f, EyeState.PANICKED, 1f)
+        
+        // Traînée de plumes
+        paint.color = Color.argb((100 * (1f - fallProgress)).toInt(), 45, 45, 55)
+        for (i in 0..5) {
+            val trailY = centerY - i * 20f * fallProgress
+            canvas.drawCircle(centerX + Random.nextFloat() * 20f - 10f, trailY, 5f * (1f - fallProgress), paint)
+        }
+    }
+    
+    private fun drawPanicWings(canvas: Canvas, centerX: Float, centerY: Float, spread: Float, flap: Float) {
+        paint.color = midFeatherColor
+        
+        // Aile gauche battant
+        canvas.save()
+        canvas.rotate(-30f + flap, centerX - spread/3, centerY)
+        val leftWing = RectF(centerX - spread, centerY - spread/3, centerX - spread/3, centerY + spread/3)
+        canvas.drawOval(leftWing, paint)
+        canvas.restore()
+        
+        // Aile droite battant
+        canvas.save()
+        canvas.rotate(30f - flap, centerX + spread/3, centerY)
+        val rightWing = RectF(centerX + spread/3, centerY - spread/3, centerX + spread, centerY + spread/3)
+        canvas.drawOval(rightWing, paint)
         canvas.restore()
     }
     
-    private fun drawBarkDetails(canvas: Canvas) {
-        val detailCount = 8
-        for (i in 0 until detailCount) {
-            val x = branchStartX + (i * (branchEndX - branchStartX) / detailCount)
-            val variation = sin(i * 0.5f) * 3f
-            
-            canvas.drawLine(x, branchY - 8f + variation, x, branchY + 8f + variation, branchDetailPaint)
-            
-            // Petites irrégularités
-            if (Random.nextFloat() < 0.3f) {
-                canvas.drawCircle(x + Random.nextFloat() * 20f - 10f, branchY + Random.nextFloat() * 6f - 3f, 2f, branchDetailPaint)
-            }
-        }
+    private fun drawFallenBird(canvas: Canvas, centerX: Float, groundY: Float, size: Float) {
+        // Oiseau au sol, ailes étalées
+        paint.color = Color.argb(200, 45, 45, 55)
+        
+        // Corps effondré
+        val bodyOval = RectF(centerX - size*0.3f, groundY - size*0.1f, centerX + size*0.3f, groundY + size*0.1f)
+        canvas.drawOval(bodyOval, paint)
+        
+        // Ailes étalées au sol
+        paint.color = Color.argb(150, 35, 35, 45)
+        canvas.drawOval(centerX - size*0.6f, groundY - size*0.2f, centerX - size*0.1f, groundY + size*0.2f, paint)
+        canvas.drawOval(centerX + size*0.1f, groundY - size*0.2f, centerX + size*0.6f, groundY + size*0.2f, paint)
+        
+        // Tête au sol
+        paint.color = darkFeatherColor
+        canvas.drawCircle(centerX + size*0.2f, groundY, size*0.15f, paint)
     }
     
-    // ==================== EFFETS VISUELS ====================
+    private fun drawBirdShadow(canvas: Canvas, centerX: Float, centerY: Float, size: Float) {
+        shadowPaint.color = Color.argb(40, 0, 0, 0)
+        val shadowOval = RectF(centerX - size*0.3f, centerY - size*0.1f, centerX + size*0.3f, centerY + size*0.1f)
+        canvas.drawOval(shadowOval, shadowPaint)
+    }
     
-    private fun drawParticleEffects(canvas: Canvas, data: BirdAnimationData) {
-        // Larmes plus belles
-        val tearPaint = Paint().apply {
-            isAntiAlias = true
-            shader = RadialGradient(0f, 0f, 8f, Color.CYAN, Color.TRANSPARENT, Shader.TileMode.CLAMP)
+    fun drawParticles(canvas: Canvas, tears: List<Tear>, feathers: List<FlyingFeather>, dust: List<DustParticle>, leaves: List<FallingLeaf>) {
+        // Larmes de sang
+        paint.color = bloodRedColor
+        for (tear in tears) {
+            val alpha = (tear.life * 255).toInt().coerceIn(0, 255)
+            paint.alpha = alpha
+            canvas.drawCircle(tear.x, tear.y, 4f, paint)
         }
-        data.tears.forEach { tear ->
+        
+        // Plumes sombres volantes
+        paint.color = darkFeatherColor
+        for (feather in feathers) {
+            val alpha = (feather.life * 200).toInt().coerceIn(0, 200)
+            paint.alpha = alpha
             canvas.save()
-            canvas.translate(tear.x, tear.y)
-            canvas.drawCircle(0f, 0f, 6f * tear.life, tearPaint)
+            canvas.rotate(feather.rotation, feather.x, feather.y)
+            canvas.drawOval(feather.x - 8f, feather.y - 3f, feather.x + 8f, feather.y + 3f, paint)
             canvas.restore()
         }
         
-        // Plumes volantes plus détaillées
-        data.flyingFeathers.forEach { feather ->
-            canvas.save()
-            canvas.translate(feather.x, feather.y)
-            canvas.rotate(feather.rotation)
-            
-            val alpha = (feather.life * 255).toInt().coerceIn(0, 255)
-            val featherFlyPaint = Paint().apply {
-                color = Color.argb(alpha, 139, 90, 43)
-                isAntiAlias = true
-            }
-            
-            canvas.drawOval(-6f, -12f, 6f, 12f, featherFlyPaint)
-            canvas.drawLine(0f, -12f, 0f, 12f, featherDetailPaint)
-            canvas.restore()
+        // Poussière grise
+        paint.color = ashGray
+        for (particle in dust) {
+            val alpha = (particle.life * 180).toInt().coerceIn(0, 180)
+            paint.alpha = alpha
+            canvas.drawCircle(particle.x, particle.y, particle.size, paint)
         }
         
-        // Particules de poussière améliorées
-        data.dustParticles.forEach { particle ->
-            val alpha = (particle.life * 80).toInt().coerceIn(0, 80)
-            val dustPaint = Paint().apply {
-                color = Color.argb(alpha, 139, 69, 19)
-                isAntiAlias = true
-            }
-            canvas.drawCircle(particle.x, particle.y, particle.size * particle.life, dustPaint)
-        }
-        
-        // Feuilles plus jolies
-        data.fallingLeaves.forEach { leaf ->
+        // Feuilles mortes
+        paint.color = Color.rgb(60, 50, 40)
+        for (leaf in leaves) {
+            val alpha = (leaf.life * 150).toInt().coerceIn(0, 150)
+            paint.alpha = alpha
             canvas.save()
-            canvas.translate(leaf.x, leaf.y)
-            canvas.rotate(leaf.rotation)
+            canvas.rotate(leaf.rotation, leaf.x, leaf.y)
             
-            val alpha = (leaf.life * 200).toInt().coerceIn(0, 200)
-            val leafPaint = Paint().apply {
-                color = Color.argb(alpha, 34, 139, 34)
-                isAntiAlias = true
-            }
-            
-            // Forme de feuille plus réaliste
             val leafPath = Path()
-            leafPath.moveTo(0f, -8f)
-            leafPath.quadTo(-6f, -4f, -4f, 0f)
-            leafPath.quadTo(-6f, 4f, 0f, 8f)
-            leafPath.quadTo(6f, 4f, 4f, 0f)
-            leafPath.quadTo(6f, -4f, 0f, -8f)
-            
-            canvas.drawPath(leafPath, leafPaint)
-            canvas.drawLine(0f, -8f, 0f, 8f, featherDetailPaint)
+            leafPath.moveTo(leaf.x, leaf.y - 6f)
+            leafPath.quadTo(leaf.x + 4f, leaf.y - 3f, leaf.x + 3f, leaf.y)
+            leafPath.quadTo(leaf.x + 4f, leaf.y + 3f, leaf.x, leaf.y + 6f)
+            leafPath.quadTo(leaf.x - 4f, leaf.y + 3f, leaf.x - 3f, leaf.y)
+            leafPath.quadTo(leaf.x - 4f, leaf.y - 3f, leaf.x, leaf.y - 6f)
+            canvas.drawPath(leafPath, paint)
             canvas.restore()
         }
-    }
-    
-    private fun drawImpactEffect(canvas: Canvas, data: BirdAnimationData) {
-        // Effet d'impact spectaculaire
-        val impactPaint = Paint().apply {
-            isAntiAlias = true
-            shader = RadialGradient(
-                birdCenterX, screenHeight - 40f, 150f,
-                Color.argb(150, 139, 69, 19),
-                Color.TRANSPARENT,
-                Shader.TileMode.CLAMP
-            )
-        }
-        canvas.drawCircle(birdCenterX, screenHeight - 40f, 150f, impactPaint)
         
-        // Lignes d'impact
-        val impactLines = 12
-        for (i in 0 until impactLines) {
-            val angle = i * 360f / impactLines
-            val startRadius = 50f
-            val endRadius = 120f
-            
-            val startX = birdCenterX + cos(Math.toRadians(angle.toDouble())).toFloat() * startRadius
-            val startY = screenHeight - 40f + sin(Math.toRadians(angle.toDouble())).toFloat() * startRadius
-            val endX = birdCenterX + cos(Math.toRadians(angle.toDouble())).toFloat() * endRadius
-            val endY = screenHeight - 40f + sin(Math.toRadians(angle.toDouble())).toFloat() * endRadius
-            
-            val linePaint = Paint().apply {
-                color = Color.argb(100, 139, 69, 19)
-                strokeWidth = 3f
-                isAntiAlias = true
-            }
-            
-            canvas.drawLine(startX, startY, endX, endY, linePaint)
-        }
-    }
-    
-    // ==================== FONCTIONS UTILITAIRES ====================
-    
-    fun cleanup() {
-        // Nettoyer les ressources si nécessaire
-    }
-    
-    private fun lerp(start: Float, end: Float, factor: Float): Float {
-        return start + factor * (end - start)
+        paint.alpha = 255
     }
 }
