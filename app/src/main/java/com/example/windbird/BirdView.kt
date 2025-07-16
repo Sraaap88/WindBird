@@ -1,7 +1,8 @@
 package com.example.windbird
 
 import android.content.Context
-import android.graphics.*
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.util.AttributeSet
 import android.view.View
 
@@ -10,46 +11,85 @@ class BirdView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
-
-    private var birdAnimationManager: BirdAnimationManager? = null
-    private var birdRenderer: BirdRenderer? = null
-    private var windGauge: WindGauge? = null
     
-    private var lastFrameTime = System.currentTimeMillis()
-    private var rawWindForce = 0f
+    // ==================== GESTIONNAIRE PRINCIPAL ====================
+    
+    private var birdAnimationManager: BirdAnimationManager? = null
+    private var isInitialized = false
+    
+    // ==================== INITIALISATION ====================
     
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         
-        birdAnimationManager = BirdAnimationManager(w.toFloat(), h.toFloat())
-        birdRenderer = BirdRenderer(w.toFloat(), h.toFloat())
-        windGauge = WindGauge(w.toFloat(), h.toFloat())
+        if (w <= 0 || h <= 0) return
         
-        birdAnimationManager?.setBirdRenderer(birdRenderer!!)
+        try {
+            // Initialiser le gestionnaire d'animation d'oiseau
+            birdAnimationManager = BirdAnimationManager(w, h)
+            isInitialized = true
+            
+        } catch (e: Exception) {
+            e.printStackTrace()
+            isInitialized = false
+        }
     }
+    
+    // ==================== MISE À JOUR DU VENT ====================
+    
+    fun updateWindForce(force: Float) {
+        if (!isInitialized || birdAnimationManager == null) return
+        
+        try {
+            // Transmettre la force du vent au gestionnaire d'animation
+            birdAnimationManager?.updateWind(force)
+            
+            // Redessiner la vue
+            invalidate()
+            
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    
+    // ==================== AFFICHAGE ====================
     
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         
-        val currentTime = System.currentTimeMillis()
-        val deltaTime = (currentTime - lastFrameTime).toFloat()
-        lastFrameTime = currentTime
+        if (!isInitialized || birdAnimationManager == null) {
+            return
+        }
         
-        birdAnimationManager?.updateWind(rawWindForce, deltaTime)
-        
-        birdAnimationManager?.draw(canvas)
-        
-        windGauge?.draw(canvas, rawWindForce)
-        
-        invalidate()
+        try {
+            // Dessiner l'oiseau avec toutes ses animations
+            birdAnimationManager?.draw(canvas)
+            
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
     
-    fun updateWindForce(force: Float) {
-        rawWindForce = force.coerceIn(0f, 1f)
+    // ==================== CYCLE DE VIE ====================
+    
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        try {
+            birdAnimationManager?.cleanup()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
+    
+    // ==================== FONCTIONS UTILITAIRES ====================
     
     fun resetBird() {
-        birdAnimationManager?.resetBird()
+        try {
+            birdAnimationManager?.reset()
+            invalidate()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
     
     fun getBirdState(): String {
