@@ -38,7 +38,7 @@ class WindGauge(private val screenWidth: Float, private val screenHeight: Float)
         drawGaugeZones(canvas)
         drawGaugeNumbers(canvas)
         drawNeedles(canvas, rawForce, smoothedForce)
-        drawForceText(canvas, rawForce)
+        drawForceText(canvas)
         drawFallThreshold(canvas)
     }
     
