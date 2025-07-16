@@ -2,7 +2,6 @@ plugins {
     id 'com.android.application'
     id 'kotlin-android'
 }
-
 android {
     namespace 'com.example.windbird'
     compileSdk 33
@@ -39,8 +38,15 @@ android {
         abortOnError false
         checkReleaseBuilds false
     }
+    
+    // Changer le nom des fichiers APK
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            def appName = "windbird"
+            outputFileName = "${appName}-${variant.buildType.name}.apk"
+        }
+    }
 }
-
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.8.10"
     implementation 'androidx.core:core-ktx:1.9.0'
