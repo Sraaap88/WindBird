@@ -1,438 +1,329 @@
 package com.example.windbird
 
-import android.graphics.*
+import android.graphics.Canvas
 import kotlin.math.*
 import kotlin.random.Random
 
-class BirdAnimationManager(private val screenWidth: Int, private val screenHeight: Int) {
+data class Tear(var x: Float, var y: Float, var velocityX: Float, var velocityY: Float, var life: Float)
+data class FlyingFeather(var x: Float, var y: Float, var vx: Float, var vy: Float, var rotation: Float, var life: Float)
+data class DustParticle(var x: Float, var y: Float, var vx: Float, var vy: Float, var life: Float, var size: Float)
+data class FallingLeaf(var x: Float, var y: Float, var vx: Float, var vy: Float, var rotation: Float, var life: Float)
+
+enum class BirdState {
+    PERCHED, FALLING, FALLEN, RESPAWNING
+}
+
+enum class EyeState {
+    NORMAL, SQUINTING, STRUGGLING, PANICKED
+}
+
+class BirdAnimationManager(private val screenWidth: Float, private val screenHeight: Float) {
     
-    // ==================== PROPRIÉTÉS DE BASE ====================
+    // Paramètres - sensibilité réduite de 20%
+    private val FALL_THRESHOLD = 1.0f
+    private val SENSITIVITY_REDUCTION = 0.8f // 20% moins sensible
     
-    private val birdSize = screenWidth * 0.7f // 70% de l'écran (plus gros!)
-    private val birdCenterX = screenWidth / 2f
-    private val birdCenterY = screenHeight * 0.4f // Un peu plus haut
+    private val fallDuration = 800f
+    private val impactDuration = 2500f
+    private val respawnDuration = 1500f
     
-    // Branche
-    private val branchY = birdCenterY + birdSize * 0.5f
-    private val branchStartX = screenWidth * 0.05f
-    private val branchEndX = screenWidth * 0.95f
+    var currentState = BirdState.PERCHED
+        private set
     
-    // ==================== ÉTAT DU VENT (SUPER FACILE) ====================
+    private var fallTimer = 0f
+    private var impactTimer = 0f
+    private var respawnTimer = 0f
+    private var lastWindForce = 0f
+    private var bodyLean = 0f
+    private var eyeState = EyeState.NORMAL
     
-    private var currentWindForce = 0f
-    private var windForceSmoothed = 0f
-    private var sustainedWindTime = 0f
-    private var extremeWindStartTime = 0f
-    private val EXTREME_WIND_THRESHOLD = 0.3f // SUPER FACILE: 30% seulement !
-    private val EXTREME_WIND_DURATION = 800f // SUPER FACILE: 0.8 sec seulement !
+    // Effet sinistre - intensité de l'aura sombre
+    private var darkAuraIntensity = 0f
+    private var menacingStare = 0f
     
-    // ==================== ANIMATION DES YEUX ====================
+    val birdSize = screenWidth * 0.7f
+    val birdCenterX = screenWidth / 2f
+    val birdCenterY = screenHeight * 0.4f
+    val branchY = birdCenterY + birdSize * 0.5f
     
-    private var eyeSquintLevel = 0f
-    private var tearAnimationTime = 0f
-    private var eyeRollAngle = 0f
-    private var blinkSpeed = 1f
-    private var blinkPhase = 0f
     private val tears = mutableListOf<Tear>()
-    
-    // ==================== ANIMATION DES PLUMES ====================
-    
-    private var featherWavePhase = 0f
-    private var featherRuffleIntensity = 0f
-    private var headCrestHeight = 0f
     private val flyingFeathers = mutableListOf<FlyingFeather>()
-    private var dustCloudAlpha = 0f
-    private var dustParticles = mutableListOf<DustParticle>()
-    
-    // ==================== ANIMATION DU CORPS ====================
-    
-    private var bodyLeanAngle = 0f
-    private var wingOpenness = 0f
-    private var tailCounterbalance = 0f
-    private var footSlipProgress = 0f
-    private var bodyShakeIntensity = 0f
-    private var cheekPuffLevel = 0f
-    private var beakOpenness = 0f
-    private var tongueOut = 0f
-    
-    // ==================== ANIMATION DE LA BRANCHE ====================
-    
-    private var branchVibrateIntensity = 0f
-    private var branchOscillateAngle = 0f
+    private val dustParticles = mutableListOf<DustParticle>()
     private val fallingLeaves = mutableListOf<FallingLeaf>()
     
-    // ==================== ÉTAT DE CHUTE ====================
+    private lateinit var birdRenderer: BirdRenderer
     
-    private var birdState = BirdState.PERCHED
-    private var fallAnimationTime = 0f
-    private var fallRotation = 0f
-    private var fallPositionY = 0f
-    private var respawnTimer = 0f
-    private var impactEffectTime = 0f
-    private var screenShakeIntensity = 0f
-    
-    init {
-        fallPositionY = birdCenterY
+    fun setBirdRenderer(renderer: BirdRenderer) {
+        this.birdRenderer = renderer
     }
     
-    enum class BirdState {
-        PERCHED, FALLING, FALLEN, RESPAWNING
-    }
-    
-    // ==================== CLASSES POUR EFFETS ====================
-    
-    data class Tear(var x: Float, var y: Float, var velocityX: Float, var velocityY: Float, var life: Float)
-    data class FlyingFeather(var x: Float, var y: Float, var vx: Float, var vy: Float, var rotation: Float, var life: Float)
-    data class DustParticle(var x: Float, var y: Float, var vx: Float, var vy: Float, var life: Float, var size: Float)
-    data class FallingLeaf(var x: Float, var y: Float, var vx: Float, var vy: Float, var rotation: Float, var life: Float)
-    
-    // ==================== COMPOSANTS EXTERNES ====================
-    
-    private val birdRenderer = BirdRenderer(birdSize, birdCenterX, birdCenterY, branchY, branchStartX, branchEndX, screenWidth, screenHeight)
-    private val windGauge = WindGauge(screenWidth, screenHeight)
-    
-    // ==================== MISE À JOUR PRINCIPALE ====================
-    
-    fun updateWind(windForce: Float) {
-        currentWindForce = windForce
+    fun updateWind(rawForce: Float, deltaTime: Float) {
+        // Appliquer la réduction de sensibilité
+        val adjustedForce = (rawForce * SENSITIVITY_REDUCTION).coerceIn(0f, 1f)
+        lastWindForce = adjustedForce
         
-        // Lissage du vent pour éviter les saccades
-        windForceSmoothed = lerp(windForceSmoothed, windForce, 0.15f)
+        // Mise à jour de l'aura sombre
+        darkAuraIntensity = adjustedForce * 0.8f + sin(System.currentTimeMillis() * 0.003f) * 0.2f
+        menacingStare = adjustedForce * 1.2f
         
-        // Gestion du vent extrême soutenu - CORRECTION DU BUG !
-        if (windForceSmoothed >= EXTREME_WIND_THRESHOLD && birdState == BirdState.PERCHED) {
-            if (extremeWindStartTime == 0f) {
-                // PREMIER MOMENT où on dépasse le seuil
-                extremeWindStartTime = System.currentTimeMillis().toFloat()
+        when (currentState) {
+            BirdState.PERCHED -> {
+                if (adjustedForce >= FALL_THRESHOLD) {
+                    startFalling()
+                }
+                updatePerchedAnimations(adjustedForce)
             }
-            // TOUJOURS calculer le temps écoulé
-            sustainedWindTime = System.currentTimeMillis() - extremeWindStartTime
             
-            // Déclencher la chute après 0.8 secondes à 30% !
-            if (sustainedWindTime >= EXTREME_WIND_DURATION) {
-                startFalling()
+            BirdState.FALLING -> {
+                fallTimer += deltaTime
+                updateFallingParticles(deltaTime)
+                if (fallTimer >= fallDuration) {
+                    land()
+                }
             }
-        } else {
-            // Reset complet quand le vent baisse
-            sustainedWindTime = 0f
-            extremeWindStartTime = 0f
-        }
-        
-        updateAnimations()
-    }
-    
-    private fun updateAnimations() {
-        val deltaTime = 0.033f // 30 FPS
-        
-        when (birdState) {
-            BirdState.PERCHED -> updatePerchedAnimations(deltaTime)
-            BirdState.FALLING -> updateFallingAnimations(deltaTime)
-            BirdState.FALLEN -> updateFallenState(deltaTime)
-            BirdState.RESPAWNING -> updateRespawning(deltaTime)
-        }
-        
-        updateParticleEffects(deltaTime)
-    }
-    
-    private fun updatePerchedAnimations(deltaTime: Float) {
-        val force = windForceSmoothed
-        
-        // Animation des yeux plus expressive
-        eyeSquintLevel = force
-        blinkSpeed = 1f + force * 4f
-        blinkPhase += deltaTime * blinkSpeed
-        
-        if (force > 0.4f) { // Plus sensible
-            eyeRollAngle = (force - 0.4f) * 200f
             
-            // Génération de larmes plus fréquente
-            if (Random.nextFloat() < force * 0.15f) {
-                val eyeX = birdCenterX + (Random.nextFloat() - 0.5f) * birdSize * 0.3f
-                val eyeY = birdCenterY - birdSize * 0.15f
-                tears.add(Tear(eyeX, eyeY, Random.nextFloat() * 80f - 40f, -Random.nextFloat() * 30f, 1.5f))
+            BirdState.FALLEN -> {
+                impactTimer += deltaTime
+                updateImpactParticles(deltaTime)
+                if (impactTimer >= impactDuration) {
+                    startRespawning()
+                }
             }
-        }
-        
-        // Animation des plumes plus fluide
-        featherWavePhase += deltaTime * (1f + force * 3f)
-        featherRuffleIntensity = force
-        headCrestHeight = min(force * 2f, 1f)
-        
-        // Plus de plumes qui s'envolent
-        if (force > 0.3f && Random.nextFloat() < force * 0.08f) {
-            val featherX = birdCenterX + (Random.nextFloat() - 0.5f) * birdSize * 1.2f
-            val featherY = birdCenterY + (Random.nextFloat() - 0.5f) * birdSize
-            flyingFeathers.add(FlyingFeather(
-                featherX, featherY,
-                Random.nextFloat() * 250f - 125f,
-                -Random.nextFloat() * 120f - 60f,
-                Random.nextFloat() * 360f, 2f
-            ))
-        }
-        
-        // Animation du corps plus dramatique
-        bodyLeanAngle = force * 35f
-        wingOpenness = max(0f, force - 0.2f)
-        tailCounterbalance = force * 40f
-        footSlipProgress = max(0f, force - 0.4f) * 2f
-        
-        if (force > 0.5f) { // Plus sensible
-            cheekPuffLevel = (force - 0.5f) * 2f
-            beakOpenness = force * 1.2f
-            tongueOut = max(0f, force - 0.6f) * 4f
-        }
-        
-        // Plus d'effets de poussière
-        if (force > 0.6f) {
-            dustCloudAlpha = (force - 0.6f) * 2.5f
-            if (Random.nextFloat() < 0.4f) {
-                dustParticles.add(DustParticle(
-                    birdCenterX + Random.nextFloat() * 150f - 75f,
-                    branchY + Random.nextFloat() * 30f,
-                    Random.nextFloat() * 120f - 60f,
-                    -Random.nextFloat() * 60f,
-                    1.5f, Random.nextFloat() * 12f + 6f
-                ))
-            }
-        }
-        
-        // Animation de la branche plus visible
-        branchVibrateIntensity = force * 8f
-        branchOscillateAngle = sin(System.currentTimeMillis() * 0.015f) * force * 5f
-        
-        // Plus de feuilles
-        if (force > 0.4f && Random.nextFloat() < force * 0.05f) {
-            fallingLeaves.add(FallingLeaf(
-                Random.nextFloat() * screenWidth,
-                -20f,
-                Random.nextFloat() * 120f - 60f,
-                Random.nextFloat() * 120f + 80f,
-                Random.nextFloat() * 360f, 2f
-            ))
-        }
-    }
-    
-    private fun updateFallingAnimations(deltaTime: Float) {
-        fallAnimationTime += deltaTime
-        
-        // Animation de chute plus spectaculaire
-        fallRotation += deltaTime * 900f // Plus de rotation
-        fallPositionY += deltaTime * 1000f // Plus rapide
-        
-        // Ailes qui battent frénétiquement
-        wingOpenness = 1.2f + sin(fallAnimationTime * 25f) * 0.4f
-        
-        // Yeux paniqués
-        eyeSquintLevel = 0.2f + sin(fallAnimationTime * 15f) * 0.3f
-        eyeRollAngle = sin(fallAnimationTime * 10f) * 90f
-        
-        // Impact au sol
-        if (fallPositionY >= screenHeight - 80f) {
-            birdState = BirdState.FALLEN
-            impactEffectTime = System.currentTimeMillis().toFloat()
-            screenShakeIntensity = 1.5f
             
-            // Explosion de poussière plus spectaculaire
-            for (i in 0..30) {
-                dustParticles.add(DustParticle(
-                    birdCenterX + Random.nextFloat() * 300f - 150f,
-                    screenHeight - 40f,
-                    Random.nextFloat() * 400f - 200f,
-                    -Random.nextFloat() * 250f - 120f,
-                    2f, Random.nextFloat() * 20f + 8f
-                ))
+            BirdState.RESPAWNING -> {
+                respawnTimer += deltaTime
+                if (respawnTimer >= respawnDuration) {
+                    respawn()
+                }
+            }
+        }
+        
+        updateAllParticles(deltaTime)
+    }
+    
+    private fun updatePerchedAnimations(force: Float) {
+        when {
+            force < 0.3f -> {
+                eyeState = EyeState.NORMAL
+                bodyLean = 0f
+            }
+            force < 0.7f -> {
+                eyeState = EyeState.SQUINTING
+                bodyLean = force * 8f
+                // Regard plus intense et menaçant
+                if (Random.nextFloat() < 0.1f) {
+                    addSinisterFeather()
+                }
+            }
+            force < 1.0f -> {
+                eyeState = EyeState.STRUGGLING
+                bodyLean = force * 15f
+                // Corbeau devient agressif avant la chute
+                if (force > 0.9f) {
+                    addBloodTears()
+                    addOminousFeathers()
+                }
             }
         }
     }
-    
-    private fun updateFallenState(deltaTime: Float) {
-        respawnTimer += deltaTime
-        screenShakeIntensity = max(0f, screenShakeIntensity - deltaTime * 2f)
-        
-        if (respawnTimer >= 2.5f) {
-            birdState = BirdState.RESPAWNING
-            respawnTimer = 0f
-        }
-    }
-    
-    private fun updateRespawning(deltaTime: Float) {
-        respawnTimer += deltaTime
-        
-        if (respawnTimer >= 1.5f) {
-            reset()
-        }
-    }
-    
-    private fun updateParticleEffects(deltaTime: Float) {
-        // Mise à jour des larmes
-        tears.removeAll { tear ->
-            tear.x += tear.velocityX * deltaTime
-            tear.y += tear.velocityY * deltaTime
-            tear.velocityY += 150f * deltaTime
-            tear.life -= deltaTime
-            tear.life <= 0f
-        }
-        
-        // Mise à jour des plumes volantes
-        flyingFeathers.removeAll { feather ->
-            feather.x += feather.vx * deltaTime
-            feather.y += feather.vy * deltaTime
-            feather.vy += 50f * deltaTime // Légère gravité
-            feather.rotation += 120f * deltaTime
-            feather.life -= deltaTime
-            feather.life <= 0f
-        }
-        
-        // Mise à jour des particules de poussière
-        dustParticles.removeAll { particle ->
-            particle.x += particle.vx * deltaTime
-            particle.y += particle.vy * deltaTime
-            particle.vy += 100f * deltaTime // Gravité
-            particle.life -= deltaTime
-            particle.life <= 0f
-        }
-        
-        // Mise à jour des feuilles qui tombent
-        fallingLeaves.removeAll { leaf ->
-            leaf.x += leaf.vx * deltaTime
-            leaf.y += leaf.vy * deltaTime
-            leaf.vx *= 0.99f // Résistance de l'air
-            leaf.rotation += 60f * deltaTime
-            leaf.life -= deltaTime
-            leaf.life <= 0f || leaf.y > screenHeight
-        }
-    }
-    
-    // ==================== DESSIN PRINCIPAL ====================
-    
-    fun draw(canvas: Canvas) {
-        val shakeX = if (screenShakeIntensity > 0) Random.nextFloat() * screenShakeIntensity * 15f - 7.5f else 0f
-        val shakeY = if (screenShakeIntensity > 0) Random.nextFloat() * screenShakeIntensity * 15f - 7.5f else 0f
-        
-        canvas.save()
-        canvas.translate(shakeX, shakeY)
-        
-        // Préparer les données pour le renderer
-        val animationData = BirdAnimationData(
-            birdState = birdState,
-            bodyLeanAngle = bodyLeanAngle,
-            fallPositionY = fallPositionY,
-            fallRotation = fallRotation,
-            wingOpenness = wingOpenness,
-            eyeSquintLevel = eyeSquintLevel,
-            eyeRollAngle = eyeRollAngle,
-            cheekPuffLevel = cheekPuffLevel,
-            beakOpenness = beakOpenness,
-            tongueOut = tongueOut,
-            headCrestHeight = headCrestHeight,
-            featherWavePhase = featherWavePhase,
-            tailCounterbalance = tailCounterbalance,
-            footSlipProgress = footSlipProgress,
-            branchVibrateIntensity = branchVibrateIntensity,
-            branchOscillateAngle = branchOscillateAngle,
-            respawnTimer = respawnTimer,
-            tears = tears,
-            flyingFeathers = flyingFeathers,
-            dustParticles = dustParticles,
-            fallingLeaves = fallingLeaves,
-            dustCloudAlpha = dustCloudAlpha
-        )
-        
-        // Dessiner l'oiseau
-        birdRenderer.draw(canvas, animationData)
-        
-        // Dessiner la jauge de vent
-        windGauge.draw(
-            canvas,
-            currentWindForce,
-            windForceSmoothed,
-            sustainedWindTime,
-            EXTREME_WIND_THRESHOLD,
-            EXTREME_WIND_DURATION
-        )
-        
-        canvas.restore()
-    }
-    
-    // ==================== FONCTIONS UTILITAIRES ====================
     
     private fun startFalling() {
-        // FORCER la chute peu importe l'état
-        birdState = BirdState.FALLING
-        fallAnimationTime = 0f
-        fallRotation = 0f
-        fallPositionY = birdCenterY
+        currentState = BirdState.FALLING
+        fallTimer = 0f
+        eyeState = EyeState.PANICKED
+        
+        // Explosion dramatique de plumes noires
+        repeat(12) {
+            addDarkFlyingFeather()
+        }
+        
+        // Cri sinistre (représenté par des particules)
+        repeat(6) {
+            addBloodTears()
+        }
     }
     
-    fun reset() {
-        birdState = BirdState.PERCHED
-        currentWindForce = 0f
-        windForceSmoothed = 0f
-        sustainedWindTime = 0f
-        extremeWindStartTime = 0f
+    private fun land() {
+        currentState = BirdState.FALLEN
+        impactTimer = 0f
         
-        // Reset animations
-        eyeSquintLevel = 0f
-        eyeRollAngle = 0f
-        bodyLeanAngle = 0f
-        wingOpenness = 0f
-        tailCounterbalance = 0f
-        footSlipProgress = 0f
-        cheekPuffLevel = 0f
-        beakOpenness = 0f
-        tongueOut = 0f
-        branchVibrateIntensity = 0f
-        branchOscillateAngle = 0f
-        fallPositionY = birdCenterY
+        // Impact dramatique avec poussière sombre
+        repeat(20) {
+            addDarkDustParticle()
+        }
+        
+        // Feuilles mortes qui tombent
+        repeat(8) {
+            addDeadLeaf()
+        }
+    }
+    
+    private fun startRespawning() {
+        currentState = BirdState.RESPAWNING
         respawnTimer = 0f
-        impactEffectTime = 0f
-        screenShakeIntensity = 0f
+    }
+    
+    private fun respawn() {
+        currentState = BirdState.PERCHED
+        fallTimer = 0f
+        impactTimer = 0f
+        respawnTimer = 0f
+        bodyLean = 0f
+        eyeState = EyeState.NORMAL
+        darkAuraIntensity = 0f
+        menacingStare = 0f
         
-        // Clear particles
         tears.clear()
         flyingFeathers.clear()
         dustParticles.clear()
         fallingLeaves.clear()
     }
     
-    fun cleanup() {
-        // Nettoyer les ressources si nécessaire
-        birdRenderer.cleanup()
-        windGauge.cleanup()
+    // Particules sinistres
+    private fun addBloodTears() {
+        val tearX = birdCenterX + Random.nextFloat() * 30f - 15f
+        val tearY = birdCenterY + Random.nextFloat() * 25f - 12f
+        tears.add(Tear(
+            x = tearX,
+            y = tearY,
+            velocityX = Random.nextFloat() * 3f - 1.5f,
+            velocityY = Random.nextFloat() * 4f + 2f,
+            life = 1f
+        ))
     }
+    
+    private fun addDarkFlyingFeather() {
+        flyingFeathers.add(FlyingFeather(
+            x = birdCenterX + Random.nextFloat() * birdSize * 0.4f - birdSize * 0.2f,
+            y = birdCenterY + Random.nextFloat() * birdSize * 0.4f - birdSize * 0.2f,
+            vx = Random.nextFloat() * 8f - 4f,
+            vy = Random.nextFloat() * 6f - 3f,
+            rotation = Random.nextFloat() * 360f,
+            life = 1f
+        ))
+    }
+    
+    private fun addSinisterFeather() {
+        flyingFeathers.add(FlyingFeather(
+            x = birdCenterX + Random.nextFloat() * birdSize * 0.2f - birdSize * 0.1f,
+            y = birdCenterY + Random.nextFloat() * birdSize * 0.2f - birdSize * 0.1f,
+            vx = Random.nextFloat() * 4f - 2f,
+            vy = Random.nextFloat() * 3f - 1.5f,
+            rotation = Random.nextFloat() * 360f,
+            life = 1f
+        ))
+    }
+    
+    private fun addOminousFeathers() {
+        repeat(3) {
+            addSinisterFeather()
+        }
+    }
+    
+    private fun addDarkDustParticle() {
+        dustParticles.add(DustParticle(
+            x = birdCenterX + Random.nextFloat() * 80f - 40f,
+            y = branchY + Random.nextFloat() * 30f,
+            vx = Random.nextFloat() * 10f - 5f,
+            vy = Random.nextFloat() * 8f - 4f,
+            life = 1f,
+            size = Random.nextFloat() * 10f + 3f
+        ))
+    }
+    
+    private fun addDeadLeaf() {
+        fallingLeaves.add(FallingLeaf(
+            x = Random.nextFloat() * screenWidth,
+            y = -60f,
+            vx = Random.nextFloat() * 3f - 1.5f,
+            vy = Random.nextFloat() * 4f + 3f,
+            rotation = Random.nextFloat() * 360f,
+            life = 1f
+        ))
+    }
+    
+    private fun updateFallingParticles(deltaTime: Float) {
+        if (Random.nextFloat() < 0.4f) {
+            addDarkFlyingFeather()
+        }
+        if (Random.nextFloat() < 0.3f) {
+            addBloodTears()
+        }
+    }
+    
+    private fun updateImpactParticles(deltaTime: Float) {
+        if (impactTimer < 600f && Random.nextFloat() < 0.15f) {
+            addDarkDustParticle()
+        }
+    }
+    
+    private fun updateAllParticles(deltaTime: Float) {
+        // Larmes de sang avec gravité
+        tears.removeAll { tear ->
+            tear.x += tear.velocityX * deltaTime / 16f
+            tear.y += tear.velocityY * deltaTime / 16f
+            tear.velocityY += 0.4f * deltaTime / 16f // gravité plus forte
+            tear.life -= deltaTime / 1200f
+            tear.life <= 0f || tear.y > screenHeight
+        }
+        
+        // Plumes noires volantes
+        flyingFeathers.removeAll { feather ->
+            feather.x += feather.vx * deltaTime / 16f
+            feather.y += feather.vy * deltaTime / 16f
+            feather.vy += 0.15f * deltaTime / 16f // légère gravité
+            feather.rotation += 4f * deltaTime / 16f
+            feather.life -= deltaTime / 2500f
+            feather.life <= 0f || feather.y > screenHeight
+        }
+        
+        // Poussière sombre
+        dustParticles.removeAll { dust ->
+            dust.x += dust.vx * deltaTime / 16f
+            dust.y += dust.vy * deltaTime / 16f
+            dust.vx *= 0.97f // friction
+            dust.vy *= 0.97f
+            dust.life -= deltaTime / 1800f
+            dust.life <= 0f
+        }
+        
+        // Feuilles mortes
+        fallingLeaves.removeAll { leaf ->
+            leaf.x += leaf.vx * deltaTime / 16f
+            leaf.y += leaf.vy * deltaTime / 16f
+            leaf.vx += (Random.nextFloat() - 0.5f) * 0.15f * deltaTime / 16f
+            leaf.rotation += 3f * deltaTime / 16f
+            leaf.life -= deltaTime / 3500f
+            leaf.life <= 0f || leaf.y > screenHeight
+        }
+    }
+    
+    fun draw(canvas: Canvas) {
+        if (::birdRenderer.isInitialized) {
+            birdRenderer.drawBird(canvas, this)
+            birdRenderer.drawParticles(canvas, tears, flyingFeathers, dustParticles, fallingLeaves)
+        }
+    }
+    
+    // Getters pour le renderer
+    fun getFallProgress(): Float = if (currentState == BirdState.FALLING) fallTimer / fallDuration else 0f
+    fun getRespawnProgress(): Float = if (currentState == BirdState.RESPAWNING) respawnTimer / respawnDuration else 0f
+    fun getBodyLean(): Float = bodyLean
+    fun getEyeState(): EyeState = eyeState
+    fun getLastWindForce(): Float = lastWindForce
+    fun getDarkAuraIntensity(): Float = darkAuraIntensity
+    fun getMenacingStare(): Float = menacingStare
     
     fun getCurrentState(): String {
-        return "État: $birdState, Vent: ${(currentWindForce * 100).toInt()}%/${(windForceSmoothed * 100).toInt()}%, Soutenu: ${(sustainedWindTime / 1000f).toInt()}s, Seuil: ${(EXTREME_WIND_THRESHOLD * 100).toInt()}%"
+        return "État: ${currentState.name}\n" +
+                "Force vent: ${(lastWindForce * 100).toInt()}%\n" +
+                "Sensibilité: 80%\n" +
+                "Inclinaison: ${bodyLean.toInt()}°\n" +
+                "Yeux: ${eyeState.name}\n" +
+                "Aura sombre: ${(darkAuraIntensity * 100).toInt()}%"
     }
     
-    private fun lerp(start: Float, end: Float, factor: Float): Float {
-        return start + factor * (end - start)
+    fun resetBird() {
+        respawn()
     }
 }
-
-// ==================== CLASSE DE DONNÉES POUR ANIMATIONS ====================
-
-data class BirdAnimationData(
-    val birdState: BirdAnimationManager.BirdState,
-    val bodyLeanAngle: Float,
-    val fallPositionY: Float,
-    val fallRotation: Float,
-    val wingOpenness: Float,
-    val eyeSquintLevel: Float,
-    val eyeRollAngle: Float,
-    val cheekPuffLevel: Float,
-    val beakOpenness: Float,
-    val tongueOut: Float,
-    val headCrestHeight: Float,
-    val featherWavePhase: Float,
-    val tailCounterbalance: Float,
-    val footSlipProgress: Float,
-    val branchVibrateIntensity: Float,
-    val branchOscillateAngle: Float,
-    val respawnTimer: Float,
-    val tears: List<BirdAnimationManager.Tear>,
-    val flyingFeathers: List<BirdAnimationManager.FlyingFeather>,
-    val dustParticles: List<BirdAnimationManager.DustParticle>,
-    val fallingLeaves: List<BirdAnimationManager.FallingLeaf>,
-    val dustCloudAlpha: Float
-)
