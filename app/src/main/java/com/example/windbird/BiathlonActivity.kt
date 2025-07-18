@@ -28,7 +28,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
 
     private var playerOffset = 0f
     private var distance = 0f
-    private val totalDistance = 5000f
+    private val totalDistance = 3000f
     private var previousGyroDirection = 0
     private var backgroundOffset = 0f
 
@@ -117,7 +117,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
 
         if (gameState == GameState.SHOOTING) {
             // Mouvement de la visée avec le gyroscope (rotation du téléphone)
-            crosshair.x += y * 0.005f
+            crosshair.x += z * 0.005f  // Changé Y vers Z pour la visée aussi
             crosshair.y += x * 0.005f
             crosshair.x = crosshair.x.coerceIn(0.1f, 0.9f)
             crosshair.y = crosshair.y.coerceIn(0.2f, 0.6f)
