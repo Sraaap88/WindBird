@@ -31,6 +31,10 @@
             android:screenOrientation="landscape" />
             
         <activity
+            android:name=".PlayerTransitionActivity"
+            android:screenOrientation="landscape" />
+            
+        <activity
             android:name=".BiathlonActivity"
             android:screenOrientation="landscape" />
             
