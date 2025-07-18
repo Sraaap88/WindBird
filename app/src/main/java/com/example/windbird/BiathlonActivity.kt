@@ -45,7 +45,6 @@ class BiathlonActivity : Activity(), SensorEventListener {
             WindowManager.LayoutParams.FLAG_FULLSCREEN
         )
         
-        // Récupérer les données du tournoi
         tournamentData = intent.getSerializableExtra("tournament_data") as TournamentData
         eventIndex = intent.getIntExtra("event_index", 0)
         numberOfPlayers = intent.getIntExtra("number_of_players", 1)
@@ -72,20 +71,17 @@ class BiathlonActivity : Activity(), SensorEventListener {
             setBackgroundColor(Color.parseColor("#001122"))
         }
         
-        // Vue du jeu (occupe la majorité de l'écran)
         gameView = BiathlonView(this)
         gameView.layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
         mainLayout.addView(gameView)
         
-        // Interface utilisateur en bas
         uiLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#003366"))
             setPadding(15, 10, 15, 10)
         }
         
-        // Affichage du joueur actuel
         val playerText = TextView(this).apply {
             text = "🎿 ${tournamentData.playerNames[currentPlayerIndex]} (${tournamentData.playerCountries[currentPlayerIndex]})"
             setTextColor(Color.YELLOW)
@@ -95,7 +91,6 @@ class BiathlonActivity : Activity(), SensorEventListener {
         }
         uiLayout.addView(playerText)
         
-        // Instructions
         instructionText = TextView(this).apply {
             text = "Inclinez pour skier - Préparez-vous au départ !"
             setTextColor(Color.WHITE)
@@ -104,7 +99,6 @@ class BiathlonActivity : Activity(), SensorEventListener {
         }
         uiLayout.addView(instructionText)
         
-        // Statut du jeu
         statusText = TextView(this).apply {
             text = "Distance: 0m | Temps: 0:00 | Cibles: 0/10"
             setTextColor(Color.CYAN)
@@ -114,7 +108,6 @@ class BiathlonActivity : Activity(), SensorEventListener {
         }
         uiLayout.addView(statusText)
         
-        // Bouton de tir (caché au début)
         fireButton = Button(this).apply {
             text = "🎯 TIRER"
             setBackgroundColor(Color.parseColor("#ff4444"))
@@ -125,7 +118,6 @@ class BiathlonActivity : Activity(), SensorEventListener {
         }
         uiLayout.addView(fireButton)
         
-        // Boutons de contrôle
         val controlLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
         }
@@ -158,14 +150,11 @@ class BiathlonActivity : Activity(), SensorEventListener {
         mainLayout.addView(uiLayout)
         setContentView(mainLayout)
         
-        // Préparer le jeu
         prepareRace()
     }
     
     private fun prepareRace() {
-        // Initialiser pour le joueur actuel
         if (currentPlayerIndex >= numberOfPlayers) {
-            // C'est un joueur IA
             instructionText.text = "L'IA ${tournamentData.playerNames[currentPlayerIndex]} est en cours..."
             runAIRace()
         } else {
@@ -180,11 +169,10 @@ class BiathlonActivity : Activity(), SensorEventListener {
     }
     
     private fun runAIRace() {
-        // Simulation IA - score aléatoire mais réaliste
         gameHandler.postDelayed({
-            val aiScore = Random.nextInt(600, 900) // Score IA entre 600-900
+            val aiScore = Random.nextInt(600, 900)
             finishRace(aiScore)
-        }, 3000) // Simulation de 3 secondes
+        }, 3000)
     }
     
     private val gameLoop = object : Runnable {
@@ -194,7 +182,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
             updateUI()
             
             if (!game.isRaceFinished()) {
-                gameHandler.postDelayed(this, 16) // ~60 FPS
+                gameHandler.postDelayed(this, 16)
             } else {
                 finishRace(game.getFinalScore())
             }
@@ -232,20 +220,16 @@ class BiathlonActivity : Activity(), SensorEventListener {
     }
     
     private fun finishRace(finalScore: Int) {
-        // Enregistrer le score
         tournamentData.addScore(currentPlayerIndex, eventIndex, finalScore)
         
-        // Passer au joueur suivant ou terminer l'épreuve
         val nextPlayer = tournamentData.getNextPlayer(eventIndex)
         
         if (nextPlayer != -1) {
-            // Il y a encore des joueurs à faire jouer
             currentPlayerIndex = nextPlayer
             game.reset()
             prepareRace()
-            setupUI() // Rafraîchir l'interface pour le nouveau joueur
+            setupUI()
         } else {
-            // Tous les joueurs ont terminé, retourner au menu
             val resultIntent = Intent().apply {
                 putExtra("tournament_data", tournamentData)
             }
@@ -275,16 +259,9 @@ class BiathlonActivity : Activity(), SensorEventListener {
     
     override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {}
     
-    // Vue personnalisée pour le rendu du jeu
     private inner class BiathlonView(context: Context) : View(context) {
         private val paint = Paint().apply { isAntiAlias = true }
         private val backgroundPaint = Paint().apply { color = Color.parseColor("#87CEEB") }
-        private val trackPaint = Paint().apply { 
-            color = Color.WHITE
-            strokeWidth = 8f
-        }
-        private val playerPaint = Paint().apply { color = Color.RED }
-        private val targetPaint = Paint().apply { color = Color.BLACK }
         
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
@@ -292,33 +269,22 @@ class BiathlonActivity : Activity(), SensorEventListener {
             val width = width.toFloat()
             val height = height.toFloat()
             
-            // Arrière-plan
             canvas.drawRect(0f, 0f, width, height, backgroundPaint)
             
-            // Paysage d'hiver
             drawWinterLandscape(canvas, width, height)
-            
-            // Piste de ski
             drawSkiTrack(canvas, width, height)
-            
-            // Zones de tir
             drawShootingZones(canvas, width, height)
-            
-            // Joueur
             drawPlayer(canvas, width, height)
             
-            // Cibles (si en zone de tir)
             if (game.getGameState() == GameState.SHOOTING) {
                 drawTargets(canvas, width, height)
                 drawCrosshair(canvas, width, height)
             }
             
-            // Minimap
             drawMinimap(canvas, width, height)
         }
         
         private fun drawWinterLandscape(canvas: Canvas, width: Float, height: Float) {
-            // Montagnes
             paint.color = Color.parseColor("#4A4A4A")
             val mountainPath = Path().apply {
                 moveTo(0f, height * 0.6f)
@@ -333,7 +299,6 @@ class BiathlonActivity : Activity(), SensorEventListener {
             }
             canvas.drawPath(mountainPath, paint)
             
-            // Arbres
             paint.color = Color.parseColor("#2d5016")
             for (i in 0..20) {
                 val x = Random.nextFloat() * width
@@ -343,15 +308,12 @@ class BiathlonActivity : Activity(), SensorEventListener {
         }
         
         private fun drawSkiTrack(canvas: Canvas, width: Float, height: Float) {
-            val progress = game.getProgress()
             val trackY = height * 0.7f
             
-            // Piste complète
             paint.color = Color.parseColor("#E6E6FA")
             paint.strokeWidth = 20f
             canvas.drawLine(0f, trackY, width, trackY, paint)
             
-            // Ligne centrale
             paint.color = Color.parseColor("#4169E1")
             paint.strokeWidth = 2f
             paint.pathEffect = DashPathEffect(floatArrayOf(10f, 10f), 0f)
@@ -360,16 +322,13 @@ class BiathlonActivity : Activity(), SensorEventListener {
         }
         
         private fun drawShootingZones(canvas: Canvas, width: Float, height: Float) {
-            // Zone de tir 1 (33% du parcours)
             val zone1X = width * 0.33f
             paint.color = Color.parseColor("#FFD700")
             canvas.drawRect(zone1X - 30f, height * 0.65f, zone1X + 30f, height * 0.75f, paint)
             
-            // Zone de tir 2 (66% du parcours)
             val zone2X = width * 0.66f
             canvas.drawRect(zone2X - 30f, height * 0.65f, zone2X + 30f, height * 0.75f, paint)
             
-            // Labels
             paint.color = Color.BLACK
             paint.textSize = 12f
             canvas.drawText("TIR 1", zone1X - 15f, height * 0.63f, paint)
@@ -380,17 +339,14 @@ class BiathlonActivity : Activity(), SensorEventListener {
             val playerX = width * game.getProgress()
             val playerY = height * 0.7f + game.getOffset() * 50f
             
-            // Corps du skieur
             paint.color = Color.RED
-            canvas.drawCircle(playerX, playerY - 15f, 8f, paint) // Tête
-            canvas.drawRect(playerX - 4f, playerY - 15f, playerX + 4f, playerY + 5f, paint) // Corps
+            canvas.drawCircle(playerX, playerY - 15f, 8f, paint)
+            canvas.drawRect(playerX - 4f, playerY - 15f, playerX + 4f, playerY + 5f, paint)
             
-            // Skis
             paint.color = Color.parseColor("#8B4513")
             paint.strokeWidth = 3f
             canvas.drawLine(playerX - 15f, playerY + 5f, playerX + 15f, playerY + 5f, paint)
             
-            // Bâtons
             paint.color = Color.BLACK
             paint.strokeWidth = 2f
             canvas.drawLine(playerX - 10f, playerY - 10f, playerX - 15f, playerY + 5f, paint)
@@ -404,7 +360,6 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 val x = width * 0.2f + i * (width * 0.15f)
                 val y = height * 0.4f
                 
-                // Cible
                 paint.color = if (target.hit) Color.GREEN else Color.WHITE
                 canvas.drawCircle(x, y, 20f, paint)
                 
@@ -415,7 +370,6 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 canvas.drawCircle(x, y, 10f, paint)
                 paint.style = Paint.Style.FILL
                 
-                // Numéro
                 paint.color = Color.BLACK
                 paint.textSize = 12f
                 canvas.drawText("${i + 1}", x - 5f, y + 5f, paint)
@@ -438,53 +392,45 @@ class BiathlonActivity : Activity(), SensorEventListener {
         }
         
         private fun drawMinimap(canvas: Canvas, width: Float, height: Float) {
-            // Minimap en haut à droite
             val mapWidth = width * 0.3f
             val mapHeight = 30f
             val mapX = width - mapWidth - 10f
             val mapY = 10f
             
-            // Fond
             paint.color = Color.parseColor("#000080")
             canvas.drawRect(mapX, mapY, mapX + mapWidth, mapY + mapHeight, paint)
             
-            // Progression
             paint.color = Color.YELLOW
             canvas.drawRect(mapX, mapY, mapX + mapWidth * game.getProgress(), mapY + mapHeight, paint)
             
-            // Zones de tir
             paint.color = Color.RED
             canvas.drawRect(mapX + mapWidth * 0.33f - 2f, mapY, mapX + mapWidth * 0.33f + 2f, mapY + mapHeight, paint)
             canvas.drawRect(mapX + mapWidth * 0.66f - 2f, mapY, mapX + mapWidth * 0.66f + 2f, mapY + mapHeight, paint)
             
-            // Position actuelle
             paint.color = Color.WHITE
             val playerMapX = mapX + mapWidth * game.getProgress()
             canvas.drawCircle(playerMapX, mapY + mapHeight / 2, 3f, paint)
         }
     }
     
-    // Logique du jeu de biathlon
     private inner class BiathlonGame {
         private var gameState = GameState.SKIING
         private var distance = 0f
-        private var totalDistance = 5000f // 5km
+        private var totalDistance = 5000f
         private var speed = 0f
         private var startTime = 0L
         private var currentTime = 0L
-        private var playerOffset = 0f // Position latérale
+        private var playerOffset = 0f
         private var stability = 0f
         private val gyroBuffer = FloatArray(10)
         private var gyroBufferIndex = 0
         
-        // Zones de tir
         private var currentShootingZone = 0
         private var shotsInZone = 0
         private var targetsHit = 0
         private var penaltyLaps = 0
         private var inPenalty = false
         
-        // Cibles actuelles
         private val currentTargets = Array(5) { Target() }
         private val crosshairPosition = Position(0.5f, 0.4f)
         
@@ -493,7 +439,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
         fun start() {
             gameState = GameState.SKIING
             distance = 0f
-            speed = 20f // km/h initial
+            speed = 20f
             startTime = System.currentTimeMillis()
             currentTime = startTime
             targetsHit = 0
@@ -501,7 +447,6 @@ class BiathlonActivity : Activity(), SensorEventListener {
             currentShootingZone = 0
             raceFinished = false
             
-            // Initialiser les cibles
             resetTargets()
         }
         
@@ -517,7 +462,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
             if (raceFinished) return
             
             currentTime = System.currentTimeMillis()
-            val deltaTime = 16f / 1000f // 60 FPS
+            val deltaTime = 16f / 1000f
             
             when (gameState) {
                 GameState.SKIING -> updateSkiing(deltaTime)
@@ -525,20 +470,15 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 GameState.PENALTY -> updatePenalty(deltaTime)
             }
             
-            // Vérifier la fin de course
             if (distance >= totalDistance) {
                 raceFinished = true
             }
         }
         
         private fun updateSkiing(deltaTime: Float) {
-            // Avancer selon la vitesse
-            distance += speed * deltaTime * (1000f / 3600f) // Conversion km/h en m/s
-            
-            // Ajuster la vitesse selon l'inclinaison
+            distance += speed * deltaTime * (1000f / 3600f)
             speed = (15f + abs(playerOffset) * 10f).coerceIn(10f, 35f)
             
-            // Vérifier les zones de tir
             val progress = distance / totalDistance
             if ((progress >= 0.33f && currentShootingZone == 0) || 
                 (progress >= 0.66f && currentShootingZone == 1)) {
@@ -547,11 +487,10 @@ class BiathlonActivity : Activity(), SensorEventListener {
         }
         
         private fun updateShooting(deltaTime: Float) {
-            // Ne rien faire, attendre le tir du joueur
+            // Attendre le tir du joueur
         }
         
         private fun updatePenalty(deltaTime: Float) {
-            // Tour de pénalité (temps perdu)
             if (penaltyLaps > 0) {
                 penaltyLaps--
                 if (penaltyLaps == 0) {
@@ -580,12 +519,10 @@ class BiathlonActivity : Activity(), SensorEventListener {
         fun updateGyroscope(x: Float, y: Float, z: Float) {
             when (gameState) {
                 GameState.SKIING -> {
-                    // Contrôle latéral en ski
                     playerOffset += y * 0.02f
                     playerOffset = playerOffset.coerceIn(-1f, 1f)
                 }
                 GameState.SHOOTING -> {
-                    // Contrôle du réticule
                     crosshairPosition.x += y * 0.01f
                     crosshairPosition.y += x * 0.01f
                     
@@ -595,7 +532,6 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 else -> {}
             }
             
-            // Calculer la stabilité
             val gyroMagnitude = sqrt(x*x + y*y + z*z)
             gyroBuffer[gyroBufferIndex] = gyroMagnitude
             gyroBufferIndex = (gyroBufferIndex + 1) % gyroBuffer.size
@@ -610,7 +546,6 @@ class BiathlonActivity : Activity(), SensorEventListener {
         fun fire() {
             if (gameState != GameState.SHOOTING || shotsInZone >= 5) return
             
-            // Trouver la cible la plus proche
             var closestTarget = -1
             var closestDistance = Float.MAX_VALUE
             
@@ -629,13 +564,11 @@ class BiathlonActivity : Activity(), SensorEventListener {
             
             shotsInZone++
             
-            // Vérifier si on touche (basé sur la distance et la stabilité)
             if (closestTarget != -1 && closestDistance < 0.05f && stability > 0.6f) {
                 currentTargets[closestTarget].hit = true
                 targetsHit++
             }
             
-            // Fin de la zone de tir après 5 tirs
             if (shotsInZone >= 5) {
                 exitShootingZone()
             }
@@ -644,9 +577,8 @@ class BiathlonActivity : Activity(), SensorEventListener {
         private fun exitShootingZone() {
             currentShootingZone++
             
-            // Calculer les pénalités
             val missedTargets = 5 - currentTargets.count { it.hit }
-            penaltyLaps += missedTargets * 30 // 30 frames de pénalité par cible ratée
+            penaltyLaps += missedTargets * 30
             
             if (penaltyLaps > 0) {
                 gameState = GameState.PENALTY
@@ -659,14 +591,13 @@ class BiathlonActivity : Activity(), SensorEventListener {
         }
         
         fun getFinalScore(): Int {
-            val timeBonus = maxOf(0, 600 - (getTime() / 1000).toInt()) // Bonus temps
-            val accuracyBonus = targetsHit * 50 // 50 points par cible
-            val penaltyMalus = penaltyLaps * 10 // Malus pénalités
+            val timeBonus = maxOf(0, 600 - (getTime() / 1000).toInt())
+            val accuracyBonus = targetsHit * 50
+            val penaltyMalus = penaltyLaps * 10
             
             return maxOf(100, timeBonus + accuracyBonus - penaltyMalus)
         }
         
-        // Getters
         fun getGameState() = gameState
         fun getDistance() = distance.toInt()
         fun getProgress() = (distance / totalDistance).coerceIn(0f, 1f)
@@ -680,7 +611,6 @@ class BiathlonActivity : Activity(), SensorEventListener {
         fun isStable() = stability > 0.7f
         fun isRaceFinished() = raceFinished
         
-        // Classes internes
         inner class Target {
             var hit = false
             var x = 0f
