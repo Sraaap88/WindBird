@@ -37,10 +37,10 @@ class TournamentData(
     
     fun getEventStatus(eventIndex: Int): EventsMenuActivity.EventStatus {
         val totalAttempts = (0..3).sumOf { attempts[it][eventIndex] }
-        val maxAttempts = (0..3).count { attempts[it][eventIndex] == 2 }
+        val allCompleted = (0..3).all { attempts[it][eventIndex] >= 1 }
         
         return when {
-            maxAttempts == 4 -> EventsMenuActivity.EventStatus.COMPLETED
+            allCompleted -> EventsMenuActivity.EventStatus.COMPLETED
             totalAttempts > 0 -> EventsMenuActivity.EventStatus.IN_PROGRESS
             eventIndex == 0 -> EventsMenuActivity.EventStatus.AVAILABLE
             else -> EventsMenuActivity.EventStatus.LOCKED
@@ -49,7 +49,7 @@ class TournamentData(
     
     fun getNextPlayer(eventIndex: Int): Int {
         for (player in 0..3) {
-            if (attempts[player][eventIndex] < 2) {
+            if (attempts[player][eventIndex] < 1) { // Changé de 2 à 1 (un seul essai par joueur)
                 return player
             }
         }
