@@ -16,12 +16,10 @@ class EventsMenuActivity : Activity() {
     private lateinit var playerCountries: ArrayList<String>
     private var numberOfPlayers = 1
     
-    // Données du tournoi
     private lateinit var tournamentData: TournamentData
     private lateinit var eventsLayout: LinearLayout
     private lateinit var statusText: TextView
     
-    // Liste des épreuves
     private val events = arrayOf(
         Event("Biathlon", "🎯", "Ski de fond + tir de précision", true),
         Event("Saut à Ski", "🎿", "Envol et atterrissage parfait", false),
@@ -43,58 +41,29 @@ class EventsMenuActivity : Activity() {
             WindowManager.LayoutParams.FLAG_FULLSCREEN
         )
         
-        // Récupérer les données des joueurs
         playerNames = intent.getStringArrayListExtra("player_names") ?: arrayListOf()
         playerCountries = intent.getStringArrayListExtra("player_countries") ?: arrayListOf()
         numberOfPlayers = intent.getIntExtra("number_of_players", 1)
         
-        // Compléter avec l'IA si nécessaire
         while (playerNames.size < 4) {
             playerNames.add("IA ${playerNames.size + 1}")
             playerCountries.add("🤖 Intelligence Artificielle")
         }
         
-        // Initialiser les données du tournoi
         tournamentData = TournamentData(playerNames, playerCountries)
         
         setupUI()
     }
     
     private fun setupUI() {
+        val scrollView = ScrollView(this)
+        
         val mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#001122"))
             setPadding(20, 20, 20, 20)
         }
         
-        // En-tête avec titre et statut
-        createHeader(mainLayout)
-        
-        // Liste des joueurs
-        createPlayersList(mainLayout)
-        
-        // Liste des épreuves
-        eventsLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-        
-        val scrollView = ScrollView(this).apply {
-            addView(eventsLayout)
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
-            )
-        }
-        mainLayout.addView(scrollView)
-        
-        createEventsList()
-        
-        // Boutons de navigation
-        createNavigationButtons(mainLayout)
-        
-        setContentView(mainLayout)
-    }
-    
-    private fun createHeader(parent: LinearLayout) {
         val titleText = TextView(this).apply {
             text = "🏆 WINTER GAMES TOURNAMENT 🏆"
             textSize = 24f
@@ -103,7 +72,7 @@ class EventsMenuActivity : Activity() {
             gravity = android.view.Gravity.CENTER
             setPadding(0, 0, 0, 20)
         }
-        parent.addView(titleText)
+        mainLayout.addView(titleText)
         
         statusText = TextView(this).apply {
             text = "Sélectionnez une épreuve pour commencer"
@@ -112,7 +81,21 @@ class EventsMenuActivity : Activity() {
             gravity = android.view.Gravity.CENTER
             setPadding(0, 0, 0, 20)
         }
-        parent.addView(statusText)
+        mainLayout.addView(statusText)
+        
+        createPlayersList(mainLayout)
+        
+        eventsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        mainLayout.addView(eventsLayout)
+        
+        createEventsList()
+        
+        createNavigationButtons(mainLayout)
+        
+        scrollView.addView(mainLayout)
+        setContentView(scrollView)
     }
     
     private fun createPlayersList(parent: LinearLayout) {
@@ -196,7 +179,6 @@ class EventsMenuActivity : Activity() {
             }
             eventLayout.layoutParams = params
             
-            // Icône et nom de l'épreuve
             val eventInfo = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -217,7 +199,6 @@ class EventsMenuActivity : Activity() {
             }
             eventInfo.addView(descText)
             
-            // Statut de l'épreuve
             val statusText = TextView(this).apply {
                 text = when (eventStatus) {
                     EventStatus.COMPLETED -> "✅ TERMINÉ"
@@ -240,7 +221,6 @@ class EventsMenuActivity : Activity() {
             
             eventLayout.addView(eventInfo)
             
-            // Bouton jouer
             val playButton = Button(this).apply {
                 text = if (eventStatus == EventStatus.COMPLETED) "REJOUER" else "JOUER"
                 setBackgroundColor(
@@ -294,7 +274,6 @@ class EventsMenuActivity : Activity() {
     
     private fun startEvent(eventIndex: Int) {
         if (eventIndex == 0 && events[0].implemented) {
-            // Biathlon - seule épreuve implémentée
             val intent = Intent(this, BiathlonActivity::class.java).apply {
                 putExtra("tournament_data", tournamentData)
                 putExtra("event_index", eventIndex)
@@ -321,20 +300,15 @@ class EventsMenuActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         
         if (requestCode == 100 && resultCode == RESULT_OK) {
-            // Récupérer les résultats de l'épreuve
             data?.getSerializableExtra("tournament_data")?.let {
                 tournamentData = it as TournamentData
-                // Rafraîchir l'affichage
                 eventsLayout.removeAllViews()
                 createEventsList()
-                
-                // Mettre à jour les scores des joueurs
                 setupUI()
             }
         }
     }
     
-    // Classes de données
     data class Event(
         val name: String,
         val icon: String,
@@ -352,10 +326,7 @@ class TournamentData(
     val playerCountries: ArrayList<String>
 ) : Serializable {
     
-    // Scores par épreuve [joueur][épreuve] = score
     private val eventScores = Array(4) { Array(10) { -1 } }
-    
-    // Nombre d'essais par joueur par épreuve [joueur][épreuve] = essais
     private val attempts = Array(4) { Array(10) { 0 } }
     
     fun addScore(playerIndex: Int, eventIndex: Int, score: Int) {
@@ -390,18 +361,17 @@ class TournamentData(
         return when {
             maxAttempts == 4 -> EventsMenuActivity.EventStatus.COMPLETED
             totalAttempts > 0 -> EventsMenuActivity.EventStatus.IN_PROGRESS
-            eventIndex == 0 -> EventsMenuActivity.EventStatus.AVAILABLE // Biathlon toujours disponible
-            else -> EventsMenuActivity.EventStatus.LOCKED // Autres épreuves verrouillées pour l'instant
+            eventIndex == 0 -> EventsMenuActivity.EventStatus.AVAILABLE
+            else -> EventsMenuActivity.EventStatus.LOCKED
         }
     }
     
     fun getNextPlayer(eventIndex: Int): Int {
-        // Trouve le prochain joueur qui doit jouer cette épreuve
         for (player in 0..3) {
             if (attempts[player][eventIndex] < 2) {
                 return player
             }
         }
-        return -1 // Tous les joueurs ont terminé
+        return -1
     }
 }
