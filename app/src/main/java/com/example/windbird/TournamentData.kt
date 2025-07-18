@@ -23,8 +23,6 @@ class TournamentData(
         return scores[playerIndex].sumOf { it.coerceAtLeast(0) }
     }
 
-    fun getScores(): Array<IntArray> = scores
-
     fun getNumberOfPlayers(): Int = numberOfPlayers
 
     fun getNumberOfEvents(): Int = numberOfEvents
@@ -35,10 +33,8 @@ class TournamentData(
 
     fun getNextPlayer(eventIndex: Int): Int {
         for (i in 0 until numberOfPlayers) {
-            if (scores[i][eventIndex] == -1) {
-                return i
-            }
+            if (scores[i][eventIndex] == -1) return i
         }
-        return -1 // Tous les joueurs ont terminé l'épreuve
+        return -1
     }
 }
