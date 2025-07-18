@@ -12,19 +12,22 @@ import android.view.View
 class MainActivity : Activity() {
     
     private lateinit var playerCountSpinner: Spinner
-    private lateinit var playerSetupLayout: LinearLayout
+    private lateinit var player1Name: EditText
+    private lateinit var player1Country: Spinner
+    private lateinit var player2Name: EditText
+    private lateinit var player2Country: Spinner
+    private lateinit var player3Name: EditText
+    private lateinit var player3Country: Spinner
+    private lateinit var player4Name: EditText
+    private lateinit var player4Country: Spinner
     private lateinit var startButton: Button
     
-    private val playerNames = mutableListOf<String>()
-    private val playerCountries = mutableListOf<String>()
     private var numberOfPlayers = 1
     
-    // Pays disponibles avec leurs drapeaux (émojis)
+    // Pays disponibles (seulement les noms, pas d'émojis)
     private val countries = arrayOf(
-        "🇨🇦 Canada", "🇺🇸 États-Unis", "🇳🇴 Norvège", "🇸🇪 Suède", 
-        "🇫🇮 Finlande", "🇩🇪 Allemagne", "🇫🇷 France", "🇮🇹 Italie",
-        "🇦🇹 Autriche", "🇨🇭 Suisse", "🇷🇺 Russie", "🇯🇵 Japon",
-        "🇰🇷 Corée du Sud", "🇬🇧 Grande-Bretagne", "🇳🇱 Pays-Bas", "🇨🇿 République Tchèque"
+        "Canada", "États-Unis", "Norvège", "Suède", "Finlande", 
+        "Allemagne", "France", "Italie", "Autriche", "Suisse"
     )
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,16 +42,18 @@ class MainActivity : Activity() {
     }
     
     private fun setupUI() {
+        val scrollView = ScrollView(this)
+        
         val mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#001122"))
-            setPadding(40, 40, 40, 40)
+            setPadding(30, 30, 30, 30)
         }
         
         // Titre
         val titleText = TextView(this).apply {
             text = "WINTER GAMES"
-            textSize = 36f
+            textSize = 24f
             setTextColor(Color.WHITE)
             setTypeface(null, android.graphics.Typeface.BOLD)
             gravity = android.view.Gravity.CENTER
@@ -56,21 +61,12 @@ class MainActivity : Activity() {
         }
         mainLayout.addView(titleText)
         
-        val subtitleText = TextView(this).apply {
-            text = "🏔️ ÉDITION GYROSCOPIQUE 🎿"
-            textSize = 18f
-            setTextColor(Color.CYAN)
-            gravity = android.view.Gravity.CENTER
-            setPadding(0, 0, 0, 40)
-        }
-        mainLayout.addView(subtitleText)
-        
-        // Sélection du nombre de joueurs
+        // Nombre de joueurs
         val playerCountLabel = TextView(this).apply {
-            text = "Nombre de joueurs humains :"
+            text = "Nombre de joueurs humains:"
             textSize = 16f
             setTextColor(Color.WHITE)
-            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, 0, 0, 10)
         }
         mainLayout.addView(playerCountLabel)
         
@@ -78,7 +74,7 @@ class MainActivity : Activity() {
             adapter = ArrayAdapter(
                 this@MainActivity,
                 android.R.layout.simple_spinner_item,
-                arrayOf("1 joueur", "2 joueurs", "3 joueurs", "4 joueurs")
+                arrayOf("1", "2", "3", "4")
             ).also { adapter ->
                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             }
@@ -86,195 +82,193 @@ class MainActivity : Activity() {
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                     numberOfPlayers = position + 1
-                    updatePlayerSetup()
+                    updatePlayerVisibility()
                 }
                 override fun onNothingSelected(parent: AdapterView<*>?) {}
             }
-        }
-        
-        val spinnerParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply {
-            setMargins(0, 10, 0, 30)
-        }
-        playerCountSpinner.layoutParams = spinnerParams
-        mainLayout.addView(playerCountSpinner)
-        
-        // Info IA
-        val infoText = TextView(this).apply {
-            text = "Les autres joueurs seront contrôlés par l'IA"
-            textSize = 14f
-            setTextColor(Color.LTGRAY)
-            gravity = android.view.Gravity.CENTER
             setPadding(0, 0, 0, 20)
         }
-        mainLayout.addView(infoText)
+        mainLayout.addView(playerCountSpinner)
         
-        // Layout pour la configuration des joueurs
-        playerSetupLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-        mainLayout.addView(playerSetupLayout)
+        // Configuration des joueurs
+        createPlayerSetup(mainLayout)
         
         // Bouton commencer
         startButton = Button(this).apply {
-            text = "🏆 COMMENCER LES JEUX 🏆"
+            text = "COMMENCER LES JEUX"
             textSize = 18f
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.parseColor("#ff6600"))
             setTypeface(null, android.graphics.Typeface.BOLD)
             setPadding(20, 15, 20, 15)
             
-            setOnClickListener { startTournament() }
-        }
-        
-        val buttonParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply {
-            setMargins(0, 30, 0, 0)
-        }
-        startButton.layoutParams = buttonParams
-        mainLayout.addView(startButton)
-        
-        setContentView(mainLayout)
-        
-        // Configuration initiale
-        updatePlayerSetup()
-    }
-    
-    private fun updatePlayerSetup() {
-        playerSetupLayout.removeAllViews()
-        playerNames.clear()
-        playerCountries.clear()
-        
-        // Créer les champs pour chaque joueur humain
-        for (i in 0 until numberOfPlayers) {
-            val playerLayout = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                setPadding(0, 10, 0, 10)
-                setBackgroundColor(Color.parseColor("#003366"))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 30, 0, 0)
             }
             
-            val params = LinearLayout.LayoutParams(
+            setOnClickListener { startTournament() }
+        }
+        mainLayout.addView(startButton)
+        
+        scrollView.addView(mainLayout)
+        setContentView(scrollView)
+        
+        updatePlayerVisibility()
+    }
+    
+    private fun createPlayerSetup(parent: LinearLayout) {
+        // Joueur 1
+        createPlayerRow(parent, "Joueur 1:", 1)
+        
+        // Joueur 2
+        createPlayerRow(parent, "Joueur 2:", 2)
+        
+        // Joueur 3
+        createPlayerRow(parent, "Joueur 3:", 3)
+        
+        // Joueur 4
+        createPlayerRow(parent, "Joueur 4:", 4)
+    }
+    
+    private fun createPlayerRow(parent: LinearLayout, label: String, playerNum: Int) {
+        val playerLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 10, 0, 10)
+            setBackgroundColor(Color.parseColor("#003366"))
+            layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
                 setMargins(0, 5, 0, 5)
             }
-            playerLayout.layoutParams = params
-            
-            // Label joueur
-            val playerLabel = TextView(this).apply {
-                text = "Joueur ${i + 1}:"
-                textSize = 16f
-                setTextColor(Color.WHITE)
-                setTypeface(null, android.graphics.Typeface.BOLD)
-                layoutParams = LinearLayout.LayoutParams(120, ViewGroup.LayoutParams.WRAP_CONTENT)
-            }
-            playerLayout.addView(playerLabel)
-            
-            // Nom du joueur
-            val nameInput = EditText(this).apply {
-                hint = "Nom"
-                setHintTextColor(Color.LTGRAY)
-                setTextColor(Color.WHITE)
-                setBackgroundColor(Color.parseColor("#004488"))
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                setPadding(10, 5, 10, 5)
-            }
-            playerLayout.addView(nameInput)
-            
-            // Sélection du pays
-            val countrySpinner = Spinner(this).apply {
-                adapter = ArrayAdapter(
-                    this@MainActivity,
-                    android.R.layout.simple_spinner_item,
-                    countries
-                ).also { adapter ->
-                    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                }
-                layoutParams = LinearLayout.LayoutParams(200, ViewGroup.LayoutParams.WRAP_CONTENT)
-            }
-            playerLayout.addView(countrySpinner)
-            
-            playerSetupLayout.addView(playerLayout)
-            
-            // Initialiser avec des valeurs par défaut
-            playerNames.add("Joueur ${i + 1}")
-            playerCountries.add(countries[i % countries.size])
-            
-            // Écouter les changements
-            nameInput.setOnFocusChangeListener { _, hasFocus ->
-                if (!hasFocus) {
-                    val name = nameInput.text.toString().ifEmpty { "Joueur ${i + 1}" }
-                    if (i < playerNames.size) playerNames[i] = name
-                }
-            }
-            
-            countrySpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    if (i < playerCountries.size) playerCountries[i] = countries[position]
-                }
-                override fun onNothingSelected(parent: AdapterView<*>?) {}
-            }
         }
         
-        // Ajouter les joueurs IA
-        if (numberOfPlayers < 4) {
-            val aiLabel = TextView(this).apply {
-                text = "\n🤖 JOUEURS IA :"
-                textSize = 16f
-                setTextColor(Color.YELLOW)
-                setTypeface(null, android.graphics.Typeface.BOLD)
+        val playerLabel = TextView(this).apply {
+            text = label
+            textSize = 14f
+            setTextColor(Color.WHITE)
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(10, 5, 10, 5)
+        }
+        playerLayout.addView(playerLabel)
+        
+        val inputLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(10, 0, 10, 10)
+        }
+        
+        val nameInput = EditText(this).apply {
+            hint = "Nom"
+            setHintTextColor(Color.LTGRAY)
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.parseColor("#004488"))
+            setPadding(10, 5, 10, 5)
+            layoutParams = LinearLayout.LayoutParams(0, 60, 1f).apply {
+                setMargins(0, 0, 10, 0)
             }
-            playerSetupLayout.addView(aiLabel)
-            
-            for (i in numberOfPlayers until 4) {
-                val aiLayout = LinearLayout(this).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    setPadding(0, 5, 0, 5)
-                    setBackgroundColor(Color.parseColor("#332200"))
-                }
-                
-                val aiText = TextView(this).apply {
-                    text = "IA ${i + 1}: ${countries[(i + 4) % countries.size]}"
-                    textSize = 14f
-                    setTextColor(Color.LTGRAY)
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    )
-                    setPadding(10, 5, 10, 5)
-                }
-                aiLayout.addView(aiText)
-                
-                val params = LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    setMargins(0, 2, 0, 2)
-                }
-                aiLayout.layoutParams = params
-                playerSetupLayout.addView(aiLayout)
+        }
+        inputLayout.addView(nameInput)
+        
+        val countrySpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(
+                this@MainActivity,
+                android.R.layout.simple_spinner_item,
+                countries
+            ).also { adapter ->
+                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            layoutParams = LinearLayout.LayoutParams(200, 60)
+        }
+        inputLayout.addView(countrySpinner)
+        
+        playerLayout.addView(inputLayout)
+        parent.addView(playerLayout)
+        
+        // Assigner les références
+        when (playerNum) {
+            1 -> {
+                player1Name = nameInput
+                player1Country = countrySpinner
+            }
+            2 -> {
+                player2Name = nameInput
+                player2Country = countrySpinner
+            }
+            3 -> {
+                player3Name = nameInput
+                player3Country = countrySpinner
+            }
+            4 -> {
+                player4Name = nameInput
+                player4Country = countrySpinner
             }
         }
     }
     
+    private fun updatePlayerVisibility() {
+        val mainLayout = (findViewById<ScrollView>(android.R.id.content).getChildAt(0) as ViewGroup).getChildAt(0) as LinearLayout
+        
+        // Joueur 1 toujours visible (index 3)
+        mainLayout.getChildAt(3).visibility = View.VISIBLE
+        
+        // Joueur 2 (index 4)
+        mainLayout.getChildAt(4).visibility = if (numberOfPlayers >= 2) View.VISIBLE else View.GONE
+        
+        // Joueur 3 (index 5)
+        mainLayout.getChildAt(5).visibility = if (numberOfPlayers >= 3) View.VISIBLE else View.GONE
+        
+        // Joueur 4 (index 6)
+        mainLayout.getChildAt(6).visibility = if (numberOfPlayers >= 4) View.VISIBLE else View.GONE
+    }
+    
     private fun startTournament() {
-        // Finaliser les noms des joueurs
-        for (i in 0 until numberOfPlayers) {
-            val nameInput = playerSetupLayout.getChildAt(i) as LinearLayout
-            val editText = nameInput.getChildAt(1) as EditText
-            val name = editText.text.toString().ifEmpty { "Joueur ${i + 1}" }
-            playerNames[i] = name
+        val playerNames = arrayListOf<String>()
+        val playerCountries = arrayListOf<String>()
+        
+        // Récupérer les noms et pays selon le nombre de joueurs
+        when (numberOfPlayers) {
+            1 -> {
+                playerNames.add(player1Name.text.toString().ifEmpty { "Joueur 1" })
+                playerCountries.add(countries[player1Country.selectedItemPosition])
+            }
+            2 -> {
+                playerNames.add(player1Name.text.toString().ifEmpty { "Joueur 1" })
+                playerNames.add(player2Name.text.toString().ifEmpty { "Joueur 2" })
+                playerCountries.add(countries[player1Country.selectedItemPosition])
+                playerCountries.add(countries[player2Country.selectedItemPosition])
+            }
+            3 -> {
+                playerNames.add(player1Name.text.toString().ifEmpty { "Joueur 1" })
+                playerNames.add(player2Name.text.toString().ifEmpty { "Joueur 2" })
+                playerNames.add(player3Name.text.toString().ifEmpty { "Joueur 3" })
+                playerCountries.add(countries[player1Country.selectedItemPosition])
+                playerCountries.add(countries[player2Country.selectedItemPosition])
+                playerCountries.add(countries[player3Country.selectedItemPosition])
+            }
+            4 -> {
+                playerNames.add(player1Name.text.toString().ifEmpty { "Joueur 1" })
+                playerNames.add(player2Name.text.toString().ifEmpty { "Joueur 2" })
+                playerNames.add(player3Name.text.toString().ifEmpty { "Joueur 3" })
+                playerNames.add(player4Name.text.toString().ifEmpty { "Joueur 4" })
+                playerCountries.add(countries[player1Country.selectedItemPosition])
+                playerCountries.add(countries[player2Country.selectedItemPosition])
+                playerCountries.add(countries[player3Country.selectedItemPosition])
+                playerCountries.add(countries[player4Country.selectedItemPosition])
+            }
         }
         
-        // Créer les données du tournoi
+        // Compléter avec l'IA si nécessaire
+        while (playerNames.size < 4) {
+            playerNames.add("IA ${playerNames.size + 1}")
+            playerCountries.add("Intelligence Artificielle")
+        }
+        
         val intent = Intent(this, EventsMenuActivity::class.java).apply {
-            putStringArrayListExtra("player_names", ArrayList(playerNames))
-            putStringArrayListExtra("player_countries", ArrayList(playerCountries))
+            putStringArrayListExtra("player_names", playerNames)
+            putStringArrayListExtra("player_countries", playerCountries)
             putExtra("number_of_players", numberOfPlayers)
         }
         
