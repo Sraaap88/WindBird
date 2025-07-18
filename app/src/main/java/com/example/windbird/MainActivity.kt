@@ -170,8 +170,8 @@ class MainActivity : Activity() {
         val nameInput = EditText(this).apply {
             hint = "Entrez votre nom"
             setHintTextColor(Color.LTGRAY)
-            setTextColor(Color.WHITE)
-            setBackgroundColor(Color.parseColor("#004488"))
+            setTextColor(Color.BLACK) // TEXTE NOIR
+            setBackgroundColor(Color.WHITE) // FOND BLANC
             setPadding(15, 10, 15, 10)
         }
         
