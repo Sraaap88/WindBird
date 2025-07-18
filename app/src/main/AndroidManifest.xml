@@ -1,17 +1,17 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?> 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.windbird">
-    
+
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="true" />
-    
+
     <application
         android:allowBackup="true"
         android:label="Winter Games"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
-        
-        <activity android:name=".MainActivity"
+
+        <activity android:name=".MainMenuActivity"
             android:exported="true"
             android:screenOrientation="landscape">
             <intent-filter>
@@ -19,13 +19,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        
-        <activity android:name=".EventsMenuActivity" 
+
+        <activity android:name=".PlayerRegistrationActivity"
             android:screenOrientation="landscape" />
-        <activity android:name=".BiathlonActivity" 
+        <activity android:name=".BiathlonActivity"
             android:screenOrientation="landscape" />
-        <activity android:name=".ScoreboardActivity" 
+        <activity android:name=".ScoreTransitionActivity"
             android:screenOrientation="landscape" />
-        
+        <activity android:name=".EventsMenuActivity"
+            android:screenOrientation="landscape" />
+        <activity android:name=".ScoreboardActivity"
+            android:screenOrientation="landscape" />
+
     </application>
 </manifest>
