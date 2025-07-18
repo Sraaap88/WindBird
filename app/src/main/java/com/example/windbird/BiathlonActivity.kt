@@ -349,7 +349,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 paint.color = Color.RED
                 paint.strokeWidth = 3f
                 canvas.drawLine(crossX - 20, crossY, crossX + 20, crossY, paint)
-                canvas.drawLine(crossX, crossY - 20, crossX, crossY + 20, crossY, paint)
+                canvas.drawLine(crossX, crossY - 20, crossX, crossY + 20, paint)
                 paint.color = Color.YELLOW
                 paint.style = Paint.Style.FILL
                 canvas.drawCircle(crossX, crossY, 3f, paint)
