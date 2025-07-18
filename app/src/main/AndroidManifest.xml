@@ -11,7 +11,6 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
         
-        <!-- Écran principal - Configuration des joueurs -->
         <activity android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="landscape">
@@ -21,34 +20,11 @@
             </intent-filter>
         </activity>
         
-        <!-- Menu des épreuves -->
         <activity android:name=".EventsMenuActivity" 
             android:screenOrientation="landscape" />
-            
-        <!-- Tableau des scores -->
-        <activity android:name=".ScoreboardActivity" 
-            android:screenOrientation="landscape" />
-        
-        <!-- ÉPREUVES -->
         <activity android:name=".BiathlonActivity" 
             android:screenOrientation="landscape" />
-        <activity android:name=".SkiJumpActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".BobsleighActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".SpeedSkatingActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".SlalomActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".SnowboardActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".FreestyleActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".LugeActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".CurlingActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".HockeyActivity" 
+        <activity android:name=".ScoreboardActivity" 
             android:screenOrientation="landscape" />
         
     </application>
