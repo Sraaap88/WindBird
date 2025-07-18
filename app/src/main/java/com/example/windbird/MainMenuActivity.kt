@@ -39,7 +39,7 @@ class MainMenuActivity : Activity() {
             adapter = ArrayAdapter(
                 this@MainMenuActivity,
                 android.R.layout.simple_spinner_dropdown_item,
-                (1..4).map { "$it joueurs" }
+                (1..4).map { "$it" }
             )
         }
 
@@ -47,7 +47,7 @@ class MainMenuActivity : Activity() {
             text = "Commencer le tournoi >>"
             textSize = 18f
             setOnClickListener {
-                val selectedPlayers = spinner.selectedItemPosition + 1
+                val selectedPlayers = spinner.selectedItem.toString().toInt()
                 val intent = Intent(this@MainMenuActivity, PlayerRegistrationActivity::class.java).apply {
                     putExtra("number_of_players", selectedPlayers)
                 }
