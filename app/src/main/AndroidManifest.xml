@@ -2,13 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.windbird">
     
-    <!-- Permission pour le gyroscope -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    
-    <!-- Feature gyroscope obligatoire -->
-    <uses-feature 
-        android:name="android.hardware.sensor.gyroscope" 
-        android:required="true" />
+    <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="true" />
     
     <application
         android:allowBackup="true"
@@ -16,7 +11,7 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
         
-        <!-- Activité principale Winter Games -->
+        <!-- Écran principal - Configuration des joueurs -->
         <activity android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="landscape">
@@ -26,8 +21,34 @@
             </intent-filter>
         </activity>
         
-        <!-- Activité Biathlon -->
+        <!-- Menu des épreuves -->
+        <activity android:name=".EventsMenuActivity" 
+            android:screenOrientation="landscape" />
+            
+        <!-- Tableau des scores -->
+        <activity android:name=".ScoreboardActivity" 
+            android:screenOrientation="landscape" />
+        
+        <!-- ÉPREUVES -->
         <activity android:name=".BiathlonActivity" 
+            android:screenOrientation="landscape" />
+        <activity android:name=".SkiJumpActivity" 
+            android:screenOrientation="landscape" />
+        <activity android:name=".BobsleighActivity" 
+            android:screenOrientation="landscape" />
+        <activity android:name=".SpeedSkatingActivity" 
+            android:screenOrientation="landscape" />
+        <activity android:name=".SlalomActivity" 
+            android:screenOrientation="landscape" />
+        <activity android:name=".SnowboardActivity" 
+            android:screenOrientation="landscape" />
+        <activity android:name=".FreestyleActivity" 
+            android:screenOrientation="landscape" />
+        <activity android:name=".LugeActivity" 
+            android:screenOrientation="landscape" />
+        <activity android:name=".CurlingActivity" 
+            android:screenOrientation="landscape" />
+        <activity android:name=".HockeyActivity" 
             android:screenOrientation="landscape" />
         
     </application>
