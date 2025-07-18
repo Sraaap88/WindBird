@@ -1,4 +1,4 @@
-// ScoreTransitionActivity.kt – Affiche les scores après une épreuve et lance la suivante
+// ScoreTransitionActivity.kt – Affiche les scores après chaque épreuve
 package com.example.windbird
 
 import android.app.Activity
@@ -7,63 +7,67 @@ import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
+import android.widget.*
 
 class ScoreTransitionActivity : Activity() {
-
-    private lateinit var tournamentData: TournamentData
-    private var eventIndex: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        tournamentData = intent.getSerializableExtra("tournament_data") as TournamentData
-        eventIndex = intent.getIntExtra("event_index", 0)
+        val tournamentData = intent.getSerializableExtra("tournament_data") as? TournamentData
+        val eventIndex = intent.getIntExtra("event_index", 0)
+
+        if (tournamentData == null) {
+            finish()
+            return
+        }
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.BLACK)
             gravity = Gravity.CENTER
-            setPadding(30, 30, 30, 30)
+            setBackgroundColor(Color.BLACK)
+            setPadding(50, 50, 50, 50)
         }
 
         val title = TextView(this).apply {
-            text = "Résultats - Épreuve ${eventIndex + 1}"
-            textSize = 26f
+            text = "Scores après l'épreuve ${eventIndex + 1}"
+            textSize = 24f
             setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
         }
         layout.addView(title)
 
         for (i in 0 until tournamentData.getNumberOfPlayers()) {
+            val name = tournamentData.getPlayerName(i)
+            val country = tournamentData.getPlayerCountry(i)
             val score = tournamentData.getScore(i, eventIndex)
-            val line = TextView(this).apply {
-                text = "${i + 1}. ${tournamentData.getPlayerName(i)} (${tournamentData.getPlayerCountry(i)}) : $score pts"
-                textSize = 20f
+
+            val row = TextView(this).apply {
+                text = "$name ($country) : $score points"
                 setTextColor(Color.LTGRAY)
-                setPadding(10, 20, 10, 20)
+                textSize = 18f
+                setPadding(0, 10, 0, 10)
             }
-            layout.addView(line)
+            layout.addView(row)
         }
 
         val nextButton = Button(this).apply {
             text = "Prochaine épreuve >>"
-            textSize = 18f
             setOnClickListener {
                 val nextEventIndex = eventIndex + 1
                 if (nextEventIndex < tournamentData.getNumberOfEvents()) {
-                    val intent = Intent(this@ScoreTransitionActivity, BiathlonActivity::class.java) // Remplacer par la bonne activité
-                    intent.putExtra("tournament_data", tournamentData)
-                    intent.putExtra("event_index", nextEventIndex)
-                    intent.putExtra("number_of_players", tournamentData.getNumberOfPlayers())
+                    val intent = Intent(this@ScoreTransitionActivity, BiathlonActivity::class.java).apply {
+                        putExtra("tournament_data", tournamentData)
+                        putExtra("event_index", nextEventIndex)
+                        putExtra("number_of_players", tournamentData.getNumberOfPlayers())
+                    }
                     startActivity(intent)
-                    finish()
                 } else {
-                    // Dernière épreuve terminée – on pourrait afficher un classement final ici
-                    finish()
+                    val intent = Intent(this@ScoreTransitionActivity, ScoreboardActivity::class.java).apply {
+                        putExtra("tournament_data", tournamentData)
+                    }
+                    startActivity(intent)
                 }
+                finish()
             }
         }
 
