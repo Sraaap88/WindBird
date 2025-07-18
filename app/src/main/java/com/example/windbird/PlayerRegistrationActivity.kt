@@ -40,8 +40,10 @@ class PlayerRegistrationActivity : Activity() {
         for (i in 1..numberOfPlayers) {
             val nameInput = EditText(this).apply {
                 hint = "Nom du joueur $i"
-                setTextColor(Color.WHITE)
+                setTextColor(Color.BLACK) // TEXTE NOIR
                 setHintTextColor(Color.LTGRAY)
+                setBackgroundColor(Color.WHITE) // FOND BLANC
+                setPadding(15, 10, 15, 10)
             }
 
             val countrySpinner = Spinner(this).apply {
