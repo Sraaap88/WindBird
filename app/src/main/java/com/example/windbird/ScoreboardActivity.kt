@@ -32,11 +32,12 @@ class ScoreboardActivity : Activity() {
         
         tournamentData = intent.getSerializableExtra("tournament_data") as TournamentData
         val eventCompleted = intent.getIntExtra("event_completed", -1)
+        val tournamentFinal = intent.getBooleanExtra("tournament_final", false)
         
-        setupUI(eventCompleted)
+        setupUI(eventCompleted, tournamentFinal)
     }
     
-    private fun setupUI(eventCompleted: Int) {
+    private fun setupUI(eventCompleted: Int, tournamentFinal: Boolean) {
         val scrollView = ScrollView(this)
         
         mainLayout = LinearLayout(this).apply {
@@ -46,7 +47,11 @@ class ScoreboardActivity : Activity() {
         }
         
         val titleText = TextView(this).apply {
-            text = if (eventCompleted >= 0) "🏆 RÉSULTATS BIATHLON 🏆" else "🏆 TABLEAU DES SCORES 🏆"
+            text = when {
+                tournamentFinal -> "🏆 CLASSEMENT FINAL DU TOURNOI 🏆"
+                eventCompleted >= 0 -> "🏆 RÉSULTATS BIATHLON 🏆"
+                else -> "🏆 TABLEAU DES SCORES 🏆"
+            }
             textSize = 28f
             setTextColor(Color.WHITE)
             setTypeface(null, android.graphics.Typeface.BOLD)
@@ -55,7 +60,10 @@ class ScoreboardActivity : Activity() {
         }
         mainLayout.addView(titleText)
         
-        if (eventCompleted >= 0) {
+        if (tournamentFinal) {
+            // Afficher le grand podium final du tournoi
+            showTournamentFinalPodium(mainLayout)
+        } else if (eventCompleted >= 0) {
             // Afficher le podium pour l'épreuve terminée
             showEventPodium(mainLayout, eventCompleted)
         } else {
@@ -71,14 +79,27 @@ class ScoreboardActivity : Activity() {
         }
         
         val backButton = Button(this).apply {
-            text = if (eventCompleted >= 0) "➡️ PROCHAINE ÉPREUVE" else "↩️ RETOUR AU MENU"
+            text = when {
+                tournamentFinal -> "🎉 RETOUR AU MENU PRINCIPAL"
+                eventCompleted >= 0 -> "➡️ PROCHAINE ÉPREUVE"
+                else -> "↩️ RETOUR AU MENU"
+            }
             textSize = 16f
-            setBackgroundColor(if (eventCompleted >= 0) Color.parseColor("#00aa00") else Color.parseColor("#666666"))
+            setBackgroundColor(when {
+                tournamentFinal -> Color.parseColor("#aa0066")
+                eventCompleted >= 0 -> Color.parseColor("#00aa00")
+                else -> Color.parseColor("#666666")
+            })
             setTextColor(Color.WHITE)
             setTypeface(null, android.graphics.Typeface.BOLD)
             setPadding(20, 15, 20, 15)
             setOnClickListener { 
-                if (eventCompleted >= 0) {
+                if (tournamentFinal) {
+                    // Retourner au menu principal après le tournoi final
+                    val intent = Intent(this@ScoreboardActivity, MainActivity::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                    startActivity(intent)
+                } else if (eventCompleted >= 0) {
                     // Retourner au menu des épreuves
                     val intent = Intent(this@ScoreboardActivity, EventsMenuActivity::class.java).apply {
                         putExtra("tournament_data", tournamentData)
@@ -103,6 +124,145 @@ class ScoreboardActivity : Activity() {
         
         scrollView.addView(mainLayout)
         setContentView(scrollView)
+    }
+    
+    private fun showTournamentFinalPodium(parent: LinearLayout) {
+        // Récupérer le classement final du tournoi
+        val finalRankings = tournamentData.getFinalRanking()
+        
+        if (finalRankings.isEmpty()) {
+            val noResultText = TextView(this).apply {
+                text = "Aucun résultat disponible"
+                textSize = 18f
+                setTextColor(Color.LTGRAY)
+                gravity = Gravity.CENTER
+                setPadding(0, 50, 0, 50)
+            }
+            parent.addView(noResultText)
+            return
+        }
+        
+        val congratsTitle = TextView(this).apply {
+            text = "🎊 FÉLICITATIONS ! TOURNOI TERMINÉ ! 🎊"
+            textSize = 26f
+            setTextColor(Color.YELLOW)
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(0, 20, 0, 30)
+        }
+        parent.addView(congratsTitle)
+        
+        val winnerText = TextView(this).apply {
+            text = "🏆 GRAND CHAMPION : ${finalRankings[0].name} 🏆"
+            textSize = 22f
+            setTextColor(Color.parseColor("#FFD700"))
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, 20)
+        }
+        parent.addView(winnerText)
+        
+        // Décompte de médailles
+        val medalCountTitle = TextView(this).apply {
+            text = "📊 DÉCOMPTE FINAL DES MÉDAILLES"
+            textSize = 20f
+            setTextColor(Color.WHITE)
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(0, 20, 0, 20)
+        }
+        parent.addView(medalCountTitle)
+        
+        // Affichage du décompte pour chaque joueur
+        for (i in finalRankings.indices) {
+            val ranking = finalRankings[i]
+            
+            val playerMedalLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(20, 15, 20, 15)
+                setBackgroundColor(
+                    when (i) {
+                        0 -> Color.parseColor("#FFD700")
+                        1 -> Color.parseColor("#C0C0C0")
+                        2 -> Color.parseColor("#CD7F32")
+                        else -> Color.parseColor("#444444")
+                    }
+                )
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, 5, 0, 5)
+                }
+            }
+            
+            val positionText = TextView(this).apply {
+                text = "${i + 1}."
+                textSize = 20f
+                setTextColor(if (i < 3) Color.BLACK else Color.WHITE)
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                layoutParams = LinearLayout.LayoutParams(50, ViewGroup.LayoutParams.WRAP_CONTENT)
+            }
+            playerMedalLayout.addView(positionText)
+            
+            val playerInfo = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            
+            val nameText = TextView(this).apply {
+                text = ranking.name
+                textSize = 18f
+                setTextColor(if (i < 3) Color.BLACK else Color.WHITE)
+                setTypeface(null, android.graphics.Typeface.BOLD)
+            }
+            playerInfo.addView(nameText)
+            
+            val countryText = TextView(this).apply {
+                text = ranking.country
+                textSize = 14f
+                setTextColor(if (i < 3) Color.parseColor("#333333") else Color.LTGRAY)
+            }
+            playerInfo.addView(countryText)
+            
+            playerMedalLayout.addView(playerInfo)
+            
+            val medalInfo = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.END
+            }
+            
+            val medalText = TextView(this).apply {
+                text = "🥇${ranking.goldMedals} 🥈${ranking.silverMedals} 🥉${ranking.bronzeMedals}"
+                textSize = 16f
+                setTextColor(if (i < 3) Color.BLACK else Color.WHITE)
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                gravity = Gravity.END
+            }
+            medalInfo.addView(medalText)
+            
+            val scoreText = TextView(this).apply {
+                text = "${ranking.totalScore} pts"
+                textSize = 14f
+                setTextColor(if (i < 3) Color.parseColor("#333333") else Color.CYAN)
+                gravity = Gravity.END
+            }
+            medalInfo.addView(scoreText)
+            
+            playerMedalLayout.addView(medalInfo)
+            parent.addView(playerMedalLayout)
+        }
+        
+        // Message final
+        val finalMessage = TextView(this).apply {
+            text = "🎉 Merci d'avoir participé aux Winter Games 2025 ! 🎉"
+            textSize = 18f
+            setTextColor(Color.CYAN)
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(20, 30, 20, 20)
+        }
+        parent.addView(finalMessage)
     }
     
     private fun showEventPodium(parent: LinearLayout, eventIndex: Int) {
