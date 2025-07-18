@@ -212,13 +212,24 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 proceedToNextPlayerOrEvent()
             }
         } else {
-            // Tous les joueurs ont terminé - aller au classement
-            val resultIntent = Intent(this, ScoreboardActivity::class.java).apply {
-                putExtra("tournament_data", tournamentData)
-                putExtra("event_completed", eventIndex)
+            // Tous les joueurs ont terminé cette épreuve
+            if (tournamentData.isTournamentComplete()) {
+                // Tournoi complètement terminé - Grand podium final
+                val resultIntent = Intent(this, ScoreboardActivity::class.java).apply {
+                    putExtra("tournament_data", tournamentData)
+                    putExtra("tournament_final", true)
+                }
+                startActivity(resultIntent)
+                finish()
+            } else {
+                // Épreuve terminée mais pas le tournoi - Podium d'épreuve
+                val resultIntent = Intent(this, ScoreboardActivity::class.java).apply {
+                    putExtra("tournament_data", tournamentData)
+                    putExtra("event_completed", eventIndex)
+                }
+                startActivity(resultIntent)
+                finish()
             }
-            startActivity(resultIntent)
-            finish()
         }
     }
     
