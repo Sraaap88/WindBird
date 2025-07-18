@@ -29,6 +29,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
     private var distance = 0f
     private val totalDistance = 5000f
     private var previousGyroDirection = 0
+    private var backgroundOffset = 0f
 
     private lateinit var skierBitmap: Bitmap
 
@@ -60,8 +61,10 @@ class BiathlonActivity : Activity(), SensorEventListener {
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         statusText = TextView(this).apply {
-            text = "Distance: 0m"
+            text = "Joueur: ${tournamentData.playerNames[currentPlayerIndex]} | Distance: 0m"
             setTextColor(Color.WHITE)
+            textSize = 16f
+            setPadding(20, 10, 20, 10)
         }
 
         gameView = BiathlonView(this)
@@ -88,9 +91,11 @@ class BiathlonActivity : Activity(), SensorEventListener {
         val x = event.values[0]
 
         if (gameState == GameState.SKIING) {
+            // Mouvement horizontal du skieur
             playerOffset += y * 0.1f
             playerOffset = playerOffset.coerceIn(-1f, 1f)
 
+            // Mouvement vers l'avant avec défilement du fond
             val direction = when {
                 y > 0.5f -> 1
                 y < -0.5f -> -1
@@ -98,8 +103,11 @@ class BiathlonActivity : Activity(), SensorEventListener {
             }
             if (direction != 0 && direction != previousGyroDirection) {
                 distance += 25f
+                backgroundOffset -= 10f // Le fond défile vers l'arrière
                 previousGyroDirection = direction
             }
+            
+            // Transition vers le tir à mi-parcours
             if (distance >= totalDistance * 0.5f) {
                 gameState = GameState.SHOOTING
             }
@@ -124,9 +132,37 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 }
             }
             if (shotsFired >= 5) {
+                // Phase de ski final
+                gameState = GameState.FINAL_SKIING
+            }
+        }
+
+        if (gameState == GameState.FINAL_SKIING) {
+            // Mouvement horizontal du skieur
+            playerOffset += y * 0.1f
+            playerOffset = playerOffset.coerceIn(-1f, 1f)
+
+            // Mouvement vers l'avant avec défilement du fond
+            val direction = when {
+                y > 0.5f -> 1
+                y < -0.5f -> -1
+                else -> 0
+            }
+            if (direction != 0 && direction != previousGyroDirection) {
+                distance += 25f
+                backgroundOffset -= 10f
+                previousGyroDirection = direction
+            }
+            
+            // Fin de l'épreuve
+            if (distance >= totalDistance) {
                 gameState = GameState.FINISHED
                 tournamentData.addScore(currentPlayerIndex, eventIndex, calculateScore())
-                proceedToNextPlayerOrEvent()
+                
+                // Attendre 2 secondes avant de continuer
+                statusText.postDelayed({
+                    proceedToNextPlayerOrEvent()
+                }, 2000)
             }
         }
 
@@ -157,36 +193,55 @@ class BiathlonActivity : Activity(), SensorEventListener {
 
     private fun updateStatus() {
         statusText.text = when (gameState) {
-            GameState.SKIING -> "Distance: ${distance.toInt()} m"
-            GameState.SHOOTING -> "🎯 Tir ${shotsFired}/5 — Touchés: $targetsHit"
-            GameState.FINISHED -> "✅ Score final: ${calculateScore()}"
+            GameState.SKIING -> "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | Distance: ${distance.toInt()}m / ${totalDistance.toInt()}m"
+            GameState.SHOOTING -> "🎯 ${tournamentData.playerNames[currentPlayerIndex]} | Tir ${shotsFired}/5 — Touchés: $targetsHit"
+            GameState.FINAL_SKIING -> "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | Sprint final: ${distance.toInt()}m / ${totalDistance.toInt()}m"
+            GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Score final: ${calculateScore()} points"
         }
     }
 
     private fun calculateScore(): Int {
         val accuracyBonus = targetsHit * 50
         val distanceBonus = (distance / totalDistance * 100).toInt()
-        return accuracyBonus + distanceBonus
+        val penaltyForMissedShots = (5 - targetsHit) * 20
+        return maxOf(0, accuracyBonus + distanceBonus - penaltyForMissedShots)
     }
 
     inner class BiathlonView(context: Context) : View(context) {
         private val paint = Paint()
         private val bgPaint = Paint().apply { color = Color.parseColor("#87CEEB") }
+        private val snowPaint = Paint().apply { color = Color.WHITE }
+        private val trackPaint = Paint().apply { color = Color.LTGRAY }
 
         override fun onDraw(canvas: Canvas) {
             val w = canvas.width
             val h = canvas.height
+            
+            // Fond ciel
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), bgPaint)
-            paint.color = Color.WHITE
-            canvas.drawRect(0f, h * 0.6f, w.toFloat(), h.toFloat(), paint)
-            paint.color = Color.LTGRAY
-            canvas.drawRect(0f, h * 0.75f, w.toFloat(), h.toFloat(), paint)
+            
+            // Effet de défilement du fond avec des lignes de neige
+            for (i in 0..10) {
+                val lineX = (backgroundOffset + i * 100) % (w + 200)
+                snowPaint.alpha = 50
+                canvas.drawRect(lineX, 0f, lineX + 2, h.toFloat(), snowPaint)
+            }
+            
+            // Sol neigeux
+            snowPaint.alpha = 255
+            canvas.drawRect(0f, h * 0.6f, w.toFloat(), h.toFloat(), snowPaint)
+            
+            // Piste de ski
+            canvas.drawRect(0f, h * 0.75f, w.toFloat(), h.toFloat(), trackPaint)
 
-            val skierX = w / 2f + playerOffset * 200f - skierBitmap.width / 2f
+            // Position du skieur qui progresse de gauche à droite
+            val progressRatio = distance / totalDistance
+            val skierX = (w * 0.1f) + (progressRatio * w * 0.6f) + playerOffset * 100f - skierBitmap.width / 2f
             val skierY = h * 0.75f - skierBitmap.height
             canvas.drawBitmap(skierBitmap, skierX, skierY, null)
 
             if (gameState == GameState.SHOOTING || gameState == GameState.FINISHED) {
+                // Interface de tir
                 for (i in targetPositions.indices) {
                     val px = targetPositions[i].x * w
                     val py = targetPositions[i].y * h
@@ -201,10 +256,16 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 canvas.drawLine(crosshair.x * w - 10, crosshair.y * h, crosshair.x * w + 10, crosshair.y * h, paint)
                 canvas.drawLine(crosshair.x * w, crosshair.y * h - 10, crosshair.x * w, crosshair.y * h + 10, paint)
             }
+            
+            // Barre de progression
+            paint.color = Color.BLACK
+            canvas.drawRect(w * 0.1f, 20f, w * 0.9f, 40f, paint)
+            paint.color = Color.GREEN
+            canvas.drawRect(w * 0.1f, 20f, w * 0.1f + (progressRatio * w * 0.8f), 40f, paint)
         }
     }
 
     enum class GameState {
-        SKIING, SHOOTING, FINISHED
+        SKIING, SHOOTING, FINAL_SKIING, FINISHED
     }
-} 
+}
