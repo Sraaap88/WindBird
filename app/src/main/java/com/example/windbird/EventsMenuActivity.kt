@@ -15,6 +15,7 @@ class EventsMenuActivity : Activity() {
     private lateinit var playerNames: ArrayList<String>
     private lateinit var playerCountries: ArrayList<String>
     private var numberOfPlayers = 1
+    private var practiceMode = false
     
     private lateinit var tournamentData: TournamentData
     private lateinit var eventsLayout: LinearLayout
@@ -44,6 +45,7 @@ class EventsMenuActivity : Activity() {
         playerNames = intent.getStringArrayListExtra("player_names") ?: arrayListOf()
         playerCountries = intent.getStringArrayListExtra("player_countries") ?: arrayListOf()
         numberOfPlayers = intent.getIntExtra("number_of_players", 1)
+        practiceMode = intent.getBooleanExtra("practice_mode", false)
         
         while (playerNames.size < 4) {
             playerNames.add("IA ${playerNames.size + 1}")
@@ -65,7 +67,7 @@ class EventsMenuActivity : Activity() {
         }
         
         val titleText = TextView(this).apply {
-            text = "🏆 WINTER GAMES TOURNAMENT 🏆"
+            text = if (practiceMode) "🎯 MODE PRATIQUE 🎯" else "🏆 WINTER GAMES TOURNAMENT 🏆"
             textSize = 24f
             setTextColor(Color.WHITE)
             setTypeface(null, android.graphics.Typeface.BOLD)
@@ -75,7 +77,7 @@ class EventsMenuActivity : Activity() {
         mainLayout.addView(titleText)
         
         statusText = TextView(this).apply {
-            text = "Sélectionnez une épreuve pour commencer"
+            text = if (practiceMode) "Choisissez une épreuve à pratiquer" else "Sélectionnez une épreuve pour commencer"
             textSize = 14f
             setTextColor(Color.CYAN)
             gravity = android.view.Gravity.CENTER
@@ -83,7 +85,9 @@ class EventsMenuActivity : Activity() {
         }
         mainLayout.addView(statusText)
         
-        createPlayersList(mainLayout)
+        if (!practiceMode) {
+            createPlayersList(mainLayout)
+        }
         
         eventsLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -278,6 +282,7 @@ class EventsMenuActivity : Activity() {
                 putExtra("tournament_data", tournamentData)
                 putExtra("event_index", eventIndex)
                 putExtra("number_of_players", numberOfPlayers)
+                putExtra("practice_mode", practiceMode)
             }
             startActivityForResult(intent, 100)
         } else {
