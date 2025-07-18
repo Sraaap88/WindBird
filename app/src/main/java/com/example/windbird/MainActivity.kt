@@ -9,6 +9,12 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import android.content.Intent
+import android.widget.Button
+import android.widget.LinearLayout
+import android.graphics.Color
+import android.view.ViewGroup
+import android.widget.TextView
 
 class MainActivity : Activity() {
 
@@ -31,6 +37,9 @@ class MainActivity : Activity() {
         handler = Handler(Looper.getMainLooper())
         animationHandler = Handler(Looper.getMainLooper())
         
+        // NOUVEAU : Ajouter le bouton Winter Games
+        addWinterGamesButton()
+        
         // Démarrer l'animation continue
         startContinuousAnimation()
         
@@ -39,6 +48,78 @@ class MainActivity : Activity() {
             startRecording()
         } else {
             requestPermissions()
+        }
+    }
+    
+    // NOUVELLE FONCTION : Ajouter le bouton Winter Games
+    private fun addWinterGamesButton() {
+        try {
+            // Trouver le layout principal (supposé être un LinearLayout ou FrameLayout)
+            val rootView = findViewById<ViewGroup>(android.R.id.content)
+            val mainLayout = rootView.getChildAt(0) as? ViewGroup
+            
+            if (mainLayout != null) {
+                // Créer un conteneur pour le bouton Winter Games
+                val buttonContainer = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(20, 20, 20, 20)
+                }
+                
+                // Titre Winter Games
+                val titleText = TextView(this).apply {
+                    text = "🎿 WINTER GAMES 🏔️"
+                    textSize = 20f
+                    setTextColor(Color.WHITE)
+                    gravity = android.view.Gravity.CENTER
+                    setTypeface(null, android.graphics.Typeface.BOLD)
+                }
+                
+                // Bouton Winter Games
+                val winterGamesButton = Button(this).apply {
+                    text = "JOUER AUX JEUX D'HIVER"
+                    textSize = 16f
+                    setTextColor(Color.WHITE)
+                    setBackgroundColor(Color.parseColor("#0066cc"))
+                    setTypeface(null, android.graphics.Typeface.BOLD)
+                    setPadding(30, 20, 30, 20)
+                    
+                    setOnClickListener {
+                        val intent = Intent(this@MainActivity, WinterGamesMenuActivity::class.java)
+                        startActivity(intent)
+                    }
+                }
+                
+                // Paramètres de layout
+                val buttonParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, 10, 0, 0)
+                }
+                
+                // Ajouter les éléments au conteneur
+                buttonContainer.addView(titleText)
+                buttonContainer.addView(winterGamesButton, buttonParams)
+                
+                // Ajouter le conteneur au layout principal
+                val containerParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                
+                when (mainLayout) {
+                    is LinearLayout -> {
+                        mainLayout.addView(buttonContainer, containerParams)
+                    }
+                    else -> {
+                        // Si ce n'est pas un LinearLayout, utiliser addView basique
+                        mainLayout.addView(buttonContainer)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // Si l'ajout automatique échoue, ne rien faire pour ne pas casser l'app
         }
     }
     
