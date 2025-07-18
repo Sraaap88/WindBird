@@ -8,6 +8,7 @@ import android.widget.*
 import android.graphics.Color
 import android.view.ViewGroup
 import android.view.View
+import java.io.Serializable
 
 class EventsMenuActivity : Activity() {
     
@@ -345,9 +346,6 @@ class EventsMenuActivity : Activity() {
         LOCKED, AVAILABLE, IN_PROGRESS, COMPLETED
     }
 }
-
-// Classe pour gérer les données du tournoi
-import java.io.Serializable
 
 class TournamentData(
     val playerNames: ArrayList<String>,
