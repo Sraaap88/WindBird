@@ -45,6 +45,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
     private var eventIndex: Int = 0
     private var numberOfPlayers: Int = 1
     private var currentPlayerIndex: Int = 0
+    private var practiceMode: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,6 +54,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
         tournamentData = intent.getSerializableExtra("tournament_data") as TournamentData
         eventIndex = intent.getIntExtra("event_index", 0)
         numberOfPlayers = intent.getIntExtra("number_of_players", 1)
+        practiceMode = intent.getBooleanExtra("practice_mode", false)
         currentPlayerIndex = intent.getIntExtra("current_player_index", tournamentData.getNextPlayer(eventIndex))
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -145,7 +147,11 @@ class BiathlonActivity : Activity(), SensorEventListener {
             // Fin de l'épreuve
             if (distance >= totalDistance) {
                 gameState = GameState.FINISHED
-                tournamentData.addScore(currentPlayerIndex, eventIndex, calculateScore())
+                
+                if (!practiceMode) {
+                    // Mode tournoi - sauvegarder le score
+                    tournamentData.addScore(currentPlayerIndex, eventIndex, calculateScore())
+                }
                 
                 // Attendre 2 secondes avant de continuer
                 statusText.postDelayed({
@@ -168,6 +174,21 @@ class BiathlonActivity : Activity(), SensorEventListener {
     }
 
     private fun proceedToNextPlayerOrEvent() {
+        if (practiceMode) {
+            // Mode pratique - retourner au menu des épreuves
+            val intent = Intent(this, EventsMenuActivity::class.java).apply {
+                putExtra("practice_mode", true)
+                putExtra("tournament_data", tournamentData)
+                putStringArrayListExtra("player_names", tournamentData.playerNames)
+                putStringArrayListExtra("player_countries", tournamentData.playerCountries)
+                putExtra("number_of_players", numberOfPlayers)
+            }
+            startActivity(intent)
+            finish()
+            return
+        }
+        
+        // Mode tournoi - logique normale
         val nextPlayer = tournamentData.getNextPlayer(eventIndex)
         
         if (nextPlayer != -1) {
