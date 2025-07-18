@@ -2,66 +2,32 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.windbird">
     
-    <!-- VOS permissions existantes -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    
-    <!-- NOUVELLES permissions pour Winter Games -->
+    <!-- Permission pour le gyroscope -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     
-    <!-- VOS features existantes -->
-    <uses-feature 
-        android:name="android.hardware.microphone" 
-        android:required="true" />
-    
-    <!-- NOUVELLE feature pour Winter Games -->
+    <!-- Feature gyroscope obligatoire -->
     <uses-feature 
         android:name="android.hardware.sensor.gyroscope" 
         android:required="true" />
     
     <application
         android:allowBackup="true"
-        android:label="WindBird"
+        android:label="Winter Games"
         android:supportsRtl="true"
-        android:requestLegacyExternalStorage="true"
         android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
         
-        <!-- VOTRE activité principale existante -->
+        <!-- Activité principale Winter Games -->
         <activity android:name=".MainActivity"
             android:exported="true"
-            android:screenOrientation="portrait">
+            android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
         
-        <!-- NOUVELLES activités Winter Games -->
-        <activity android:name=".WinterGamesMenuActivity" 
-            android:screenOrientation="landscape"
-            android:configChanges="orientation|screenSize" />
+        <!-- Activité Biathlon -->
         <activity android:name=".BiathlonActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".SkiJumpActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".BobsleighActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".SpeedSkatingActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".SlalomActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".SnowboardActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".FreestyleActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".LugeActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".CurlingActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".HockeyActivity" 
-            android:screenOrientation="landscape" />
-        <activity android:name=".OptionsActivity" 
             android:screenOrientation="landscape" />
         
     </application>
