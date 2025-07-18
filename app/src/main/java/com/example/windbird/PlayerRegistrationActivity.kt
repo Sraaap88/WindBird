@@ -56,13 +56,20 @@ class PlayerRegistrationActivity : Activity() {
         val startButton = Button(this).apply {
             text = "Démarrer le tournoi"
             setOnClickListener {
-                val names = mutableListOf<String>()
-                val countries = mutableListOf<String>()
+                val names = arrayListOf<String>()
+                val countries = arrayListOf<String>()
                 for ((nameField, countrySpinner) in playerForms) {
                     names.add(nameField.text.toString().ifBlank { "Anonyme" })
                     countries.add(countrySpinner.selectedItem.toString())
                 }
-                val tournamentData = TournamentData(numberOfPlayers, 3, names.toList(), countries.toList())
+                
+                // Compléter avec l'IA si nécessaire
+                while (names.size < 4) {
+                    names.add("IA ${names.size + 1}")
+                    countries.add("🤖 Intelligence Artificielle")
+                }
+                
+                val tournamentData = TournamentData(names, countries)
                 val intent = Intent(this@PlayerRegistrationActivity, BiathlonActivity::class.java)
                 intent.putExtra("tournament_data", tournamentData)
                 intent.putExtra("event_index", 0)
