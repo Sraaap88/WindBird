@@ -62,7 +62,7 @@ class PlayerRegistrationActivity : Activity() {
                     names.add(nameField.text.toString().ifBlank { "Anonyme" })
                     countries.add(countrySpinner.selectedItem.toString())
                 }
-                val tournamentData = TournamentData(numberOfPlayers, 3, names, countries) // suppose 3 épreuves
+                val tournamentData = TournamentData(numberOfPlayers, 3, names.toList(), countries.toList())
                 val intent = Intent(this@PlayerRegistrationActivity, BiathlonActivity::class.java)
                 intent.putExtra("tournament_data", tournamentData)
                 intent.putExtra("event_index", 0)
