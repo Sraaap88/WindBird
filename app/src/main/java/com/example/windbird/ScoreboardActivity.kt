@@ -13,14 +13,12 @@ class ScoreboardActivity : Activity() {
     private lateinit var tournamentData: TournamentData
     private lateinit var mainLayout: LinearLayout
     
-    // Noms des épreuves pour l'affichage
     private val eventNames = arrayOf(
         "Biathlon", "Saut à Ski", "Bobsleigh", "Patinage Vitesse", 
         "Slalom", "Snowboard Halfpipe", "Ski Freestyle", "Luge",
         "Curling", "Hockey sur Glace"
     )
     
-    // Émojis des médailles
     private val medals = arrayOf("🥇", "🥈", "🥉", "🏅")
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,20 +29,20 @@ class ScoreboardActivity : Activity() {
             WindowManager.LayoutParams.FLAG_FULLSCREEN
         )
         
-        // Récupérer les données du tournoi
         tournamentData = intent.getSerializableExtra("tournament_data") as TournamentData
         
         setupUI()
     }
     
     private fun setupUI() {
+        val scrollView = ScrollView(this)
+        
         mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#001122"))
             setPadding(20, 20, 20, 20)
         }
         
-        // Titre
         val titleText = TextView(this).apply {
             text = "🏆 TABLEAU DES SCORES 🏆"
             textSize = 28f
@@ -55,26 +53,15 @@ class ScoreboardActivity : Activity() {
         }
         mainLayout.addView(titleText)
         
-        // Onglets
         createTabs()
-        
-        // Contenu principal dans un ScrollView
-        val scrollView = ScrollView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
-            )
-        }
         
         val contentLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
-        scrollView.addView(contentLayout)
-        mainLayout.addView(scrollView)
         
-        // Affichage par défaut : classement général
         showGeneralRanking(contentLayout)
+        mainLayout.addView(contentLayout)
         
-        // Bouton retour
         val backButton = Button(this).apply {
             text = "↩️ RETOUR AU MENU"
             textSize = 16f
@@ -94,7 +81,8 @@ class ScoreboardActivity : Activity() {
         backButton.layoutParams = buttonParams
         mainLayout.addView(backButton)
         
-        setContentView(mainLayout)
+        scrollView.addView(mainLayout)
+        setContentView(scrollView)
     }
     
     private fun createTabs() {
@@ -103,7 +91,6 @@ class ScoreboardActivity : Activity() {
             setPadding(0, 0, 0, 20)
         }
         
-        // Onglet Classement Général
         val generalTab = Button(this).apply {
             text = "🏅 GÉNÉRAL"
             textSize = 14f
@@ -117,7 +104,6 @@ class ScoreboardActivity : Activity() {
         }
         tabLayout.addView(generalTab)
         
-        // Onglet Par Épreuve
         val eventsTab = Button(this).apply {
             text = "🎯 PAR ÉPREUVE"
             textSize = 14f
@@ -135,23 +121,18 @@ class ScoreboardActivity : Activity() {
     }
     
     private fun showGeneralTab() {
-        // Rafraîchir l'affichage avec le classement général
-        val scrollView = mainLayout.getChildAt(2) as ScrollView
-        val contentLayout = scrollView.getChildAt(0) as LinearLayout
+        val contentLayout = mainLayout.getChildAt(2) as LinearLayout
         contentLayout.removeAllViews()
         showGeneralRanking(contentLayout)
     }
     
     private fun showEventsTab() {
-        // Rafraîchir l'affichage avec les résultats par épreuve
-        val scrollView = mainLayout.getChildAt(2) as ScrollView
-        val contentLayout = scrollView.getChildAt(0) as LinearLayout
+        val contentLayout = mainLayout.getChildAt(2) as LinearLayout
         contentLayout.removeAllViews()
         showEventDetails(contentLayout)
     }
     
     private fun showGeneralRanking(parent: LinearLayout) {
-        // Calculer le classement général
         val playerRankings = mutableListOf<PlayerRanking>()
         
         for (i in 0..3) {
@@ -171,10 +152,8 @@ class ScoreboardActivity : Activity() {
             ))
         }
         
-        // Trier par score total décroissant
         playerRankings.sortByDescending { it.totalScore }
         
-        // Titre du classement
         val rankingTitle = TextView(this).apply {
             text = "🏆 CLASSEMENT GÉNÉRAL 🏆"
             textSize = 20f
@@ -185,10 +164,7 @@ class ScoreboardActivity : Activity() {
         }
         parent.addView(rankingTitle)
         
-        // Podium (top 3)
         createPodium(parent, playerRankings)
-        
-        // Classement détaillé
         createDetailedRanking(parent, playerRankings)
     }
     
@@ -199,9 +175,8 @@ class ScoreboardActivity : Activity() {
             setPadding(0, 20, 0, 30)
         }
         
-        // Afficher le podium : 2ème, 1er, 3ème
         val podiumOrder = if (rankings.size >= 3) listOf(1, 0, 2) else listOf(0)
-        val podiumHeights = arrayOf(120, 150, 100) // Hauteurs différentes
+        val podiumHeights = arrayOf(120, 150, 100)
         val podiumColors = arrayOf(Color.parseColor("#C0C0C0"), Color.parseColor("#FFD700"), Color.parseColor("#CD7F32"))
         
         for (i in podiumOrder.indices) {
@@ -217,7 +192,6 @@ class ScoreboardActivity : Activity() {
                     }
                 }
                 
-                // Nom et pays
                 val nameText = TextView(this).apply {
                     text = ranking.name
                     textSize = 14f
@@ -235,7 +209,6 @@ class ScoreboardActivity : Activity() {
                 }
                 podiumItem.addView(countryText)
                 
-                // Position et médaille
                 val positionText = TextView(this).apply {
                     text = "${medals[rankIndex]} ${rankIndex + 1}${when(rankIndex) { 0 -> "er"; else -> "ème" }}"
                     textSize = 24f
@@ -246,7 +219,6 @@ class ScoreboardActivity : Activity() {
                 }
                 podiumItem.addView(positionText)
                 
-                // Score
                 val scoreText = TextView(this).apply {
                     text = "${ranking.totalScore} pts"
                     textSize = 16f
@@ -256,7 +228,6 @@ class ScoreboardActivity : Activity() {
                 }
                 podiumItem.addView(scoreText)
                 
-                // Médailles
                 val medalsText = TextView(this).apply {
                     text = "🥇${ranking.goldMedals} 🥈${ranking.silverMedals} 🥉${ranking.bronzeMedals}"
                     textSize = 12f
@@ -266,7 +237,6 @@ class ScoreboardActivity : Activity() {
                 }
                 podiumItem.addView(medalsText)
                 
-                // Socle du podium
                 val podium = TextView(this).apply {
                     text = "${rankIndex + 1}"
                     textSize = 20f
@@ -306,9 +276,9 @@ class ScoreboardActivity : Activity() {
                 setPadding(15, 15, 15, 15)
                 setBackgroundColor(
                     when (i) {
-                        0 -> Color.parseColor("#FFD700") // Or
-                        1 -> Color.parseColor("#C0C0C0") // Argent
-                        2 -> Color.parseColor("#CD7F32") // Bronze
+                        0 -> Color.parseColor("#FFD700")
+                        1 -> Color.parseColor("#C0C0C0")
+                        2 -> Color.parseColor("#CD7F32")
                         else -> Color.parseColor("#003366")
                     }
                 )
@@ -320,7 +290,6 @@ class ScoreboardActivity : Activity() {
                 }
             }
             
-            // Position
             val positionText = TextView(this).apply {
                 text = "${i + 1}"
                 textSize = 24f
@@ -331,7 +300,6 @@ class ScoreboardActivity : Activity() {
             }
             playerLayout.addView(positionText)
             
-            // Info joueur
             val playerInfo = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -361,7 +329,6 @@ class ScoreboardActivity : Activity() {
             
             playerLayout.addView(playerInfo)
             
-            // Score et médailles
             val scoresLayout = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.END
@@ -413,7 +380,6 @@ class ScoreboardActivity : Activity() {
                 }
             }
             
-            // Nom de l'épreuve
             val eventNameText = TextView(this).apply {
                 text = "🏅 ${eventNames[eventIndex]}"
                 textSize = 18f
@@ -423,7 +389,6 @@ class ScoreboardActivity : Activity() {
             }
             eventLayout.addView(eventNameText)
             
-            // Résultats pour cette épreuve
             val eventResults = mutableListOf<EventResult>()
             var hasResults = false
             
@@ -444,10 +409,8 @@ class ScoreboardActivity : Activity() {
             }
             
             if (hasResults) {
-                // Trier par score décroissant
                 eventResults.sortByDescending { it.score }
                 
-                // Afficher les résultats
                 for (i in eventResults.indices) {
                     val result = eventResults[i]
                     
@@ -456,9 +419,9 @@ class ScoreboardActivity : Activity() {
                         setPadding(10, 8, 10, 8)
                         setBackgroundColor(
                             when (i) {
-                                0 -> Color.parseColor("#FFD700") // Or
-                                1 -> Color.parseColor("#C0C0C0") // Argent
-                                2 -> Color.parseColor("#CD7F32") // Bronze
+                                0 -> Color.parseColor("#FFD700")
+                                1 -> Color.parseColor("#C0C0C0")
+                                2 -> Color.parseColor("#CD7F32")
                                 else -> Color.parseColor("#004488")
                             }
                         )
@@ -470,7 +433,6 @@ class ScoreboardActivity : Activity() {
                         }
                     }
                     
-                    // Position et médaille
                     val positionText = TextView(this).apply {
                         text = "${medals[i]} ${i + 1}"
                         textSize = 14f
@@ -480,7 +442,6 @@ class ScoreboardActivity : Activity() {
                     }
                     resultLayout.addView(positionText)
                     
-                    // Nom du joueur
                     val nameText = TextView(this).apply {
                         text = "${result.name} (${result.country})"
                         textSize = 12f
@@ -489,7 +450,6 @@ class ScoreboardActivity : Activity() {
                     }
                     resultLayout.addView(nameText)
                     
-                    // Score
                     val scoreText = TextView(this).apply {
                         text = "${result.score} pts"
                         textSize = 14f
@@ -502,7 +462,6 @@ class ScoreboardActivity : Activity() {
                     eventLayout.addView(resultLayout)
                 }
             } else {
-                // Aucun résultat
                 val noResultText = TextView(this).apply {
                     text = "Aucun résultat encore disponible"
                     textSize = 14f
@@ -518,10 +477,10 @@ class ScoreboardActivity : Activity() {
     }
     
     private fun calculateMedals(playerIndex: Int): IntArray {
-        val medals = intArrayOf(0, 0, 0) // Or, Argent, Bronze
+        val medals = intArrayOf(0, 0, 0)
         
         for (eventIndex in 0..9) {
-            val scores = mutableListOf<Pair<Int, Int>>() // (playerIndex, score)
+            val scores = mutableListOf<Pair<Int, Int>>()
             
             for (i in 0..3) {
                 val score = tournamentData.getScore(i, eventIndex)
@@ -555,7 +514,6 @@ class ScoreboardActivity : Activity() {
         return count
     }
     
-    // Classes de données
     data class PlayerRanking(
         val playerIndex: Int,
         val name: String,
