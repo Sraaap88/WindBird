@@ -7,6 +7,7 @@ import android.view.WindowManager
 import android.widget.*
 import android.graphics.Color
 import android.view.ViewGroup
+import android.view.View
 
 class MainActivity : Activity() {
     
