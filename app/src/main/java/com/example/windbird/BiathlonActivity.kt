@@ -18,7 +18,7 @@ import android.widget.TextView
 import android.view.ViewGroup
 import kotlin.math.*
 import kotlin.random.Random
-
+ 
 class BiathlonActivity : Activity(), SensorEventListener {
     
     private var sensorManager: SensorManager? = null
