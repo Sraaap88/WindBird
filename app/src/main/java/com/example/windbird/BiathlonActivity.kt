@@ -93,13 +93,14 @@ class BiathlonActivity : Activity(), SensorEventListener {
         val z = event.values[2]  // Ajout de l'axe Z pour la rotation
 
         if (gameState == GameState.SKIING) {
-            // Mouvement horizontal du skieur (reste pareil)
-            playerOffset += y * 0.1f
+            // Mouvement horizontal du skieur (incliner gauche/droite)
+            playerOffset += x * 0.1f  // Changé de y à x pour incliner latéralement
             playerOffset = playerOffset.coerceIn(-1f, 1f)
 
-            // Mouvement vers l'avant avec rotation du téléphone comme un volant
+            // Mouvement vers l'avant avec rotation du téléphone comme un volant (y = rotation)
             val rotationDirection = when {
-                abs(z) > 0.5f -> if (z > 0) 1 else -1  // Rotation autour de l'axe Z
+                y > 1.0f -> 1    // Rotation dans un sens
+                y < -1.0f -> -1  // Rotation dans l'autre sens
                 else -> 0
             }
             if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
@@ -125,13 +126,14 @@ class BiathlonActivity : Activity(), SensorEventListener {
         }
 
         if (gameState == GameState.FINAL_SKIING) {
-            // Mouvement horizontal du skieur (reste pareil)
-            playerOffset += y * 0.1f
+            // Mouvement horizontal du skieur (incliner gauche/droite)
+            playerOffset += x * 0.1f  // Changé de y à x pour incliner latéralement
             playerOffset = playerOffset.coerceIn(-1f, 1f)
 
-            // Mouvement vers l'avant avec rotation du téléphone comme un volant
+            // Mouvement vers l'avant avec rotation du téléphone comme un volant (y = rotation)
             val rotationDirection = when {
-                abs(z) > 0.5f -> if (z > 0) 1 else -1  // Rotation autour de l'axe Z
+                y > 1.0f -> 1    // Rotation dans un sens
+                y < -1.0f -> -1  // Rotation dans l'autre sens
                 else -> 0
             }
             if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
