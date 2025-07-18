@@ -94,13 +94,13 @@ class BiathlonActivity : Activity(), SensorEventListener {
 
         if (gameState == GameState.SKIING) {
             // Mouvement horizontal du skieur (incliner gauche/droite)
-            playerOffset += x * 0.1f  // Changé de y à x pour incliner latéralement
+            playerOffset += x * 0.1f
             playerOffset = playerOffset.coerceIn(-1f, 1f)
 
-            // Mouvement vers l'avant avec rotation du téléphone comme un volant (y = rotation)
+            // Mouvement vers l'avant avec rotation du téléphone comme un volant (z = rotation à plat)
             val rotationDirection = when {
-                y > 1.0f -> 1    // Rotation dans un sens
-                y < -1.0f -> -1  // Rotation dans l'autre sens
+                z > 1.0f -> 1    // Rotation dans un sens
+                z < -1.0f -> -1  // Rotation dans l'autre sens
                 else -> 0
             }
             if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
@@ -127,13 +127,13 @@ class BiathlonActivity : Activity(), SensorEventListener {
 
         if (gameState == GameState.FINAL_SKIING) {
             // Mouvement horizontal du skieur (incliner gauche/droite)
-            playerOffset += x * 0.1f  // Changé de y à x pour incliner latéralement
+            playerOffset += x * 0.1f
             playerOffset = playerOffset.coerceIn(-1f, 1f)
 
-            // Mouvement vers l'avant avec rotation du téléphone comme un volant (y = rotation)
+            // Mouvement vers l'avant avec rotation du téléphone comme un volant (z = rotation à plat)
             val rotationDirection = when {
-                y > 1.0f -> 1    // Rotation dans un sens
-                y < -1.0f -> -1  // Rotation dans l'autre sens
+                z > 1.0f -> 1    // Rotation dans un sens
+                z < -1.0f -> -1  // Rotation dans l'autre sens
                 else -> 0
             }
             if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
