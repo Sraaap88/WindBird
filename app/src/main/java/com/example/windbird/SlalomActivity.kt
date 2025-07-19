@@ -22,7 +22,7 @@ class SlalomActivity : Activity(), SensorEventListener {
     private lateinit var statusText: TextView
 
     private var sensorManager: SensorManager? = null
-    private var gyroscope: Sensor? = nil
+    private var gyroscope: Sensor? = null
 
     // Variables de gameplay SLALOM
     private var gameState = GameState.PREPARATION
