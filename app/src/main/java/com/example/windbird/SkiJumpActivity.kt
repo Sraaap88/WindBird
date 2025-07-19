@@ -1,4 +1,7 @@
-package com.example.windbird
+// CORRIGÉ : Validation du currentPlayerIndex
+        if (currentPlayerIndex == -1 || currentPlayerIndex >= tournamentData.playerNames.size) {
+            currentPlayerIndex = 0 // Fallback au premier joueur
+        }package com.example.windbird
 
 import android.app.Activity
 import android.content.Context
@@ -69,7 +72,14 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         eventIndex = intent.getIntExtra("event_index", 0)
         numberOfPlayers = intent.getIntExtra("number_of_players", 1)
         practiceMode = intent.getBooleanExtra("practice_mode", false)
-        currentPlayerIndex = intent.getIntExtra("current_player_index", tournamentData.getNextPlayer(eventIndex))
+        
+        // CORRIGÉ : Comme dans BiathlonActivity - utiliser getNextPlayer si pas de current_player_index
+        val intentPlayerIndex = intent.getIntExtra("current_player_index", -1)
+        currentPlayerIndex = if (intentPlayerIndex != -1) {
+            intentPlayerIndex
+        } else {
+            tournamentData.getNextPlayer(eventIndex)
+        }
 
         // Initialiser les capteurs
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -333,12 +343,22 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
     
     private fun updateStatus() {
-        statusText.text = when (gameState) {
-            GameState.APPROACH -> "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | Élan: ${speed.toInt()} km/h (inclinez vers l'avant)"
-            GameState.TAKEOFF -> "🚀 ${tournamentData.playerNames[currentPlayerIndex]} | Décollage! (redressez le téléphone)"
-            GameState.FLIGHT -> "✈️ ${tournamentData.playerNames[currentPlayerIndex]} | Vol: ${jumpDistance.toInt()}m (stabilisez les 3 axes!)"
-            GameState.LANDING -> "🎯 ${tournamentData.playerNames[currentPlayerIndex]} | Atterrissage (inclinez vers l'avant)"
-            GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Distance: ${jumpDistance.toInt()}m | Score: ${calculateScore()}"
+        try {
+            val playerName = if (currentPlayerIndex < tournamentData.playerNames.size) {
+                tournamentData.playerNames[currentPlayerIndex]
+            } else {
+                "Joueur ${currentPlayerIndex + 1}"
+            }
+            
+            statusText.text = when (gameState) {
+                GameState.APPROACH -> "🎿 $playerName | Élan: ${speed.toInt()} km/h (inclinez vers l'avant)"
+                GameState.TAKEOFF -> "🚀 $playerName | Décollage! (redressez le téléphone)"
+                GameState.FLIGHT -> "✈️ $playerName | Vol: ${jumpDistance.toInt()}m (stabilisez les 3 axes!)"
+                GameState.LANDING -> "🎯 $playerName | Atterrissage (inclinez vers l'avant)"
+                GameState.FINISHED -> "✅ $playerName | Distance: ${jumpDistance.toInt()}m | Score: ${calculateScore()}"
+            }
+        } catch (e: Exception) {
+            statusText.text = "Saut à Ski - Phase: ${gameState.name}"
         }
     }
 
@@ -497,7 +517,8 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.color = Color.BLACK
             paint.textSize = 16f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("${currentPlayerIndex + 1}", 0f, 8f, paint)
+            val playerNumber = if (currentPlayerIndex < 4) currentPlayerIndex + 1 else 1
+            canvas.drawText("$playerNumber", 0f, 8f, paint)
             
             // Bras étendus
             paint.color = Color.parseColor("#0066CC")
