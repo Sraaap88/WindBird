@@ -84,6 +84,9 @@ class BobsledActivity : Activity(), SensorEventListener {
         // Initialiser les capteurs
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+        
+        // AJOUTÉ : Charger le sprite sheet du bobsleigh
+        bobsledSpriteSheet = BitmapFactory.decodeResource(resources, R.drawable.bobsled_sprite)
 
         // Créer l'interface
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -119,6 +122,10 @@ class BobsledActivity : Activity(), SensorEventListener {
         steeringAngle = 0f
         raceTime = 0f
         gameState = GameState.START_PUSH
+        currentFrame = 2  // AJOUTÉ : Frame centrale par défaut
+        accelerationEffect = 0f  // AJOUTÉ : Reset des effets
+        brakingEffect = 0f
+        particles.clear()  // AJOUTÉ : Vider les particules
         generateTrackSection()
     }
 
@@ -181,16 +188,28 @@ class BobsledActivity : Activity(), SensorEventListener {
         steeringAngle = x * 0.5f
         steeringAngle = steeringAngle.coerceIn(-1f, 1f)
         
+        // AJOUTÉ : Mise à jour de la frame selon le braquage
+        updateBobsledFrame()
+        
         // Incliner avant/arrière = vitesse
         if (y < -0.5f) {
             // Incliner vers l'avant = accélérer
             speed += 1.5f
+            accelerationEffect = 1f // AJOUTÉ : Effet d'accélération
+            brakingEffect = 0f
+            generateAccelerationParticles() // AJOUTÉ : Particules d'accélération
         } else if (y > 0.5f) {
             // Incliner vers l'arrière = freiner
             brakingForce = y * 0.3f
             speed -= brakingForce * 3f
+            brakingEffect = 1f // AJOUTÉ : Effet de freinage
+            accelerationEffect = 0f
+            generateBrakingParticles() // AJOUTÉ : Particules de freinage
         } else {
             brakingForce = 0f
+            // AJOUTÉ : Diminuer progressivement les effets
+            accelerationEffect = maxOf(0f, accelerationEffect - 0.05f)
+            brakingEffect = maxOf(0f, brakingEffect - 0.05f)
         }
         
         // Limiter la vitesse
@@ -214,6 +233,9 @@ class BobsledActivity : Activity(), SensorEventListener {
         distance += speed * 0.1f
         trackProgress = distance / totalDistance
         
+        // AJOUTÉ : Mise à jour des particules
+        updateParticles()
+        
         // Générer une nouvelle section de piste si nécessaire
         if (distance % 200f < 1f) {
             generateTrackSection()
@@ -232,6 +254,59 @@ class BobsledActivity : Activity(), SensorEventListener {
             statusText.postDelayed({
                 proceedToNextPlayerOrEvent()
             }, 3000)
+        }
+    }
+    
+    // AJOUTÉ : Méthode pour choisir la frame selon le braquage
+    private fun updateBobsledFrame() {
+        currentFrame = when {
+            steeringAngle < -0.6f -> 0  // Gauche extrême
+            steeringAngle < -0.3f -> 1  // Gauche léger
+            steeringAngle > 0.6f  -> 4  // Droite extrême
+            steeringAngle > 0.3f  -> 3  // Droite léger
+            else                  -> 2  // Centre stable
+        }
+    }
+    
+    // AJOUTÉ : Générer des particules d'accélération
+    private fun generateAccelerationParticles() {
+        repeat(3) {
+            particles.add(Particle(
+                x = -50f - kotlin.random.Random.nextFloat() * 30f, // Derrière le bobsleigh
+                y = kotlin.random.Random.nextFloat() * 20f - 10f,  // Dispersion verticale
+                color = if (kotlin.random.Random.nextBoolean()) Color.parseColor("#FF6600") else Color.parseColor("#FF9900"),
+                life = 1f,
+                type = ParticleType.ACCELERATION
+            ))
+        }
+    }
+    
+    // AJOUTÉ : Générer des particules de freinage
+    private fun generateBrakingParticles() {
+        repeat(2) {
+            particles.add(Particle(
+                x = kotlin.random.Random.nextFloat() * 40f - 20f, // Autour du bobsleigh
+                y = 15f + kotlin.random.Random.nextFloat() * 10f,  // Sous le bobsleigh
+                color = if (kotlin.random.Random.nextBoolean()) Color.WHITE else Color.parseColor("#CCCCCC"),
+                life = 0.8f,
+                type = ParticleType.BRAKING
+            ))
+        }
+    }
+    
+    // AJOUTÉ : Mettre à jour les particules
+    private fun updateParticles() {
+        particles.removeAll { particle ->
+            particle.life -= 0.05f
+            particle.x += when (particle.type) {
+                ParticleType.ACCELERATION -> -5f // Vers l'arrière
+                ParticleType.BRAKING -> 0f       // Stationnaire
+            }
+            particle.y += when (particle.type) {
+                ParticleType.ACCELERATION -> kotlin.random.Random.nextFloat() * 2f - 1f // Mouvement aléatoire
+                ParticleType.BRAKING -> 2f       // Vers le bas
+            }
+            particle.life <= 0f // Supprimer si mort
         }
     }
     
@@ -472,45 +547,146 @@ class BobsledActivity : Activity(), SensorEventListener {
             val bobX = w * 0.1f + 40f + trackPosition * (w * 0.8f - 80f)
             val bobY = h * 0.8f
             
+            // AJOUTÉ : Dessiner les particules DERRIÈRE le bobsleigh
+            drawParticles(canvas, bobX, bobY)
+            
+            // AJOUTÉ : Halo coloré selon l'action
+            if (accelerationEffect > 0f) {
+                // Halo rouge/orange pour l'accélération
+                paint.color = Color.parseColor("#66FF6600")
+                paint.alpha = (accelerationEffect * 150).toInt()
+                canvas.drawCircle(bobX, bobY, 50f, paint)
+                paint.alpha = 255
+            }
+            
+            if (brakingEffect > 0f) {
+                // Halo bleu pour le freinage
+                paint.color = Color.parseColor("#660066FF")
+                paint.alpha = (brakingEffect * 150).toInt()
+                canvas.drawCircle(bobX, bobY, 45f, paint)
+                paint.alpha = 255
+            }
+            
             // Ombre du bobsleigh
             paint.color = Color.parseColor("#66000000")
             canvas.drawRect(bobX - 35f, bobY + 5f, bobX + 35f, bobY + 25f, paint)
             
-            // Corps principal du bobsleigh
-            paint.color = Color.parseColor("#FF4444")
-            canvas.drawRect(bobX - 30f, bobY - 15f, bobX + 30f, bobY + 15f, paint)
+            // MODIFIÉ : Dessiner le bobsleigh avec sprite sheet
+            drawBobsledSprite(canvas, bobX, bobY)
             
-            // Reflets métalliques
-            paint.color = Color.parseColor("#FFAAAA")
-            canvas.drawRect(bobX - 25f, bobY - 10f, bobX + 25f, bobY - 5f, paint)
+            // Effet de vitesse amélioré
+            if (speed > 60f) {
+                paint.color = Color.parseColor("#44FFFFFF")
+                val speedLines = (speed / 20f).toInt().coerceAtMost(8)
+                for (i in 1..speedLines) {
+                    val alpha = (255 * (1f - i * 0.15f)).toInt().coerceAtLeast(50)
+                    paint.alpha = alpha
+                    canvas.drawLine(bobX - 40f - i * 15f, bobY, bobX - 30f - i * 8f, bobY, paint)
+                }
+                paint.alpha = 255
+            }
             
-            // Numéro du joueur
+            // Indication du braquage améliorée
+            if (abs(steeringAngle) > 0.2f) {
+                paint.color = if (steeringAngle > 0) Color.parseColor("#66FF0000") else Color.parseColor("#660000FF")
+                val arrowX = bobX + steeringAngle * 50f
+                canvas.drawCircle(arrowX, bobY - 40f, 12f, paint)
+                
+                // Flèche directionnelle
+                paint.color = Color.WHITE
+                paint.textSize = 16f
+                paint.textAlign = Paint.Align.CENTER
+                val arrow = if (steeringAngle > 0) "➤" else "⬅"
+                canvas.drawText(arrow, arrowX, bobY - 30f, paint)
+            }
+        }
+        
+        // AJOUTÉ : Méthode pour dessiner le sprite du bobsleigh
+        private fun drawBobsledSprite(canvas: Canvas, x: Float, y: Float) {
+            // Calculer la position de la frame dans le sprite sheet
+            val srcX = frameSpacing + currentFrame * (frameWidth + frameSpacing)
+            val srcY = frameSpacing
+            
+            // Rectangle source (dans le sprite sheet)
+            val srcRect = Rect(srcX, srcY, srcX + frameWidth, srcY + frameHeight)
+            
+            // Taille d'affichage
+            val displayWidth = frameWidth * 0.8f
+            val displayHeight = frameHeight * 0.8f
+            
+            // Rectangle destination (à l'écran)
+            val dstRect = RectF(
+                x - displayWidth/2f,
+                y - displayHeight/2f,
+                x + displayWidth/2f,
+                y + displayHeight/2f
+            )
+            
+            // Sauvegarder l'état du canvas
+            canvas.save()
+            
+            // AJOUTÉ : Retourner verticalement l'image (flip Y)
+            canvas.scale(1f, -1f, x, y)
+            
+            // Appliquer une légère inclinaison selon le braquage
+            canvas.rotate(steeringAngle * 10f, x, y)
+            
+            // AJOUTÉ : Teinte selon l'action
+            if (accelerationEffect > 0f) {
+                // Teinte rouge/orange pour l'accélération
+                val colorFilter = PorterDuffColorFilter(
+                    Color.parseColor("#44FF6600"), 
+                    PorterDuff.Mode.SRC_ATOP
+                )
+                paint.colorFilter = colorFilter
+            } else if (brakingEffect > 0f) {
+                // Teinte bleue pour le freinage
+                val colorFilter = PorterDuffColorFilter(
+                    Color.parseColor("#440066FF"), 
+                    PorterDuff.Mode.SRC_ATOP
+                )
+                paint.colorFilter = colorFilter
+            }
+            
+            // Dessiner la frame du sprite sheet
+            canvas.drawBitmap(bobsledSpriteSheet, srcRect, dstRect, paint)
+            
+            // Remettre le filtre à null
+            paint.colorFilter = null
+            
+            canvas.restore()
+            
+            // Numéro du joueur par-dessus
             paint.color = Color.WHITE
             paint.textSize = 14f
             paint.textAlign = Paint.Align.CENTER
             val playerNumber = if (currentPlayerIndex < 4) currentPlayerIndex + 1 else 1
-            canvas.drawText("$playerNumber", bobX, bobY + 5f, paint)
-            
-            // Patins/Lames
-            paint.color = Color.parseColor("#CCCCCC")
-            paint.strokeWidth = 4f
-            canvas.drawLine(bobX - 25f, bobY + 12f, bobX - 15f, bobY + 12f, paint)
-            canvas.drawLine(bobX + 15f, bobY + 12f, bobX + 25f, bobY + 12f, paint)
-            
-            // Effet de vitesse
-            if (speed > 60f) {
-                paint.color = Color.parseColor("#44FFFFFF")
-                for (i in 1..5) {
-                    canvas.drawLine(bobX - 40f - i * 10f, bobY, bobX - 30f - i * 5f, bobY, paint)
+            canvas.drawText("$playerNumber", x, y + 5f, paint)
+        }
+        
+        // AJOUTÉ : Méthode pour dessiner les particules
+        private fun drawParticles(canvas: Canvas, bobX: Float, bobY: Float) {
+            for (particle in particles) {
+                paint.color = particle.color
+                paint.alpha = (particle.life * 255).toInt()
+                
+                val particleX = bobX + particle.x
+                val particleY = bobY + particle.y
+                
+                when (particle.type) {
+                    ParticleType.ACCELERATION -> {
+                        // Particules d'accélération : flammes/étincelles
+                        canvas.drawCircle(particleX, particleY, 3f + particle.life * 2f, paint)
+                    }
+                    ParticleType.BRAKING -> {
+                        // Particules de freinage : étincelles de friction
+                        canvas.drawCircle(particleX, particleY, 2f + particle.life * 1f, paint)
+                        // Petite trainée
+                        canvas.drawLine(particleX, particleY, particleX - 3f, particleY - 3f, paint)
+                    }
                 }
             }
-            
-            // Indication du braquage
-            if (abs(steeringAngle) > 0.2f) {
-                paint.color = if (steeringAngle > 0) Color.GREEN else Color.BLUE
-                val arrowX = bobX + steeringAngle * 50f
-                canvas.drawCircle(arrowX, bobY - 30f, 8f, paint)
-            }
+            paint.alpha = 255
         }
         
         private fun drawRaceUI(canvas: Canvas, w: Int, h: Int) {
@@ -593,6 +769,19 @@ class BobsledActivity : Activity(), SensorEventListener {
             canvas.drawText("Virages parfaits: $perfectTurns", w/2f, h * 0.8f, paint)
             canvas.drawText("Score final: ${calculateScore()} points", w/2f, h * 0.85f, paint)
         }
+    }
+
+    // AJOUTÉ : Classes pour les particules et leurs types
+    data class Particle(
+        var x: Float,
+        var y: Float,
+        val color: Int,
+        var life: Float,
+        val type: ParticleType
+    )
+    
+    enum class ParticleType {
+        ACCELERATION, BRAKING
     }
 
     enum class GameState {
