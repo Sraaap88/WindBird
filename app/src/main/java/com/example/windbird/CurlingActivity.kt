@@ -26,15 +26,15 @@ class CurlingActivity : Activity(), SensorEventListener {
     private var gyroscope: Sensor? = null
     private var accelerometer: Sensor? = null
 
-    // Variables de gameplay CURLING
+    // Variables de gameplay CURLING - RALLENTI
     private var gameState = GameState.PREPARATION
     private var phaseTimer = 0f
     
-    // Phases avec durées accessibles
-    private val preparationDuration = 5f
-    private val aimingDuration = 15f // Temps pour viser et lancer
-    private val sweepingDuration = 20f // Temps pour balayer
-    private val resultsDuration = 6f
+    // Phases avec durées TRÈS accessibles
+    private val preparationDuration = 8f // AUGMENTÉ de 5f
+    private val aimingDuration = 25f // AUGMENTÉ de 15f - Temps pour viser et lancer
+    private val sweepingDuration = 30f // AUGMENTÉ de 20f - Temps pour balayer
+    private val resultsDuration = 10f // AUGMENTÉ de 6f
     
     // Variables de curling
     private var stonePosition = PointF(0.5f, 0.95f) // Position de la pierre (x, y)
@@ -56,7 +56,7 @@ class CurlingActivity : Activity(), SensorEventListener {
     private var lastSweepTime = 0L
     private var totalSweepingTime = 0f
     
-    // Contrôles gyroscope/accéléromètre
+    // Contrôles gyroscope/accéléromètre - MOINS SENSIBLE
     private var tiltX = 0f
     private var tiltY = 0f
     private var tiltZ = 0f
@@ -67,7 +67,7 @@ class CurlingActivity : Activity(), SensorEventListener {
     
     // Cibles et scoring
     private val targetCenter = PointF(0.5f, 0.15f)
-    private val ringRadii = arrayOf(0.12f, 0.08f, 0.04f) // 3 anneaux
+    private val ringRadii = arrayOf(0.15f, 0.10f, 0.06f) // AUGMENTÉ - anneaux plus grands
     private var finalDistance = 0f
     private var ringScore = 0
     private var technique = 100f
@@ -110,9 +110,9 @@ class CurlingActivity : Activity(), SensorEventListener {
         statusText = TextView(this).apply {
             text = "🥌 CURLING - ${tournamentData.playerNames[currentPlayerIndex]}"
             setTextColor(Color.WHITE)
-            textSize = 18f
+            textSize = 22f // AUGMENTÉ de 18f
             setBackgroundColor(Color.parseColor("#001144"))
-            setPadding(20, 15, 20, 15)
+            setPadding(25, 20, 25, 20) // AUGMENTÉ
         }
 
         gameView = CurlingView(this)
@@ -186,14 +186,14 @@ class CurlingActivity : Activity(), SensorEventListener {
                 accelY = event.values[1]
                 accelZ = event.values[2]
                 
-                // Détection de mouvement de balayage
+                // Détection de mouvement de balayage - MOINS SENSIBLE
                 val totalAccel = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ)
-                sweepingMotionDetected = totalAccel > 12f && abs(accelX) > 3f
+                sweepingMotionDetected = totalAccel > 15f && abs(accelX) > 4f // AUGMENTÉ de 12f et 3f
             }
         }
 
-        // Progression du jeu
-        phaseTimer += 0.03f
+        // Progression du jeu - PLUS LENT
+        phaseTimer += 0.016f // RÉDUIT de 0.03f
 
         when (gameState) {
             GameState.PREPARATION -> handlePreparation()
@@ -217,22 +217,22 @@ class CurlingActivity : Activity(), SensorEventListener {
     
     private fun handleAiming() {
         if (!hasLaunched) {
-            // Visée avec gyroscope
-            aimingX += tiltX * 0.008f
+            // Visée avec gyroscope - MOINS SENSIBLE
+            aimingX += tiltX * 0.005f // RÉDUIT de 0.008f
             aimingX = aimingX.coerceIn(0.1f, 0.9f)
             
-            // Puissance avec inclinaison avant/arrière
+            // Puissance avec inclinaison avant/arrière - MOINS SENSIBLE
             when {
-                tiltY < -0.4f -> {
-                    launchPower += 2f
-                    technique += 0.05f
+                tiltY < -0.6f -> { // AUGMENTÉ de -0.4f
+                    launchPower += 1.5f // RÉDUIT de 2f
+                    technique += 0.03f // RÉDUIT de 0.05f
                 }
-                tiltY > 0.4f -> {
-                    launchPower -= 1.5f
+                tiltY > 0.6f -> { // AUGMENTÉ de 0.4f
+                    launchPower -= 1f // RÉDUIT de 1.5f
                 }
                 else -> {
                     // Position stable = bonus de précision
-                    precision += 0.02f
+                    precision += 0.015f // RÉDUIT de 0.02f
                 }
             }
             
@@ -243,7 +243,7 @@ class CurlingActivity : Activity(), SensorEventListener {
             
             if (!isStoneMoving) {
                 // Pierre arrêtée - passage au balayage ou résultats
-                if (stonePosition.y > 0.3f) {
+                if (stonePosition.y > 0.4f) { // AUGMENTÉ de 0.3f - pierre encore plus loin
                     // Pierre encore loin - possibilité de balayer
                     gameState = GameState.SWEEPING
                     phaseTimer = 0f
@@ -297,24 +297,24 @@ class CurlingActivity : Activity(), SensorEventListener {
         isStoneMoving = true
         
         // Calcul de la direction et puissance
-        stoneDirection = (aimingX - 0.5f) * 0.3f // Direction latérale
+        stoneDirection = (aimingX - 0.5f) * 0.25f // RÉDUIT de 0.3f - direction moins extrême
         stonePower = launchPower
         
-        // Vitesse initiale
+        // Vitesse initiale - PLUS LENTE
         val powerFactor = stonePower / 100f
-        stoneVelocity.x = stoneDirection * powerFactor * 0.015f
-        stoneVelocity.y = -powerFactor * 0.025f // Vers le haut de l'écran
+        stoneVelocity.x = stoneDirection * powerFactor * 0.01f // RÉDUIT de 0.015f
+        stoneVelocity.y = -powerFactor * 0.018f // RÉDUIT de 0.025f - vers le haut plus lent
         
-        // Rotation de la pierre
-        stoneRotation = stoneDirection * 2f
+        // Rotation de la pierre - PLUS LENTE
+        stoneRotation = stoneDirection * 1.5f // RÉDUIT de 2f
         
         // Effets visuels
-        cameraShake = powerFactor * 0.3f
+        cameraShake = powerFactor * 0.2f // RÉDUIT de 0.3f
         generateLaunchEffect()
         
         // Score technique
         val aimingAccuracy = 1f - abs(aimingX - 0.5f) * 2f
-        technique += aimingAccuracy * 10f
+        technique += aimingAccuracy * 8f // RÉDUIT de 10f
     }
     
     private fun updateStoneMovement() {
@@ -324,19 +324,19 @@ class CurlingActivity : Activity(), SensorEventListener {
         stonePosition.x += stoneVelocity.x
         stonePosition.y += stoneVelocity.y
         
-        // Friction et ralentissement
-        stoneVelocity.x *= 0.995f
-        stoneVelocity.y *= 0.995f
+        // Friction et ralentissement - PLUS LENT
+        stoneVelocity.x *= 0.998f // AUGMENTÉ de 0.995f - moins de friction
+        stoneVelocity.y *= 0.998f
         
-        // Rotation continue
-        stoneRotation += stoneDirection * 2f
+        // Rotation continue - PLUS LENTE
+        stoneRotation += stoneDirection * 1f // RÉDUIT de 2f
         
         // Génération de traînée
         generateIceTrail()
         
-        // Vérification des limites
+        // Vérification des limites - REBONDS PLUS DOUX
         if (stonePosition.x < 0.05f || stonePosition.x > 0.95f) {
-            stoneVelocity.x *= -0.5f // Rebond sur les bords
+            stoneVelocity.x *= -0.3f // RÉDUIT de -0.5f - rebond plus doux
             stonePosition.x = stonePosition.x.coerceIn(0.05f, 0.95f)
         }
         
@@ -345,9 +345,9 @@ class CurlingActivity : Activity(), SensorEventListener {
             stoneVelocity.y = 0f
         }
         
-        // Arrêt si vitesse trop faible
+        // Arrêt si vitesse trop faible - SEUIL PLUS BAS
         val totalVelocity = sqrt(stoneVelocity.x * stoneVelocity.x + stoneVelocity.y * stoneVelocity.y)
-        if (totalVelocity < 0.001f) {
+        if (totalVelocity < 0.0005f) { // RÉDUIT de 0.001f
             isStoneMoving = false
             stoneVelocity = PointF(0f, 0f)
         }
@@ -356,22 +356,22 @@ class CurlingActivity : Activity(), SensorEventListener {
     private fun performSweeping() {
         val currentTime = System.currentTimeMillis()
         
-        if (currentTime - lastSweepTime > 200) {
+        if (currentTime - lastSweepTime > 300) { // AUGMENTÉ de 200ms
             sweepingCount++
             lastSweepTime = currentTime
-            totalSweepingTime += 0.2f
+            totalSweepingTime += 0.3f // ADAPTÉ
             
-            // Effet du balayage sur la pierre
+            // Effet du balayage sur la pierre - PLUS EFFICACE
             if (isStoneMoving) {
                 // Réduction de la friction = pierre va plus loin
-                stoneVelocity.x *= 1.002f
-                stoneVelocity.y *= 1.003f
+                stoneVelocity.x *= 1.003f // AUGMENTÉ de 1.002f
+                stoneVelocity.y *= 1.004f // AUGMENTÉ de 1.003f
                 
-                // Légère correction de trajectoire
-                val targetDirection = (targetCenter.x - stonePosition.x) * 0.001f
+                // Légère correction de trajectoire - PLUS EFFICACE
+                val targetDirection = (targetCenter.x - stonePosition.x) * 0.0015f // AUGMENTÉ de 0.001f
                 stoneVelocity.x += targetDirection
                 
-                strategy += 1f
+                strategy += 1.5f // AUGMENTÉ de 1f
             }
             
             // Effets visuels
@@ -379,14 +379,14 @@ class CurlingActivity : Activity(), SensorEventListener {
         }
         
         sweepingIntensity = if (sweepingMotionDetected || sweepingActive) {
-            (sweepingIntensity + 0.1f).coerceAtMost(1f)
+            (sweepingIntensity + 0.08f).coerceAtMost(1f) // RÉDUIT de 0.1f
         } else {
-            (sweepingIntensity - 0.05f).coerceAtLeast(0f)
+            (sweepingIntensity - 0.04f).coerceAtLeast(0f) // RÉDUIT de 0.05f
         }
     }
     
     private fun generateLaunchEffect() {
-        repeat(10) {
+        repeat(8) { // RÉDUIT de 10
             stoneSparkles.add(StoneSparkle(
                 x = stonePosition.x + (kotlin.random.Random.nextFloat() - 0.5f) * 0.1f,
                 y = stonePosition.y + (kotlin.random.Random.nextFloat() - 0.5f) * 0.1f,
@@ -403,13 +403,13 @@ class CurlingActivity : Activity(), SensorEventListener {
             timestamp = System.currentTimeMillis()
         ))
         
-        if (iceTrails.size > 30) {
+        if (iceTrails.size > 40) { // AUGMENTÉ de 30
             iceTrails.removeFirst()
         }
     }
     
     private fun generateSweepingEffect() {
-        repeat(5) {
+        repeat(4) { // RÉDUIT de 5
             sweepingEffects.add(SweepingEffect(
                 x = stonePosition.x + (kotlin.random.Random.nextFloat() - 0.5f) * 0.15f,
                 y = stonePosition.y + (kotlin.random.Random.nextFloat() - 0.5f) * 0.08f,
@@ -417,18 +417,18 @@ class CurlingActivity : Activity(), SensorEventListener {
             ))
         }
         
-        if (sweepingEffects.size > 20) {
+        if (sweepingEffects.size > 25) { // AUGMENTÉ de 20
             sweepingEffects.removeFirst()
         }
     }
     
     private fun generateTargetHitEffect() {
-        repeat(15) {
+        repeat(12) { // RÉDUIT de 15
             targetRipples.add(TargetRipple(
                 x = targetCenter.x,
                 y = targetCenter.y,
                 radius = 0f,
-                maxRadius = 0.3f,
+                maxRadius = 0.4f, // AUGMENTÉ de 0.3f
                 life = 2f
             ))
         }
@@ -437,28 +437,28 @@ class CurlingActivity : Activity(), SensorEventListener {
     private fun updateEffects() {
         // Mise à jour des traînées de glace
         val currentTime = System.currentTimeMillis()
-        iceTrails.removeAll { currentTime - it.timestamp > 4000 }
+        iceTrails.removeAll { currentTime - it.timestamp > 6000 } // AUGMENTÉ de 4000
         
         // Mise à jour des effets de balayage
         sweepingEffects.removeAll { effect ->
-            effect.life -= 0.03f
+            effect.life -= 0.02f // RÉDUIT de 0.03f
             effect.life <= 0f
         }
         
         // Mise à jour des ondulations de cible
         targetRipples.removeAll { ripple ->
-            ripple.radius += 0.01f
-            ripple.life -= 0.02f
+            ripple.radius += 0.008f // RÉDUIT de 0.01f
+            ripple.life -= 0.015f // RÉDUIT de 0.02f
             ripple.life <= 0f || ripple.radius > ripple.maxRadius
         }
         
         // Mise à jour des étincelles de pierre
         stoneSparkles.removeAll { sparkle ->
-            sparkle.life -= 0.02f
+            sparkle.life -= 0.015f // RÉDUIT de 0.02f
             sparkle.life <= 0f
         }
         
-        cameraShake = maxOf(0f, cameraShake - 0.02f)
+        cameraShake = maxOf(0f, cameraShake - 0.015f) // RÉDUIT de 0.02f
     }
     
     private fun handleResults() {
@@ -483,7 +483,7 @@ class CurlingActivity : Activity(), SensorEventListener {
                 (stonePosition.y - targetCenter.y) * (stonePosition.y - targetCenter.y)
             )
             
-            // Détermination de l'anneau touché
+            // Détermination de l'anneau touché - ANNEAUX PLUS GRANDS
             ringScore = when {
                 finalDistance <= ringRadii[2] -> 50 // Centre (or)
                 finalDistance <= ringRadii[1] -> 35 // Anneau intérieur (argent)
@@ -495,7 +495,7 @@ class CurlingActivity : Activity(), SensorEventListener {
             val techniqueBonus = ((technique - 100f) * 0.5f).toInt()
             val precisionBonus = ((precision - 100f) * 0.3f).toInt()
             val strategyBonus = ((strategy - 100f) * 0.2f).toInt()
-            val sweepingBonus = (sweepingCount * 2).coerceAtMost(20)
+            val sweepingBonus = (sweepingCount * 3).coerceAtMost(25) // AUGMENTÉ de 2
             
             finalScore = maxOf(30, ringScore + techniqueBonus + precisionBonus + strategyBonus + sweepingBonus)
             scoreCalculated = true
@@ -625,8 +625,8 @@ class CurlingActivity : Activity(), SensorEventListener {
             if (cameraShake > 0f) {
                 canvas.save()
                 canvas.translate(
-                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 10f,
-                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 10f
+                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 8f, // RÉDUIT de 10f
+                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 8f
                 )
             }
             
@@ -653,20 +653,20 @@ class CurlingActivity : Activity(), SensorEventListener {
             // Piste de curling
             drawCurlingRink(canvas, w, h)
             
-            // Instructions
+            // Instructions - TEXTE PLUS GROS
             paint.color = Color.parseColor("#001144")
-            paint.textSize = 36f
+            paint.textSize = 48f // AUGMENTÉ de 36f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("🥌 CURLING STRATÉGIQUE 🥌", w/2f, h * 0.15f, paint)
             
-            paint.textSize = 22f
+            paint.textSize = 30f // AUGMENTÉ de 22f
             paint.color = Color.parseColor("#0066CC")
-            canvas.drawText("Préparez votre tir de précision...", w/2f, h * 0.85f, paint)
+            canvas.drawText("Préparez votre tir de précision...", w/2f, h * 0.8f, paint)
             
-            paint.textSize = 16f
+            paint.textSize = 22f // AUGMENTÉ de 16f
             paint.color = Color.parseColor("#666666")
-            canvas.drawText("📱 Inclinez pour viser, tapez pour lancer", w/2f, h * 0.9f, paint)
-            canvas.drawText("📱 Balayez l'écran ou le téléphone pour aider la pierre", w/2f, h * 0.95f, paint)
+            canvas.drawText("📱 Inclinez pour viser, tapez pour lancer", w/2f, h * 0.85f, paint)
+            canvas.drawText("📱 Balayez l'écran ou le téléphone pour aider", w/2f, h * 0.9f, paint)
         }
         
         private fun drawAiming(canvas: Canvas, w: Int, h: Int) {
@@ -688,16 +688,16 @@ class CurlingActivity : Activity(), SensorEventListener {
             // Interface de visée
             drawAimingInterface(canvas, w, h)
             
-            // Instructions
+            // Instructions - TEXTE PLUS GROS
             if (!hasLaunched) {
                 paint.color = Color.parseColor("#001144")
-                paint.textSize = 20f
+                paint.textSize = 28f // AUGMENTÉ de 20f
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("📱 INCLINEZ POUR VISER • TAPEZ POUR LANCER", w/2f, 50f, paint)
+                canvas.drawText("📱 INCLINEZ POUR VISER • TAPEZ POUR LANCER", w/2f, 60f, paint)
             } else {
                 paint.color = Color.parseColor("#FF6600")
-                paint.textSize = 18f
-                canvas.drawText("🥌 Pierre en mouvement...", w/2f, 40f, paint)
+                paint.textSize = 24f // AUGMENTÉ de 18f
+                canvas.drawText("🥌 Pierre en mouvement...", w/2f, 50f, paint)
             }
         }
         
@@ -715,15 +715,15 @@ class CurlingActivity : Activity(), SensorEventListener {
             // Interface de balayage
             drawSweepingInterface(canvas, w, h)
             
-            // Instructions de balayage
+            // Instructions de balayage - TEXTE PLUS GROS
             paint.color = Color.parseColor("#FF6600")
-            paint.textSize = 24f
+            paint.textSize = 32f // AUGMENTÉ de 24f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("🔥 BALAYEZ POUR AIDER LA PIERRE! 🔥", w/2f, 50f, paint)
+            canvas.drawText("🔥 BALAYEZ POUR AIDER LA PIERRE! 🔥", w/2f, 60f, paint)
             
-            paint.textSize = 18f
+            paint.textSize = 24f // AUGMENTÉ de 18f
             paint.color = Color.parseColor("#001144")
-            canvas.drawText("📱 Balayez l'écran ou bougez le téléphone", w/2f, h - 30f, paint)
+            canvas.drawText("📱 Balayez l'écran ou bougez le téléphone", w/2f, h - 40f, paint)
         }
         
         private fun drawResults(canvas: Canvas, w: Int, h: Int) {
@@ -741,18 +741,18 @@ class CurlingActivity : Activity(), SensorEventListener {
             paint.color = bannerColor
             canvas.drawRect(0f, 0f, w.toFloat(), h * 0.4f, paint)
             
-            // Score final
+            // Score final - TEXTE PLUS GROS
             paint.color = Color.parseColor("#001144")
-            paint.textSize = 72f
+            paint.textSize = 80f // AUGMENTÉ de 72f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("${finalScore}", w/2f, h * 0.2f, paint)
             
-            paint.textSize = 28f
+            paint.textSize = 36f // AUGMENTÉ de 28f
             canvas.drawText("POINTS", w/2f, h * 0.3f, paint)
             
-            // Résultat détaillé
+            // Résultat détaillé - TEXTE PLUS GROS
             paint.color = Color.parseColor("#333333")
-            paint.textSize = 20f
+            paint.textSize = 26f // AUGMENTÉ de 20f
             canvas.drawText(getRingText(), w/2f, h * 0.5f, paint)
             canvas.drawText("Distance: ${(finalDistance * 1000).toInt()}cm", w/2f, h * 0.55f, paint)
             canvas.drawText("🎯 Technique: ${technique.toInt()}%", w/2f, h * 0.6f, paint)
@@ -768,7 +768,7 @@ class CurlingActivity : Activity(), SensorEventListener {
             
             // Ligne centrale
             paint.color = Color.parseColor("#DDDDDD")
-            paint.strokeWidth = 3f
+            paint.strokeWidth = 4f // AUGMENTÉ de 3f
             paint.style = Paint.Style.STROKE
             canvas.drawLine(w/2f, 0f, w/2f, h.toFloat(), paint)
             
@@ -776,7 +776,7 @@ class CurlingActivity : Activity(), SensorEventListener {
             val targetScreenX = targetCenter.x * w
             val targetScreenY = targetCenter.y * h
             
-            // Trois anneaux concentriques
+            // Trois anneaux concentriques - PLUS GROS
             val ringColors = arrayOf(Color.BLUE, Color.WHITE, Color.RED)
             for (i in ringRadii.indices) {
                 paint.color = ringColors[i]
@@ -786,13 +786,13 @@ class CurlingActivity : Activity(), SensorEventListener {
                 
                 paint.color = Color.BLACK
                 paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 2f
+                paint.strokeWidth = 3f // AUGMENTÉ de 2f
                 canvas.drawCircle(targetScreenX, targetScreenY, radius, paint)
             }
             
             // Ligne de lancer en bas
             paint.color = Color.parseColor("#FF0000")
-            paint.strokeWidth = 4f
+            paint.strokeWidth = 6f // AUGMENTÉ de 4f
             paint.style = Paint.Style.STROKE
             canvas.drawLine(w * 0.1f, h * 0.9f, w * 0.9f, h * 0.9f, paint)
             
@@ -800,9 +800,9 @@ class CurlingActivity : Activity(), SensorEventListener {
         }
         
         private fun drawAimingLine(canvas: Canvas, w: Int, h: Int) {
-            // Ligne de visée en pointillés
+            // Ligne de visée en pointillés - PLUS VISIBLE
             paint.color = Color.parseColor("#AA00FF00")
-            paint.strokeWidth = 3f
+            paint.strokeWidth = 4f // AUGMENTÉ de 3f
             paint.style = Paint.Style.STROKE
             
             val startX = stonePosition.x * w
@@ -811,7 +811,7 @@ class CurlingActivity : Activity(), SensorEventListener {
             val endY = targetCenter.y * h
             
             // Ligne en pointillés
-            val dashLength = 20f
+            val dashLength = 25f // AUGMENTÉ de 20f
             val distance = sqrt((endX - startX) * (endX - startX) + (endY - startY) * (endY - startY))
             val steps = (distance / dashLength).toInt()
             
@@ -838,55 +838,61 @@ class CurlingActivity : Activity(), SensorEventListener {
             canvas.translate(stoneScreenX, stoneScreenY)
             canvas.rotate(stoneRotation)
             
-            // Pierre de curling
+            // Pierre de curling - PLUS GROSSE
             paint.color = Color.parseColor("#666666")
-            canvas.drawCircle(0f, 0f, 25f, paint)
+            canvas.drawCircle(0f, 0f, 30f, paint) // AUGMENTÉ de 25f
             
             paint.color = Color.parseColor("#444444")
-            canvas.drawCircle(0f, 0f, 20f, paint)
+            canvas.drawCircle(0f, 0f, 25f, paint) // AUGMENTÉ de 20f
             
-            // Poignée
+            // Poignée - PLUS GROSSE
             paint.color = Color.parseColor("#FFAA00")
-            canvas.drawCircle(0f, 0f, 8f, paint)
+            canvas.drawCircle(0f, 0f, 10f, paint) // AUGMENTÉ de 8f
             
-            // Marque de rotation
+            // Marque de rotation - PLUS VISIBLE
             paint.color = Color.WHITE
-            paint.strokeWidth = 3f
+            paint.strokeWidth = 4f // AUGMENTÉ de 3f
             paint.style = Paint.Style.STROKE
-            canvas.drawLine(0f, -15f, 0f, -5f, paint)
+            canvas.drawLine(0f, -18f, 0f, -8f, paint) // PLUS LONG
             
             paint.style = Paint.Style.FILL
             canvas.restore()
             
-            // Aura si en mouvement
+            // Ombre si au sol
+            if (!isStoneMoving) {
+                paint.color = Color.parseColor("#33000000")
+                canvas.drawOval(stoneScreenX - 40f, h * 0.85f, stoneScreenX + 40f, h * 0.9f, paint) // PLUS GROSSE
+            }
+            
+            // Aura spéciale si en mouvement
             if (isStoneMoving) {
                 paint.color = Color.parseColor("#3300FFFF")
-                canvas.drawCircle(stoneScreenX, stoneScreenY, 35f, paint)
+                canvas.drawCircle(stoneScreenX, stoneScreenY, 45f, paint) // PLUS GROSSE de 35f
             }
         }
         
         private fun drawAimingInterface(canvas: Canvas, w: Int, h: Int) {
-            val baseY = h - 120f
+            val baseY = h - 140f // PLUS BAS
             
-            // Indicateur de visée
+            // Indicateur de visée - TEXTE PLUS GROS
             paint.color = Color.parseColor("#001144")
-            paint.textSize = 18f
+            paint.textSize = 22f // AUGMENTÉ de 18f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("Visée:", 20f, baseY, paint)
+            canvas.drawText("Visée:", 30f, baseY, paint)
             
-            // Barre de visée
+            // Barre de visée - PLUS GROSSE
             paint.color = Color.parseColor("#333333")
-            canvas.drawRect(100f, baseY - 15f, 400f, baseY, paint)
+            canvas.drawRect(120f, baseY - 18f, 450f, baseY, paint) // PLUS LARGE ET HAUTE
             
             paint.color = Color.GREEN
-            val aimPos = 100f + (aimingX * 300f)
-            canvas.drawRect(aimPos - 10f, baseY - 15f, aimPos + 10f, baseY, paint)
+            val aimPos = 120f + (aimingX * 330f)
+            canvas.drawRect(aimPos - 12f, baseY - 18f, aimPos + 12f, baseY, paint) // PLUS LARGE
             
-            // Indicateur de puissance
-            canvas.drawText("Puissance:", 20f, baseY + 30f, paint)
+            // Indicateur de puissance - TEXTE PLUS GROS
+            canvas.drawText("Puissance:", 30f, baseY + 35f, paint)
             
             paint.color = Color.parseColor("#333333")
-            canvas.drawRect(100f, baseY + 15f, 400f, baseY + 30f, paint)
+            canvas.drawRect(120f, baseY + 17f, 450f, baseY + 35f, paint) // PLUS GROSSE
             
             val powerColor = when {
                 launchPower > 80f -> Color.RED
@@ -894,42 +900,42 @@ class CurlingActivity : Activity(), SensorEventListener {
                 else -> Color.GREEN
             }
             paint.color = powerColor
-            val powerWidth = (launchPower / 100f) * 300f
-            canvas.drawRect(100f, baseY + 15f, 100f + powerWidth, baseY + 30f, paint)
+            val powerWidth = (launchPower / 100f) * 330f
+            canvas.drawRect(120f, baseY + 17f, 120f + powerWidth, baseY + 35f, paint)
             
             paint.textAlign = Paint.Align.RIGHT
-            canvas.drawText("${launchPower.toInt()}%", 400f, baseY + 25f, paint)
+            canvas.drawText("${launchPower.toInt()}%", 450f, baseY + 30f, paint)
         }
         
         private fun drawSweepingInterface(canvas: Canvas, w: Int, h: Int) {
-            val baseY = h - 100f
+            val baseY = h - 120f // PLUS BAS
             
-            // Indicateur de balayage
+            // Indicateur de balayage - TEXTE PLUS GROS
             paint.color = Color.parseColor("#001144")
-            paint.textSize = 20f
+            paint.textSize = 24f // AUGMENTÉ de 20f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("Balayage:", 20f, baseY, paint)
-            canvas.drawText("Compteur: $sweepingCount", 20f, baseY + 25f, paint)
+            canvas.drawText("Balayage:", 30f, baseY, paint)
+            canvas.drawText("Compteur: $sweepingCount", 30f, baseY + 30f, paint)
             
-            // Barre d'intensité
+            // Barre d'intensité - PLUS GROSSE
             paint.color = Color.parseColor("#333333")
-            canvas.drawRect(200f, baseY - 15f, 500f, baseY, paint)
+            canvas.drawRect(230f, baseY - 18f, 580f, baseY, paint) // PLUS LARGE ET HAUTE
             
             paint.color = Color.parseColor("#FF6600")
-            val intensityWidth = sweepingIntensity * 300f
-            canvas.drawRect(200f, baseY - 15f, 200f + intensityWidth, baseY, paint)
+            val intensityWidth = sweepingIntensity * 350f
+            canvas.drawRect(230f, baseY - 18f, 230f + intensityWidth, baseY, paint)
             
             paint.color = Color.WHITE
-            paint.textSize = 14f
+            paint.textSize = 18f // AUGMENTÉ de 14f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("INTENSITÉ: ${(sweepingIntensity * 100).toInt()}%", 350f, baseY - 3f, paint)
+            canvas.drawText("INTENSITÉ: ${(sweepingIntensity * 100).toInt()}%", 405f, baseY - 5f, paint)
             
             // Indication tactile
             if (!sweepingActive && !sweepingMotionDetected) {
                 paint.color = Color.parseColor("#666666")
-                paint.textSize = 16f
+                paint.textSize = 20f // AUGMENTÉ de 16f
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("👆 Balayez l'écran ou 📱 bougez le téléphone", w/2f, baseY + 50f, paint)
+                canvas.drawText("👆 Balayez l'écran ou 📱 bougez le téléphone", w/2f, baseY + 60f, paint)
             }
         }
         
@@ -938,9 +944,9 @@ class CurlingActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#AACCCCFF")
             val currentTime = System.currentTimeMillis()
             for (trail in iceTrails) {
-                val alpha = ((4000 - (currentTime - trail.timestamp)) / 4000f * 150).toInt()
+                val alpha = ((6000 - (currentTime - trail.timestamp)) / 6000f * 180).toInt() // ADAPTÉ
                 paint.alpha = maxOf(0, alpha)
-                canvas.drawCircle(trail.x * w, trail.y * h, 6f, paint)
+                canvas.drawCircle(trail.x * w, trail.y * h, 8f, paint) // PLUS GROS de 6f
             }
             paint.alpha = 255
             
@@ -948,14 +954,14 @@ class CurlingActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#FFAA00")
             for (effect in sweepingEffects) {
                 paint.alpha = (effect.life * 255).toInt()
-                canvas.drawCircle(effect.x * w, effect.y * h, effect.life * 8f, paint)
+                canvas.drawCircle(effect.x * w, effect.y * h, effect.life * 10f, paint) // PLUS GROS de 8f
             }
             paint.alpha = 255
             
             // Ondulations de cible
             paint.color = Color.parseColor("#6600FF00")
             paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 4f
+            paint.strokeWidth = 5f // AUGMENTÉ de 4f
             for (ripple in targetRipples) {
                 paint.alpha = (ripple.life * 150).toInt()
                 canvas.drawCircle(ripple.x * w, ripple.y * h, ripple.radius * w * 0.5f, paint)
@@ -967,7 +973,7 @@ class CurlingActivity : Activity(), SensorEventListener {
             for (sparkle in stoneSparkles) {
                 paint.alpha = (sparkle.life * 255).toInt()
                 paint.color = sparkle.color
-                canvas.drawCircle(sparkle.x * w, sparkle.y * h, sparkle.life * 5f, paint)
+                canvas.drawCircle(sparkle.x * w, sparkle.y * h, sparkle.life * 7f, paint) // PLUS GROS de 5f
             }
             paint.alpha = 255
         }
