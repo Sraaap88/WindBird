@@ -55,7 +55,7 @@ class MainMenuActivity : Activity() {
         }
         
         val spinnerParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 80
+            ViewGroup.LayoutParams.MATCH_PARENT, 120 // MODIFIÉ : 120 au lieu de 80
         ).apply {
             setMargins(0, 0, 0, 40)
         }
@@ -73,7 +73,7 @@ class MainMenuActivity : Activity() {
         }
         
         val practiceParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 80
+            ViewGroup.LayoutParams.MATCH_PARENT, 120 // MODIFIÉ : 120 au lieu de 80
         ).apply {
             setMargins(0, 0, 0, 15)
         }
@@ -91,7 +91,7 @@ class MainMenuActivity : Activity() {
         }
         
         val tournamentParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 80
+            ViewGroup.LayoutParams.MATCH_PARENT, 120 // MODIFIÉ : 120 au lieu de 80
         )
         tournamentButton.layoutParams = tournamentParams
 
