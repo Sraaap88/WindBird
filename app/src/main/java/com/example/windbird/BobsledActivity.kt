@@ -15,7 +15,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.view.ViewGroup
 import kotlin.math.*
-
+ 
 class BobsledActivity : Activity(), SensorEventListener {
 
     private lateinit var gameView: BobsledView
