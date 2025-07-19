@@ -1,4 +1,35 @@
-package com.example.windbird
+override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
+
+        // VERSION MINIMALE POUR TESTER
+        try {
+            // Récupérer les données du tournoi
+            tournamentData = intent.getSerializableExtra("tournament_data") as? TournamentData 
+                ?: throw Exception("TournamentData manquant")
+            
+            eventIndex = intent.getIntExtra("event_index", 0)
+            numberOfPlayers = intent.getIntExtra("number_of_players", 1)
+            practiceMode = intent.getBooleanExtra("practice_mode", false)
+            currentPlayerIndex = 0 // FIXE pour tester
+            
+            // Interface SIMPLE
+            val textView = TextView(this).apply {
+                text = "SAUT À SKI - TEST"
+                textSize = 24f
+                setTextColor(Color.WHITE)
+                setBackgroundColor(Color.BLACK)
+                gravity = android.view.Gravity.CENTER
+            }
+            
+            setContentView(textView)
+            
+            // Retour automatique après 3 secondes
+            textView.postDelayed({
+                finish()
+            }, 3000)
+            
+        } catch (epackage com.example.windbird
 
 import android.app.Activity
 import android.content.Context
@@ -78,13 +109,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         numberOfPlayers = intent.getIntExtra("number_of_players", 1)
         practiceMode = intent.getBooleanExtra("practice_mode", false)
         
-        // Logique pour récupérer le currentPlayerIndex
-        val intentPlayerIndex = intent.getIntExtra("current_player_index", -1)
-        currentPlayerIndex = if (intentPlayerIndex != -1) {
-            intentPlayerIndex
-        } else {
-            tournamentData.getNextPlayer(eventIndex)
-        }
+        currentPlayerIndex = intent.getIntExtra("current_player_index", 0)
         
         // Validation du currentPlayerIndex
         if (currentPlayerIndex == -1 || currentPlayerIndex >= tournamentData.playerNames.size) {
@@ -96,7 +121,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
         
         // Charger le sprite sheet du skieur
-        skierSpriteSheet = BitmapFactory.decodeResource(resources, R.drawable.skieur_sprite)
+        // skierSpriteSheet = BitmapFactory.decodeResource(resources, R.drawable.skieur_sprite)
 
         // Créer l'interface
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
