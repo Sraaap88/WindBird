@@ -25,14 +25,14 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     private var gyroscope: Sensor? = null
     private var accelerometer: Sensor? = null
 
-    // Variables de gameplay SKI FREESTYLE
+    // Variables de gameplay SKI FREESTYLE - RALENTI
     private var gameState = GameState.PREPARATION
     private var phaseTimer = 0f
     
-    // Phases avec durées accessibles
-    private val preparationDuration = 5f
-    private val courseRunDuration = 30f  // Course accessible de 30 secondes
-    private val resultsDuration = 6f
+    // Phases avec durées TRÈS LONGUES
+    private val preparationDuration = 8f // AUGMENTÉ de 5 à 8
+    private val courseRunDuration = 45f  // AUGMENTÉ de 30 à 45 secondes
+    private val resultsDuration = 10f // AUGMENTÉ de 6 à 10
     
     // Variables de ski freestyle
     private var skierX = 0.5f // Position horizontale
@@ -58,7 +58,7 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     private var comboActive = false
     private var comboCount = 0
     
-    // Contrôles gyroscope/accéléromètre
+    // Contrôles gyroscope/accéléromètre - RÉDUIT SENSIBILITÉ
     private var tiltX = 0f
     private var tiltY = 0f
     private var tiltZ = 0f
@@ -111,9 +111,9 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
         statusText = TextView(this).apply {
             text = "🎿 SKI FREESTYLE - ${tournamentData.playerNames[currentPlayerIndex]}"
             setTextColor(Color.WHITE)
-            textSize = 18f
+            textSize = 22f // AUGMENTÉ de 18f
             setBackgroundColor(Color.parseColor("#001122"))
-            setPadding(20, 15, 20, 15)
+            setPadding(25, 20, 25, 20) // AUGMENTÉ le padding
         }
 
         gameView = SkiFreestyleView(this)
@@ -211,14 +211,14 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
                 accelY = event.values[1]
                 accelZ = event.values[2]
                 
-                // Détection de secousses pour tricks spéciaux
+                // Détection de secousses pour tricks spéciaux - MOINS SENSIBLE
                 val totalAccel = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ)
-                shakeDetected = totalAccel > 15f
+                shakeDetected = totalAccel > 18f // AUGMENTÉ de 15f à 18f
             }
         }
 
-        // Progression du jeu
-        phaseTimer += 0.03f
+        // Progression du jeu - RALENTI
+        phaseTimer += 0.016f // RÉDUIT de 0.03f
 
         when (gameState) {
             GameState.PREPARATION -> handlePreparation()
@@ -236,7 +236,7 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
         if (phaseTimer >= preparationDuration) {
             gameState = GameState.SKIING
             phaseTimer = 0f
-            speed = 20f // Vitesse de départ confortable
+            speed = 15f // RÉDUIT de 20f à 15f
         }
     }
     
@@ -265,33 +265,33 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     }
     
     private fun handleSkierMovement() {
-        // Mouvement horizontal basé sur l'inclinaison
-        val steeringInput = tiltX * 0.7f
-        skierX += steeringInput * 0.01f
+        // Mouvement horizontal basé sur l'inclinaison - MOINS SENSIBLE
+        val steeringInput = tiltX * 0.4f // RÉDUIT de 0.7f
+        skierX += steeringInput * 0.006f // RÉDUIT de 0.01f
         skierX = skierX.coerceIn(0.1f, 0.9f)
         
-        // Contrôle de vitesse avec inclinaison avant/arrière
+        // Contrôle de vitesse avec inclinaison avant/arrière - MOINS SENSIBLE
         when {
-            tiltY < -0.3f -> {
+            tiltY < -0.5f -> { // AUGMENTÉ de -0.3f
                 // Incliner vers l'avant = accélération
-                speed += 1.2f
-                style += 0.02f
+                speed += 0.8f // RÉDUIT de 1.2f
+                style += 0.01f // RÉDUIT de 0.02f
             }
-            tiltY > 0.3f -> {
+            tiltY > 0.5f -> { // AUGMENTÉ de 0.3f
                 // Incliner vers l'arrière = freinage/contrôle
-                speed -= 0.8f
-                technique += 0.01f
+                speed -= 0.5f // RÉDUIT de 0.8f
+                technique += 0.005f // RÉDUIT de 0.01f
             }
             else -> {
                 // Position neutre
-                speed += 0.3f
+                speed += 0.2f // RÉDUIT de 0.3f
             }
         }
         
-        speed = speed.coerceIn(15f, 45f) // Vitesse modérée et contrôlable
+        speed = speed.coerceIn(12f, 30f) // RÉDUIT de 15-45 à 12-30
         
         // Génération d'effets selon la vitesse
-        if (speed > 30f) {
+        if (speed > 25f) { // AUGMENTÉ de 30f
             generateSpeedEffects()
         }
     }
@@ -306,7 +306,7 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             if (jumpDistance < 50f && jumpDistance > -20f) {
                 val distanceToJump = abs(skierX - nextJump.x)
                 
-                if (jumpDistance < 10f && !nextJump.hit && distanceToJump < 0.2f) {
+                if (jumpDistance < 10f && !nextJump.hit && distanceToJump < 0.25f) { // AUGMENTÉ de 0.2f
                     // Saut touché !
                     hitJump(nextJump)
                 }
@@ -315,8 +315,8 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
         
         // Physique de vol
         if (isInAir) {
-            airTime += 0.03f
-            skierY -= 0.004f // Retombée progressive
+            airTime += 0.016f // RÉDUIT de 0.03f
+            skierY -= 0.002f // RÉDUIT de 0.004f - retombée plus lente
             
             // Atterrissage
             if (skierY >= 0.8f) {
@@ -340,7 +340,7 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             FreestyleJump.Size.LARGE -> 0.35f
         }
         
-        jumpHeight = baseHeight + (speed / 45f) * 0.15f
+        jumpHeight = baseHeight + (speed / 30f) * 0.15f // ADAPTÉ à nouvelle vitesse max
         skierY = 0.8f - jumpHeight
         amplitude = maxOf(amplitude, jumpHeight)
         
@@ -405,23 +405,23 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     }
     
     private fun detectNewTrick() {
-        val rotationThreshold = 1.0f
-        val flipThreshold = 1.5f
+        val rotationThreshold = 1.5f // AUGMENTÉ de 1.0f
+        val flipThreshold = 2.0f // AUGMENTÉ de 1.5f
         
         when {
-            abs(tiltZ) > rotationThreshold && abs(tiltX) < 0.6f -> {
+            abs(tiltZ) > rotationThreshold && abs(tiltX) < 0.8f -> { // AUGMENTÉ de 0.6f
                 startTrick(FreestyleTrick.SPIN_360)
             }
-            abs(tiltY) > flipThreshold && abs(tiltX) < 0.6f -> {
+            abs(tiltY) > flipThreshold && abs(tiltX) < 0.8f -> {
                 startTrick(FreestyleTrick.BACKFLIP)
             }
             abs(tiltX) > rotationThreshold && shakeDetected -> {
                 startTrick(FreestyleTrick.GRAB_TRICK)
             }
-            abs(tiltX) > 1.5f && abs(tiltZ) > 1.5f -> {
+            abs(tiltX) > 2.0f && abs(tiltZ) > 2.0f -> { // AUGMENTÉ de 1.5f
                 startTrick(FreestyleTrick.CORK_SCREW)
             }
-            shakeDetected && airTime > 0.3f -> {
+            shakeDetected && airTime > 0.5f -> { // AUGMENTÉ de 0.3f
                 startTrick(FreestyleTrick.WILD_TRICK)
             }
         }
@@ -448,24 +448,24 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     private fun updateTrickProgress() {
         when (currentTrick) {
             FreestyleTrick.SPIN_360 -> {
-                trickProgress += abs(tiltZ) * 0.025f
-                trickRotation += tiltZ * 3f
+                trickProgress += abs(tiltZ) * 0.015f // RÉDUIT de 0.025f
+                trickRotation += tiltZ * 1.5f // RÉDUIT de 3f
                 backgroundTilt = trickRotation * 0.5f
             }
             FreestyleTrick.BACKFLIP -> {
-                trickProgress += abs(tiltY) * 0.02f
-                trickRotation += tiltY * 2f
+                trickProgress += abs(tiltY) * 0.012f // RÉDUIT de 0.02f
+                trickRotation += tiltY * 1f // RÉDUIT de 2f
             }
             FreestyleTrick.GRAB_TRICK -> {
-                trickProgress += (abs(tiltX) + if (shakeDetected) 0.5f else 0f) * 0.03f
+                trickProgress += (abs(tiltX) + if (shakeDetected) 0.5f else 0f) * 0.02f // RÉDUIT de 0.03f
             }
             FreestyleTrick.CORK_SCREW -> {
-                trickProgress += (abs(tiltX) + abs(tiltZ)) * 0.02f
-                trickRotation += (tiltX + tiltZ) * 1.5f
+                trickProgress += (abs(tiltX) + abs(tiltZ)) * 0.012f // RÉDUIT de 0.02f
+                trickRotation += (tiltX + tiltZ) * 0.8f // RÉDUIT de 1.5f
             }
             FreestyleTrick.WILD_TRICK -> {
-                trickProgress += (abs(tiltX) + abs(tiltY) + abs(tiltZ) + if (shakeDetected) 1f else 0f) * 0.02f
-                trickRotation += (tiltX + tiltY + tiltZ) * 1f
+                trickProgress += (abs(tiltX) + abs(tiltY) + abs(tiltZ) + if (shakeDetected) 1f else 0f) * 0.012f // RÉDUIT de 0.02f
+                trickRotation += (tiltX + tiltY + tiltZ) * 0.5f // RÉDUIT de 1f
             }
             else -> {}
         }
@@ -474,7 +474,7 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     }
     
     private fun finalizeTrick() {
-        if (trickProgress > 0.4f) {
+        if (trickProgress > 0.3f) { // RÉDUIT de 0.4f
             // Trick réussi !
             tricksLanded++
             val trickScore = calculateTrickScore()
@@ -491,10 +491,10 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             }
             
             // Effets selon la qualité
-            if (trickProgress > 0.9f) {
+            if (trickProgress > 0.8f) {
                 generateAmazingTrickEffect()
                 technique += 8f
-            } else if (trickProgress > 0.7f) {
+            } else if (trickProgress > 0.6f) { // RÉDUIT de 0.7f
                 generateGreatTrickEffect()
                 technique += 5f
             } else {
@@ -525,16 +525,16 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     }
     
     private fun updateCourseProgress() {
-        distance += speed * 0.08f
+        distance += speed * 0.05f // RÉDUIT de 0.08f
     }
     
     private fun updatePhysics() {
-        // Dégradation naturelle
-        style -= 0.04f
-        technique -= 0.03f
+        // Dégradation naturelle - RÉDUITE
+        style -= 0.02f // RÉDUIT de 0.04f
+        technique -= 0.015f // RÉDUIT de 0.03f
         
         // Bonus pour vitesse et fluidité
-        if (speed > 25f && !isInAir) {
+        if (speed > 20f && !isInAir) { // RÉDUIT de 25f
             style += 0.05f
         }
         
@@ -696,21 +696,21 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
         snowClouds.removeAll { cloud ->
             cloud.x += cloud.vx
             cloud.y += cloud.vy
-            cloud.life -= 0.02f
+            cloud.life -= 0.01f // RÉDUIT de 0.02f
             cloud.life <= 0f || cloud.y > 1000f
         }
         
         // Mise à jour des particules de tricks
         trickParticles.removeAll { particle ->
-            particle.y -= 2f
-            particle.life -= 0.025f
+            particle.y -= 1f // RÉDUIT de 2f
+            particle.life -= 0.015f // RÉDUIT de 0.025f
             particle.life <= 0f
         }
         
         // Mise à jour des effets d'atterrissage
         landingEffects.removeAll { effect ->
-            effect.y -= 1.5f
-            effect.life -= 0.02f
+            effect.y -= 0.8f // RÉDUIT de 1.5f
+            effect.life -= 0.012f // RÉDUIT de 0.02f
             effect.life <= 0f
         }
         
@@ -720,8 +720,8 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             line.x < -100f
         }
         
-        cameraShake = maxOf(0f, cameraShake - 0.03f)
-        backgroundTilt *= 0.92f
+        cameraShake = maxOf(0f, cameraShake - 0.015f) // RÉDUIT de 0.03f
+        backgroundTilt *= 0.96f // RÉDUIT de 0.92f
     }
     
     private fun handleResults() {
@@ -860,20 +860,21 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             // Sauts visibles au loin
             drawPreviewJumps(canvas, w, h)
             
-            // Instructions spectaculaires
+            // Instructions spectaculaires - TEXTE PLUS GROS
             paint.color = Color.parseColor("#001122")
-            paint.textSize = 36f
+            paint.textSize = 48f // AUGMENTÉ de 36f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("🎿 SKI FREESTYLE 🎿", w/2f, h * 0.15f, paint)
             
-            paint.textSize = 22f
+            paint.textSize = 32f // AUGMENTÉ de 22f
             paint.color = Color.parseColor("#0066CC")
-            canvas.drawText("Préparez-vous pour les figures...", w/2f, h * 0.85f, paint)
+            canvas.drawText("Préparez-vous pour les figures...", w/2f, h * 0.8f, paint)
             
-            paint.textSize = 16f
+            paint.textSize = 24f // AUGMENTÉ de 16f
             paint.color = Color.parseColor("#666666")
-            canvas.drawText("📱 Inclinez pour diriger, bougez en l'air pour les tricks!", w/2f, h * 0.9f, paint)
-            canvas.drawText("📱 Secouez pour des tricks sauvages!", w/2f, h * 0.95f, paint)
+            canvas.drawText("📱 Inclinez pour diriger", w/2f, h * 0.85f, paint)
+            canvas.drawText("📱 Bougez en l'air pour tricks!", w/2f, h * 0.9f, paint)
+            canvas.drawText("📱 Secouez pour tricks sauvages!", w/2f, h * 0.95f, paint)
         }
         
         private fun drawSkiing(canvas: Canvas, w: Int, h: Int) {
@@ -897,16 +898,16 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             // Interface de jeu
             drawGameInterface(canvas, w, h)
             
-            // Instructions dynamiques
+            // Instructions dynamiques - TEXTE PLUS GROS
             if (isInAir) {
                 paint.color = Color.parseColor("#FF6600")
-                paint.textSize = 26f
+                paint.textSize = 36f // AUGMENTÉ de 26f
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("🌟 TRICKS TIME! BOUGEZ! 🌟", w/2f, 50f, paint)
+                canvas.drawText("🌟 TRICKS TIME! BOUGEZ! 🌟", w/2f, 60f, paint)
             } else {
                 paint.color = Color.parseColor("#001122")
-                paint.textSize = 18f
-                canvas.drawText("📱 Dirigez-vous vers les sauts!", w/2f, 40f, paint)
+                paint.textSize = 24f // AUGMENTÉ de 18f
+                canvas.drawText("📱 Dirigez-vous vers les sauts!", w/2f, 50f, paint)
             }
         }
         
@@ -919,18 +920,18 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#FFD700")
             canvas.drawRect(0f, 0f, w.toFloat(), h * 0.4f, paint)
             
-            // Score final
+            // Score final - TEXTE PLUS GROS
             paint.color = Color.parseColor("#001122")
-            paint.textSize = 72f
+            paint.textSize = 96f // AUGMENTÉ de 72f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("${finalScore}", w/2f, h * 0.2f, paint)
             
-            paint.textSize = 28f
+            paint.textSize = 40f // AUGMENTÉ de 28f
             canvas.drawText("POINTS", w/2f, h * 0.3f, paint)
             
-            // Détails performance
+            // Détails performance - TEXTE PLUS GROS
             paint.color = Color.parseColor("#333333")
-            paint.textSize = 18f
+            paint.textSize = 26f // AUGMENTÉ de 18f
             canvas.drawText("🎿 Tricks réussis: $tricksLanded", w/2f, h * 0.5f, paint)
             canvas.drawText("🎯 Sauts touchés: $jumpsHit/8", w/2f, h * 0.55f, paint)
             canvas.drawText("⭐ Style: ${style.toInt()}%", w/2f, h * 0.6f, paint)
@@ -963,7 +964,7 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             // Piste en perspective avec effet de profondeur
             paint.color = Color.WHITE
             val pisteWidth = w * 0.7f
-            val perspectiveOffset = speed * 0.6f
+            val perspectiveOffset = speed * 0.3f // RÉDUIT de 0.6f
             
             val pistePath = Path()
             pistePath.moveTo((w - pisteWidth) / 2f - perspectiveOffset, 0f)
@@ -979,7 +980,7 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             paint.style = Paint.Style.STROKE
             
             for (i in 1..6) {
-                val lineY = (i * h / 7f + (distance * 1.5f) % (h / 7f))
+                val lineY = (i * h / 7f + (distance * 0.8f) % (h / 7f)) // RÉDUIT de 1.5f
                 val lineLeft = w * 0.1f + (i * 0.05f * w)
                 val lineRight = w * 0.9f - (i * 0.05f * w)
                 canvas.drawLine(lineLeft, lineY, lineRight, lineY, paint)
@@ -1006,12 +1007,12 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
                 val jumpScreenDistance = jump.distance - distance
                 
                 if (jumpScreenDistance > -100f && jumpScreenDistance < 500f) {
-                    val screenY = h * 0.3f + (jumpScreenDistance * 1.2f)
+                    val screenY = h * 0.3f + (jumpScreenDistance * 0.8f) // RÉDUIT de 1.2f
                     val perspectiveFactor = 1f - (jumpScreenDistance / 500f)
                     val jumpSize = when (jump.size) {
-                        FreestyleJump.Size.SMALL -> 20f
-                        FreestyleJump.Size.MEDIUM -> 35f
-                        FreestyleJump.Size.LARGE -> 50f
+                        FreestyleJump.Size.SMALL -> 25f // AUGMENTÉ de 20f
+                        FreestyleJump.Size.MEDIUM -> 40f // AUGMENTÉ de 35f
+                        FreestyleJump.Size.LARGE -> 55f // AUGMENTÉ de 50f
                     } * perspectiveFactor.coerceIn(0.2f, 1f)
                     
                     val screenX = jump.x * w
@@ -1030,10 +1031,10 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
                         8f, 8f, paint
                     )
                     
-                    // Indicateur de taille
+                    // Indicateur de taille - TEXTE PLUS GROS
                     if (perspectiveFactor > 0.5f) {
                         paint.color = Color.BLACK
-                        paint.textSize = 12f * perspectiveFactor
+                        paint.textSize = 16f * perspectiveFactor // AUGMENTÉ de 12f
                         paint.textAlign = Paint.Align.CENTER
                         val sizeText = when (jump.size) {
                             FreestyleJump.Size.SMALL -> "S"
@@ -1053,24 +1054,24 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             canvas.save()
             canvas.translate(skierScreenX, skierScreenY)
             
-            // Rotation selon les tricks
+            // Rotation selon les tricks - MOINS INTENSE
             when (currentTrick) {
-                FreestyleTrick.SPIN_360 -> canvas.rotate(trickRotation)
-                FreestyleTrick.BACKFLIP -> canvas.rotate(trickRotation, 1f, 0f)
+                FreestyleTrick.SPIN_360 -> canvas.rotate(trickRotation * 0.5f) // RÉDUIT
+                FreestyleTrick.BACKFLIP -> canvas.rotate(trickRotation * 0.5f, 1f, 0f) // RÉDUIT
                 FreestyleTrick.CORK_SCREW -> {
-                    canvas.rotate(trickRotation * 0.7f)
-                    canvas.scale(1f + trickProgress * 0.2f, 1f + trickProgress * 0.2f)
+                    canvas.rotate(trickRotation * 0.4f) // RÉDUIT
+                    canvas.scale(1f + trickProgress * 0.1f, 1f + trickProgress * 0.1f) // RÉDUIT
                 }
                 FreestyleTrick.WILD_TRICK -> {
-                    canvas.rotate(trickRotation * 1.5f)
-                    canvas.scale(1f + trickProgress * 0.4f, 1f + trickProgress * 0.4f)
+                    canvas.rotate(trickRotation * 0.8f) // RÉDUIT
+                    canvas.scale(1f + trickProgress * 0.2f, 1f + trickProgress * 0.2f) // RÉDUIT
                 }
                 else -> {}
             }
             
-            // Corps du skieur
+            // Corps du skieur - PLUS GROS
             paint.color = Color.parseColor("#FF6600")
-            canvas.drawCircle(0f, 0f, 22f, paint)
+            canvas.drawCircle(0f, 0f, 28f, paint) // AUGMENTÉ de 22f
             
             // Skis avec couleur selon le trick
             paint.color = if (currentTrick != FreestyleTrick.NONE) {
@@ -1078,23 +1079,23 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             } else {
                 Color.YELLOW
             }
-            paint.strokeWidth = 10f
+            paint.strokeWidth = 12f // AUGMENTÉ de 10f
             paint.style = Paint.Style.STROKE
-            canvas.drawLine(-20f, 25f, -20f, 50f, paint)
-            canvas.drawLine(20f, 25f, 20f, 50f, paint)
+            canvas.drawLine(-25f, 30f, -25f, 55f, paint) // PLUS LONG
+            canvas.drawLine(25f, 30f, 25f, 55f, paint)
             
             // Bâtons selon le trick
             paint.color = Color.parseColor("#8B4513")
-            paint.strokeWidth = 6f
+            paint.strokeWidth = 8f // AUGMENTÉ de 6f
             
             if (currentTrick == FreestyleTrick.GRAB_TRICK) {
                 // Position grab
-                canvas.drawLine(-15f, -15f, -25f, 15f, paint)
-                canvas.drawLine(15f, -15f, 25f, 15f, paint)
+                canvas.drawLine(-18f, -18f, -30f, 18f, paint)
+                canvas.drawLine(18f, -18f, 30f, 18f, paint)
             } else {
                 // Position normale
-                canvas.drawLine(-18f, -10f, -30f, -25f, paint)
-                canvas.drawLine(18f, -10f, 30f, -25f, paint)
+                canvas.drawLine(-22f, -12f, -35f, -30f, paint)
+                canvas.drawLine(22f, -12f, 35f, -30f, paint)
             }
             
             paint.style = Paint.Style.FILL
@@ -1103,37 +1104,37 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             // Ombre si au sol
             if (!isInAir) {
                 paint.color = Color.parseColor("#33000000")
-                canvas.drawOval(skierScreenX - 35f, h * 0.85f, skierScreenX + 35f, h * 0.9f, paint)
+                canvas.drawOval(skierScreenX - 40f, h * 0.85f, skierScreenX + 40f, h * 0.9f, paint) // PLUS GROS
             }
             
             // Aura spéciale selon le trick
             if (currentTrick != FreestyleTrick.NONE && trickProgress > 0.5f) {
                 paint.color = Color.parseColor("#44FFD700")
-                canvas.drawCircle(skierScreenX, skierScreenY, 40f + trickProgress * 20f, paint)
+                canvas.drawCircle(skierScreenX, skierScreenY, 50f + trickProgress * 25f, paint) // PLUS GROS
             }
         }
         
         private fun drawGameInterface(canvas: Canvas, w: Int, h: Int) {
-            val baseY = h - 160f
+            val baseY = h - 180f // PLUS BAS pour plus d'espace
             
-            // Score en temps réel
+            // Score en temps réel - TEXTE PLUS GROS
             paint.color = Color.parseColor("#001122")
-            paint.textSize = 20f
+            paint.textSize = 26f // AUGMENTÉ de 20f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("Score: ${totalScore.toInt()}", 20f, baseY, paint)
-            canvas.drawText("Sauts: $jumpsHit/8", 20f, baseY + 25f, paint)
-            canvas.drawText("Tricks: $tricksLanded", 20f, baseY + 50f, paint)
+            canvas.drawText("Score: ${totalScore.toInt()}", 30f, baseY, paint)
+            canvas.drawText("Sauts: $jumpsHit/8", 30f, baseY + 35f, paint)
+            canvas.drawText("Tricks: $tricksLanded", 30f, baseY + 70f, paint)
             
-            // Trick en cours
+            // Trick en cours - TEXTE PLUS GROS
             if (currentTrick != FreestyleTrick.NONE) {
                 paint.color = Color.parseColor("#FF6600")
-                paint.textSize = 28f
+                paint.textSize = 36f // AUGMENTÉ de 28f
                 paint.textAlign = Paint.Align.CENTER
                 canvas.drawText("${currentTrick.displayName}: ${(trickProgress * 100).toInt()}%", w/2f, baseY, paint)
                 
-                // Barre de progression du trick
+                // Barre de progression du trick - PLUS GROSSE
                 paint.color = Color.parseColor("#333333")
-                canvas.drawRect(w/2f - 120f, baseY + 15f, w/2f + 120f, baseY + 35f, paint)
+                canvas.drawRect(w/2f - 150f, baseY + 20f, w/2f + 150f, baseY + 45f, paint) // PLUS LARGE ET HAUTE
                 
                 val progressColor = when {
                     trickProgress > 0.8f -> Color.parseColor("#FFD700")
@@ -1141,30 +1142,30 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
                     else -> Color.parseColor("#FFAA00")
                 }
                 paint.color = progressColor
-                val progressWidth = trickProgress * 240f
-                canvas.drawRect(w/2f - 120f, baseY + 15f, w/2f - 120f + progressWidth, baseY + 35f, paint)
+                val progressWidth = trickProgress * 300f // ADAPTÉ à nouvelle largeur
+                canvas.drawRect(w/2f - 150f, baseY + 20f, w/2f - 150f + progressWidth, baseY + 45f, paint)
             }
             
             // Métriques de performance
-            drawMeter(canvas, w - 220f, baseY, 180f, style / 130f, "STYLE", Color.parseColor("#FF44AA"))
-            drawMeter(canvas, w - 220f, baseY + 30f, 180f, technique / 130f, "TECH", Color.parseColor("#44AAFF"))
-            drawMeter(canvas, w - 220f, baseY + 60f, 180f, (creativity / 50f).coerceAtMost(1f), "CRÉA", Color.parseColor("#AA44FF"))
+            drawMeter(canvas, w - 250f, baseY, 200f, style / 130f, "STYLE", Color.parseColor("#FF44AA"))
+            drawMeter(canvas, w - 250f, baseY + 40f, 200f, technique / 130f, "TECH", Color.parseColor("#44AAFF"))
+            drawMeter(canvas, w - 250f, baseY + 80f, 200f, (creativity / 50f).coerceAtMost(1f), "CRÉA", Color.parseColor("#AA44FF"))
             
-            // Combo actif
+            // Combo actif - TEXTE PLUS GROS
             if (comboActive) {
                 paint.color = Color.parseColor("#FFD700")
-                paint.textSize = 22f
+                paint.textSize = 28f // AUGMENTÉ de 22f
                 paint.textAlign = Paint.Align.RIGHT
-                canvas.drawText("🔥 COMBO x$comboCount", w - 20f, baseY + 90f, paint)
+                canvas.drawText("🔥 COMBO x$comboCount", w - 30f, baseY + 120f, paint)
             }
             
-            // Air time et amplitude
+            // Air time et amplitude - TEXTE PLUS GROS
             if (isInAir) {
                 paint.color = Color.parseColor("#00FFFF")
-                paint.textSize = 18f
+                paint.textSize = 24f // AUGMENTÉ de 18f
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("⏱️ ${airTime.toString().take(4)}s", w/2f, h - 80f, paint)
-                canvas.drawText("📏 ${(amplitude * 100).toInt()}%", w/2f, h - 60f, paint)
+                canvas.drawText("⏱️ ${airTime.toString().take(4)}s", w/2f, h - 100f, paint)
+                canvas.drawText("📏 ${(amplitude * 100).toInt()}%", w/2f, h - 70f, paint)
             }
         }
         
@@ -1172,18 +1173,18 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
                              value: Float, label: String, color: Int) {
             // Fond
             paint.color = Color.parseColor("#333333")
-            canvas.drawRect(x, y, x + width, y + 18f, paint)
+            canvas.drawRect(x, y, x + width, y + 25f, paint) // PLUS HAUT
             
             // Barre
             paint.color = color
             val filledWidth = value.coerceIn(0f, 1f) * width
-            canvas.drawRect(x, y, x + filledWidth, y + 18f, paint)
+            canvas.drawRect(x, y, x + filledWidth, y + 25f, paint)
             
-            // Label
+            // Label - TEXTE PLUS GROS
             paint.color = Color.WHITE
-            paint.textSize = 14f
+            paint.textSize = 18f // AUGMENTÉ de 14f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("$label: ${(value * 100).toInt()}%", x, y - 3f, paint)
+            canvas.drawText("$label: ${(value * 100).toInt()}%", x, y - 5f, paint)
         }
         
         private fun drawAllEffects(canvas: Canvas, w: Int, h: Int) {
