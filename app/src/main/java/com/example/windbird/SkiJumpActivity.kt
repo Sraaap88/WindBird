@@ -1,5 +1,6 @@
+// SkiJumpActivity.kt — COPIE EXACTE du Biathlon fonctionnel
 package com.example.windbird
-
+ 
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -31,8 +32,14 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var previousGyroDirection = 0
     private var backgroundOffset = 0f
 
-    private var gameState = GameState.APPROACH
-    private var speed = 0f
+    private lateinit var skierBitmap: Bitmap
+
+    private var gameState = GameState.SKIING
+    private var targetsHit = 0
+    private var shotsFired = 0
+    private var crosshair = PointF(0.5f, 0.4f)
+    private val targetPositions = List(5) { PointF(0.2f + it * 0.15f, 0.4f) }
+    private val targetHitStatus = BooleanArray(5) { false }
 
     private lateinit var tournamentData: TournamentData
     private var eventIndex: Int = 0
@@ -48,21 +55,16 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         eventIndex = intent.getIntExtra("event_index", 0)
         numberOfPlayers = intent.getIntExtra("number_of_players", 1)
         practiceMode = intent.getBooleanExtra("practice_mode", false)
-        
-        // CORRECTION : Gestion du mode pratique
-        currentPlayerIndex = if (practiceMode) {
-            0 // En mode pratique, toujours joueur 0
-        } else {
-            intent.getIntExtra("current_player_index", tournamentData.getNextPlayer(eventIndex))
-        }
+        currentPlayerIndex = intent.getIntExtra("current_player_index", tournamentData.getNextPlayer(eventIndex))
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+        skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skieur_pixel)
 
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         statusText = TextView(this).apply {
-            text = "Joueur: ${tournamentData.playerNames[currentPlayerIndex]} | Distance: 0m"
+            text = "🎿 SAUT À SKI - Joueur: ${tournamentData.playerNames[currentPlayerIndex]} | Distance: 0m"
             setTextColor(Color.WHITE)
             textSize = 16f
             setPadding(20, 10, 20, 10)
@@ -92,7 +94,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         val x = event.values[0]
         val z = event.values[2]
 
-        if (gameState == GameState.APPROACH) {
+        if (gameState == GameState.SKIING) {
             playerOffset += x * 0.1f
             playerOffset = playerOffset.coerceIn(-1f, 1f)
 
@@ -103,7 +105,33 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             }
             if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
                 distance += 25f
-                speed += 5f
+                backgroundOffset -= 10f
+                previousGyroDirection = rotationDirection
+            }
+            
+            if (distance >= totalDistance * 0.5f) {
+                gameState = GameState.SHOOTING
+            }
+        }
+
+        if (gameState == GameState.SHOOTING) {
+            crosshair.x += z * 0.005f
+            crosshair.y += x * 0.005f
+            crosshair.x = crosshair.x.coerceIn(0.1f, 0.9f)
+            crosshair.y = crosshair.y.coerceIn(0.2f, 0.6f)
+        }
+
+        if (gameState == GameState.FINAL_SKIING) {
+            playerOffset += x * 0.1f
+            playerOffset = playerOffset.coerceIn(-1f, 1f)
+
+            val rotationDirection = when {
+                z > 1.0f -> 1
+                z < -1.0f -> -1
+                else -> 0
+            }
+            if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
+                distance += 25f
                 backgroundOffset -= 10f
                 previousGyroDirection = rotationDirection
             }
@@ -119,6 +147,13 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                     proceedToNextPlayerOrEvent()
                 }, 2000)
             }
+        }
+        
+        if (gameState == GameState.SHOOTING && shotsFired >= 5) {
+            statusText.postDelayed({
+                distance = totalDistance * 0.5f
+                gameState = GameState.FINAL_SKIING
+            }, 1000)
         }
 
         updateStatus()
@@ -176,26 +211,51 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     }
     
     private fun generateAIScore(): Int {
-        val aiSpeed = (50..100).random()
-        val aiDistance = (2000..3500).random()
-        val speedBonus = aiSpeed
+        val aiAccuracy = (1..4).random()
+        val aiDistance = (4000..5000).random()
+        val accuracyBonus = aiAccuracy * 50
         val distanceBonus = (aiDistance / totalDistance * 100).toInt()
-        return maxOf(50, speedBonus + distanceBonus)
+        val penalty = (5 - aiAccuracy) * 20
+        return maxOf(50, accuracyBonus + distanceBonus - penalty)
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+    
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.action == MotionEvent.ACTION_DOWN && gameState == GameState.SHOOTING && shotsFired < 5) {
+            shotsFired++
+            
+            for (i in targetPositions.indices) {
+                val dx = crosshair.x - targetPositions[i].x
+                val dy = crosshair.y - targetPositions[i].y
+                if (!targetHitStatus[i] && sqrt(dx * dx + dy * dy) < 0.08f) {
+                    targetHitStatus[i] = true
+                    targetsHit++
+                    break
+                }
+            }
+            
+            updateStatus()
+            gameView.invalidate()
+            return true
+        }
+        return super.onTouchEvent(event)
+    }
 
     private fun updateStatus() {
         statusText.text = when (gameState) {
-            GameState.APPROACH -> "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | Distance: ${distance.toInt()}m / ${totalDistance.toInt()}m | Vitesse: ${speed.toInt()}"
-            GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Score final: ${calculateScore()} points"
+            GameState.SKIING -> "🎿 SAUT À SKI - ${tournamentData.playerNames[currentPlayerIndex]} | Distance: ${distance.toInt()}m / ${totalDistance.toInt()}m"
+            GameState.SHOOTING -> "🎯 SAUT À SKI - ${tournamentData.playerNames[currentPlayerIndex]} | Tir ${shotsFired}/5 — Touchés: $targetsHit"
+            GameState.FINAL_SKIING -> "🎿 SAUT À SKI - ${tournamentData.playerNames[currentPlayerIndex]} | Sprint final: ${distance.toInt()}m / ${totalDistance.toInt()}m"
+            GameState.FINISHED -> "✅ SAUT À SKI - ${tournamentData.playerNames[currentPlayerIndex]} | Score final: ${calculateScore()} points"
         }
     }
 
     private fun calculateScore(): Int {
-        val speedBonus = speed.toInt()
+        val accuracyBonus = targetsHit * 50
         val distanceBonus = (distance / totalDistance * 100).toInt()
-        return maxOf(0, speedBonus + distanceBonus)
+        val penaltyForMissedShots = (5 - targetsHit) * 20
+        return maxOf(0, accuracyBonus + distanceBonus - penaltyForMissedShots)
     }
 
     inner class SkiJumpView(context: Context) : View(context) {
@@ -222,23 +282,99 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             canvas.drawRect(0f, h * 0.75f, w.toFloat(), h.toFloat(), trackPaint)
 
             val progressRatio = distance / totalDistance
-            val skierX = (w * 0.1f) + (progressRatio * w * 0.6f) + playerOffset * 100f
-            val skierY = h * 0.75f - 30f
-            
-            paint.color = Color.parseColor("#FF4444")
-            canvas.drawRect(skierX - 15f, skierY - 30f, skierX + 15f, skierY, paint)
+            val skierX = (w * 0.1f) + (progressRatio * w * 0.6f) + playerOffset * 100f - skierBitmap.width / 2f
+            val skierY = h * 0.75f - skierBitmap.height
+            canvas.drawBitmap(skierBitmap, skierX, skierY, null)
 
-            if (gameState == GameState.FINISHED) {
-                paint.color = Color.parseColor("#FFD700")
-                canvas.drawRect(0f, 0f, w.toFloat(), h * 0.2f, paint)
+            if (gameState == GameState.SHOOTING || gameState == GameState.FINISHED) {
+                paint.color = Color.parseColor("#1a1a2e")
+                canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+                
+                paint.color = Color.WHITE
+                paint.textSize = 40f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("🎿 ZONE SAUT À SKI 🎿", w/2f, 60f, paint)
+                
+                paint.textSize = 24f
+                canvas.drawText("Pivotez pour viser • TAPEZ l'écran pour tirer", w/2f, 100f, paint)
+                
+                if (shotsFired >= 5) {
+                    paint.color = Color.GREEN
+                    paint.textSize = 30f
+                    canvas.drawText("TIR TERMINÉ - Passage au ski final...", w/2f, 140f, paint)
+                }
+                
+                for (i in targetPositions.indices) {
+                    val px = targetPositions[i].x * w
+                    val py = targetPositions[i].y * h + 50
+                    
+                    if (targetHitStatus[i]) {
+                        paint.color = Color.parseColor("#00ff00")
+                        canvas.drawCircle(px, py, 35f, paint)
+                        paint.color = Color.parseColor("#004400")
+                        canvas.drawCircle(px, py, 30f, paint)
+                        paint.color = Color.GREEN
+                        paint.strokeWidth = 8f
+                        paint.style = Paint.Style.STROKE
+                        canvas.drawLine(px-15, py-15, px+15, py+15, paint)
+                        canvas.drawLine(px+15, py-15, px-15, py+15, paint)
+                        paint.style = Paint.Style.FILL
+                        
+                        paint.color = Color.WHITE
+                        paint.textSize = 16f
+                        paint.textAlign = Paint.Align.CENTER
+                        canvas.drawText("+50", px, py + 60f, paint)
+                    } else {
+                        paint.color = Color.WHITE
+                        canvas.drawCircle(px, py, 35f, paint)
+                        paint.color = Color.BLACK
+                        canvas.drawCircle(px, py, 28f, paint)
+                        paint.color = Color.WHITE
+                        canvas.drawCircle(px, py, 21f, paint)
+                        paint.color = Color.BLACK
+                        canvas.drawCircle(px, py, 14f, paint)
+                        paint.color = Color.RED
+                        canvas.drawCircle(px, py, 7f, paint)
+                        
+                        paint.color = Color.WHITE
+                        paint.textSize = 20f
+                        paint.textAlign = Paint.Align.CENTER
+                        canvas.drawText("${i+1}", px, py + 60f, paint)
+                    }
+                }
+                
+                val crossX = crosshair.x * w
+                val crossY = crosshair.y * h + 50
                 
                 paint.color = Color.BLACK
-                paint.textSize = 24f
-                paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("🏆 SAUT TERMINÉ ! 🏆", w/2f, h * 0.1f, paint)
+                paint.strokeWidth = 8f
+                paint.style = Paint.Style.STROKE
+                canvas.drawLine(crossX - 30, crossY, crossX + 30, crossY, paint)
+                canvas.drawLine(crossX, crossY - 30, crossX, crossY + 30, paint)
+                canvas.drawCircle(crossX, crossY, 20f, paint)
                 
-                paint.textSize = 20f
-                canvas.drawText("Score: ${calculateScore()} points", w/2f, h * 0.4f, paint)
+                paint.color = Color.RED
+                paint.strokeWidth = 4f
+                canvas.drawLine(crossX - 25, crossY, crossX + 25, crossY, paint)
+                canvas.drawLine(crossX, crossY - 25, crossX, crossY + 25, paint)
+                
+                paint.color = Color.YELLOW
+                paint.style = Paint.Style.FILL
+                canvas.drawCircle(crossX, crossY, 6f, paint)
+                paint.color = Color.RED
+                canvas.drawCircle(crossX, crossY, 12f, paint)
+                paint.style = Paint.Style.FILL
+                
+                paint.color = Color.WHITE
+                paint.textSize = 24f
+                paint.textAlign = Paint.Align.LEFT
+                canvas.drawText("🔫 Munitions: ${5-shotsFired}/5", 30f, h - 80f, paint)
+                canvas.drawText("🎯 Touchés: $targetsHit/5", 30f, h - 50f, paint)
+                
+                for (i in 0 until 5) {
+                    paint.color = if (i < shotsFired) Color.GRAY else Color.YELLOW
+                    canvas.drawRect(w - 200f + i * 35f, h - 60f, w - 175f + i * 35f, h - 40f, paint)
+                }
             }
             
             paint.color = Color.BLACK
@@ -249,6 +385,6 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     }
 
     enum class GameState {
-        APPROACH, FINISHED
+        SKIING, SHOOTING, FINAL_SKIING, FINISHED
     }
 }
