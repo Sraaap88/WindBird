@@ -258,9 +258,58 @@ class BobsledActivity : Activity(), SensorEventListener {
     }
     
     private fun proceedToNextPlayerOrEvent() {
-        if (practiceMode) {
+        try {
+            if (practiceMode) {
+                val intent = Intent(this, EventsMenuActivity::class.java).apply {
+                    putExtra("practice_mode", true)
+                    putExtra("tournament_data", tournamentData)
+                    putStringArrayListExtra("player_names", tournamentData.playerNames)
+                    putStringArrayListExtra("player_countries", tournamentData.playerCountries)
+                    putExtra("number_of_players", numberOfPlayers)
+                }
+                startActivity(intent)
+                finish()
+                return
+            }
+            
+            val nextPlayer = tournamentData.getNextPlayer(eventIndex)
+            
+            if (nextPlayer != -1) {
+                if (nextPlayer < numberOfPlayers) {
+                    val intent = Intent(this, PlayerTransitionActivity::class.java).apply {
+                        putExtra("tournament_data", tournamentData)
+                        putExtra("event_index", eventIndex)
+                        putExtra("number_of_players", numberOfPlayers)
+                        putExtra("next_player_index", nextPlayer)
+                    }
+                    startActivity(intent)
+                    finish()
+                } else {
+                    val aiScore = generateAIScore()
+                    tournamentData.addScore(nextPlayer, eventIndex, aiScore)
+                    proceedToNextPlayerOrEvent()
+                }
+            } else {
+                if (tournamentData.isTournamentComplete()) {
+                    val resultIntent = Intent(this, ScoreboardActivity::class.java).apply {
+                        putExtra("tournament_data", tournamentData)
+                        putExtra("tournament_final", true)
+                    }
+                    startActivity(resultIntent)
+                    finish()
+                } else {
+                    val resultIntent = Intent(this, ScoreboardActivity::class.java).apply {
+                        putExtra("tournament_data", tournamentData)
+                        putExtra("event_completed", eventIndex)
+                    }
+                    startActivity(resultIntent)
+                    finish()
+                }
+            }
+        } catch (e: Exception) {
+            // En cas d'erreur, retourner au menu principal
             val intent = Intent(this, EventsMenuActivity::class.java).apply {
-                putExtra("practice_mode", true)
+                putExtra("practice_mode", practiceMode)
                 putExtra("tournament_data", tournamentData)
                 putStringArrayListExtra("player_names", tournamentData.playerNames)
                 putStringArrayListExtra("player_countries", tournamentData.playerCountries)
@@ -268,42 +317,6 @@ class BobsledActivity : Activity(), SensorEventListener {
             }
             startActivity(intent)
             finish()
-            return
-        }
-        
-        val nextPlayer = tournamentData.getNextPlayer(eventIndex)
-        
-        if (nextPlayer != -1) {
-            if (nextPlayer < numberOfPlayers) {
-                val intent = Intent(this, PlayerTransitionActivity::class.java).apply {
-                    putExtra("tournament_data", tournamentData)
-                    putExtra("event_index", eventIndex)
-                    putExtra("number_of_players", numberOfPlayers)
-                    putExtra("next_player_index", nextPlayer)
-                }
-                startActivity(intent)
-                finish()
-            } else {
-                val aiScore = generateAIScore()
-                tournamentData.addScore(nextPlayer, eventIndex, aiScore)
-                proceedToNextPlayerOrEvent()
-            }
-        } else {
-            if (tournamentData.isTournamentComplete()) {
-                val resultIntent = Intent(this, ScoreboardActivity::class.java).apply {
-                    putExtra("tournament_data", tournamentData)
-                    putExtra("tournament_final", true)
-                }
-                startActivity(resultIntent)
-                finish()
-            } else {
-                val resultIntent = Intent(this, ScoreboardActivity::class.java).apply {
-                    putExtra("tournament_data", tournamentData)
-                    putExtra("event_completed", eventIndex)
-                }
-                startActivity(resultIntent)
-                finish()
-            }
         }
     }
     
