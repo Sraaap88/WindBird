@@ -101,26 +101,7 @@ class MainActivity : Activity() {
         createPlayerSetup(mainLayout)
         
         val startButton = Button(this).apply {
-            text = "🎯 MODE PRATIQUE"
-            textSize = 18f
-            setTextColor(Color.WHITE)
-            setBackgroundColor(Color.parseColor("#0066cc"))
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            setPadding(20, 15, 20, 15)
-            
-            setOnClickListener { startPracticeMode() }
-        }
-        
-        val buttonParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 80
-        ).apply {
-            setMargins(0, 20, 0, 10)
-        }
-        startButton.layoutParams = buttonParams
-        mainLayout.addView(startButton)
-        
-        val tournamentButton = Button(this).apply {
-            text = "🏆 MODE TOURNOI"
+            text = "🏆 COMMENCER LES JEUX 🏆"
             textSize = 18f
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.parseColor("#ff6600"))
@@ -130,13 +111,13 @@ class MainActivity : Activity() {
             setOnClickListener { startTournament() }
         }
         
-        val tournamentParams = LinearLayout.LayoutParams(
+        val buttonParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 80
         ).apply {
-            setMargins(0, 0, 0, 0)
+            setMargins(0, 30, 0, 0)
         }
-        tournamentButton.layoutParams = tournamentParams
-        mainLayout.addView(tournamentButton)
+        startButton.layoutParams = buttonParams
+        mainLayout.addView(startButton)
         
         scrollView.addView(mainLayout)
         setContentView(scrollView)
@@ -243,17 +224,6 @@ class MainActivity : Activity() {
         player2Layout.visibility = if (numberOfPlayers >= 2) View.VISIBLE else View.GONE
         player3Layout.visibility = if (numberOfPlayers >= 3) View.VISIBLE else View.GONE
         player4Layout.visibility = if (numberOfPlayers >= 4) View.VISIBLE else View.GONE
-    }
-    
-    private fun startPracticeMode() {
-        // Mode pratique - va direct au menu des épreuves
-        val intent = Intent(this, EventsMenuActivity::class.java).apply {
-            putExtra("practice_mode", true)
-            putStringArrayListExtra("player_names", arrayListOf("Joueur"))
-            putStringArrayListExtra("player_countries", arrayListOf("🇨🇦 Canada"))
-            putExtra("number_of_players", 1)
-        }
-        startActivity(intent)
     }
     
     private fun startTournament() {
