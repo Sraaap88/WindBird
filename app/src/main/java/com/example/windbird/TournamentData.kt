@@ -36,14 +36,11 @@ class TournamentData(
         } else 0
     }
     
-    // MODIFIÉ : Logique de déverrouillage séquentiel pour le mode tournoi
+    // MODIFIÉ : Logique de déverrouillage séquentiel pour le mode tournoi - TOUTES LES ÉPREUVES IMPLÉMENTÉES
     fun getEventStatus(eventIndex: Int, practiceMode: Boolean = false): EventsMenuActivity.EventStatus {
-        // En mode pratique, toutes les épreuves implémentées sont disponibles
+        // En mode pratique, toutes les épreuves sont disponibles
         if (practiceMode) {
-            return when (eventIndex) {
-                0, 1, 2 -> EventsMenuActivity.EventStatus.AVAILABLE // Biathlon, Saut à Ski et Bobsleigh
-                else -> EventsMenuActivity.EventStatus.LOCKED // Autres épreuves pas encore implémentées
-            }
+            return EventsMenuActivity.EventStatus.AVAILABLE // TOUTES disponibles maintenant
         }
         
         // En mode tournoi : déverrouillage séquentiel
@@ -64,12 +61,8 @@ class TournamentData(
             eventIndex > 0 -> {
                 val previousEventCompleted = (0..3).all { attempts[it][eventIndex - 1] >= 1 }
                 if (previousEventCompleted) {
-                    // Vérifier si l'épreuve est implémentée
-                    when (eventIndex) {
-                        1 -> EventsMenuActivity.EventStatus.AVAILABLE // Saut à Ski implémenté
-                        2 -> EventsMenuActivity.EventStatus.AVAILABLE // Bobsleigh implémenté
-                        else -> EventsMenuActivity.EventStatus.LOCKED // Autres épreuves pas encore implémentées
-                    }
+                    // TOUTES LES ÉPREUVES SONT MAINTENANT IMPLÉMENTÉES
+                    EventsMenuActivity.EventStatus.AVAILABLE
                 } else {
                     EventsMenuActivity.EventStatus.LOCKED
                 }
@@ -99,8 +92,8 @@ class TournamentData(
     
     // MODIFIÉ : Vérifier si toutes les épreuves implémentées sont terminées
     fun isTournamentComplete(): Boolean {
-        // Pour l'instant : Biathlon (0), Saut à Ski (1) et Bobsleigh (2) sont implémentés
-        val implementedEvents = listOf(0, 1, 2)
+        // Maintenant : TOUTES les 9 épreuves sont implémentées (0 à 8)
+        val implementedEvents = (0..8).toList()
         
         return implementedEvents.all { eventIndex ->
             (0..3).all { playerIndex ->
