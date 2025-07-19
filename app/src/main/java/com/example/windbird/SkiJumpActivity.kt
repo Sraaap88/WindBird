@@ -24,12 +24,6 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var sensorManager: SensorManager? = null
     private var gyroscope: Sensor? = null
 
-    private var playerOffset = 0f
-    private var distance = 0f
-    private val totalDistance = 3000f
-    private var previousGyroDirection = 0
-    private var backgroundOffset = 0f
-
     private lateinit var skierBitmap: Bitmap
 
     private var gameState = GameState.APPROACH
@@ -132,7 +126,6 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         
         if (y < -0.5f) {
             speed += 2f
-            backgroundOffset -= 5f
         }
         
         if (abs(x) > 0.3f) {
@@ -256,7 +249,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         val aiAccuracy = (1..4).random()
         val aiDistance = (4000..5000).random()
         val accuracyBonus = aiAccuracy * 50
-        val distanceBonus = (aiDistance / totalDistance * 100).toInt()
+        val distanceBonus = (aiDistance / 3000f * 100).toInt()
         val penalty = (5 - aiAccuracy) * 20
         return maxOf(50, accuracyBonus + distanceBonus - penalty)
     }
