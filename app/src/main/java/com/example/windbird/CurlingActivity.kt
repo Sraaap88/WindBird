@@ -1,6 +1,5 @@
-// CurlingActivity.kt — COPIE EXACTE du Biathlon fonctionnel
 package com.example.windbird
- 
+
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -25,21 +24,66 @@ class CurlingActivity : Activity(), SensorEventListener {
 
     private var sensorManager: SensorManager? = null
     private var gyroscope: Sensor? = null
+    private var accelerometer: Sensor? = null
 
-    private var playerOffset = 0f
-    private var distance = 0f
-    private val totalDistance = 3000f
-    private var previousGyroDirection = 0
-    private var backgroundOffset = 0f
-
-    private lateinit var skierBitmap: Bitmap
-
-    private var gameState = GameState.SKIING
-    private var targetsHit = 0
-    private var shotsFired = 0
-    private var crosshair = PointF(0.5f, 0.4f)
-    private val targetPositions = List(5) { PointF(0.2f + it * 0.15f, 0.4f) }
-    private val targetHitStatus = BooleanArray(5) { false }
+    // Variables de gameplay CURLING
+    private var gameState = GameState.PREPARATION
+    private var phaseTimer = 0f
+    
+    // Phases avec durées accessibles
+    private val preparationDuration = 5f
+    private val aimingDuration = 15f // Temps pour viser et lancer
+    private val sweepingDuration = 20f // Temps pour balayer
+    private val resultsDuration = 6f
+    
+    // Variables de curling
+    private var stonePosition = PointF(0.5f, 0.95f) // Position de la pierre (x, y)
+    private var stoneVelocity = PointF(0f, 0f)
+    private var stoneRotation = 0f
+    private var isStoneMoving = false
+    private var stoneDirection = 0f // Direction initiale
+    private var stonePower = 0f
+    
+    // Système de lancer
+    private var aimingX = 0.5f // Visée horizontale
+    private var launchPower = 50f // Puissance de lancer
+    private var hasLaunched = false
+    
+    // Système de balayage
+    private var sweepingActive = false
+    private var sweepingIntensity = 0f
+    private var sweepingCount = 0
+    private var lastSweepTime = 0L
+    private var totalSweepingTime = 0f
+    
+    // Contrôles gyroscope/accéléromètre
+    private var tiltX = 0f
+    private var tiltY = 0f
+    private var tiltZ = 0f
+    private var accelX = 0f
+    private var accelY = 0f
+    private var accelZ = 0f
+    private var sweepingMotionDetected = false
+    
+    // Cibles et scoring
+    private val targetCenter = PointF(0.5f, 0.15f)
+    private val ringRadii = arrayOf(0.12f, 0.08f, 0.04f) // 3 anneaux
+    private var finalDistance = 0f
+    private var ringScore = 0
+    private var technique = 100f
+    private var precision = 100f
+    private var strategy = 100f
+    
+    // Effets visuels
+    private var cameraShake = 0f
+    private val iceTrails = mutableListOf<IceTrail>()
+    private val sweepingEffects = mutableListOf<SweepingEffect>()
+    private val targetRipples = mutableListOf<TargetRipple>()
+    private val stoneSparkles = mutableListOf<StoneSparkle>()
+    
+    // Score et résultats
+    private var finalScore = 0
+    private var scoreCalculated = false
 
     private lateinit var tournamentData: TournamentData
     private var eventIndex: Int = 0
@@ -59,15 +103,16 @@ class CurlingActivity : Activity(), SensorEventListener {
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-        skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skieur_pixel)
+        accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         statusText = TextView(this).apply {
-            text = "🥌 CURLING - Joueur: ${tournamentData.playerNames[currentPlayerIndex]} | Distance: 0m"
+            text = "🥌 CURLING - ${tournamentData.playerNames[currentPlayerIndex]}"
             setTextColor(Color.WHITE)
-            textSize = 16f
-            setPadding(20, 10, 20, 10)
+            textSize = 18f
+            setBackgroundColor(Color.parseColor("#001144"))
+            setPadding(20, 15, 20, 15)
         }
 
         gameView = CurlingView(this)
@@ -75,11 +120,53 @@ class CurlingActivity : Activity(), SensorEventListener {
         layout.addView(statusText)
         layout.addView(gameView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         setContentView(layout)
+        
+        initializeGame()
+    }
+    
+    private fun initializeGame() {
+        gameState = GameState.PREPARATION
+        phaseTimer = 0f
+        stonePosition = PointF(0.5f, 0.95f)
+        stoneVelocity = PointF(0f, 0f)
+        stoneRotation = 0f
+        isStoneMoving = false
+        stoneDirection = 0f
+        stonePower = 0f
+        aimingX = 0.5f
+        launchPower = 50f
+        hasLaunched = false
+        sweepingActive = false
+        sweepingIntensity = 0f
+        sweepingCount = 0
+        lastSweepTime = 0L
+        totalSweepingTime = 0f
+        tiltX = 0f
+        tiltY = 0f
+        tiltZ = 0f
+        accelX = 0f
+        accelY = 0f
+        accelZ = 0f
+        sweepingMotionDetected = false
+        finalDistance = 0f
+        ringScore = 0
+        technique = 100f
+        precision = 100f
+        strategy = 100f
+        cameraShake = 0f
+        finalScore = 0
+        scoreCalculated = false
+        
+        iceTrails.clear()
+        sweepingEffects.clear()
+        targetRipples.clear()
+        stoneSparkles.clear()
     }
 
     override fun onResume() {
         super.onResume()
         gyroscope?.let { sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        accelerometer?.let { sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
     }
 
     override fun onPause() {
@@ -88,76 +175,366 @@ class CurlingActivity : Activity(), SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent) {
-        if (event.sensor.type != Sensor.TYPE_GYROSCOPE) return
-
-        val y = event.values[1]
-        val x = event.values[0]
-        val z = event.values[2]
-
-        if (gameState == GameState.SKIING) {
-            playerOffset += x * 0.1f
-            playerOffset = playerOffset.coerceIn(-1f, 1f)
-
-            val rotationDirection = when {
-                z > 1.0f -> 1
-                z < -1.0f -> -1
-                else -> 0
+        when (event.sensor.type) {
+            Sensor.TYPE_GYROSCOPE -> {
+                tiltX = event.values[0]
+                tiltY = event.values[1]
+                tiltZ = event.values[2]
             }
-            if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
-                distance += 25f
-                backgroundOffset -= 10f
-                previousGyroDirection = rotationDirection
-            }
-            
-            if (distance >= totalDistance * 0.5f) {
-                gameState = GameState.SHOOTING
-            }
-        }
-
-        if (gameState == GameState.SHOOTING) {
-            crosshair.x += z * 0.005f
-            crosshair.y += x * 0.005f
-            crosshair.x = crosshair.x.coerceIn(0.1f, 0.9f)
-            crosshair.y = crosshair.y.coerceIn(0.2f, 0.6f)
-        }
-
-        if (gameState == GameState.FINAL_SKIING) {
-            playerOffset += x * 0.1f
-            playerOffset = playerOffset.coerceIn(-1f, 1f)
-
-            val rotationDirection = when {
-                z > 1.0f -> 1
-                z < -1.0f -> -1
-                else -> 0
-            }
-            if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
-                distance += 25f
-                backgroundOffset -= 10f
-                previousGyroDirection = rotationDirection
-            }
-            
-            if (distance >= totalDistance) {
-                gameState = GameState.FINISHED
+            Sensor.TYPE_ACCELEROMETER -> {
+                accelX = event.values[0]
+                accelY = event.values[1]
+                accelZ = event.values[2]
                 
-                if (!practiceMode) {
-                    tournamentData.addScore(currentPlayerIndex, eventIndex, calculateScore())
+                // Détection de mouvement de balayage
+                val totalAccel = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ)
+                sweepingMotionDetected = totalAccel > 12f && abs(accelX) > 3f
+            }
+        }
+
+        // Progression du jeu
+        phaseTimer += 0.03f
+
+        when (gameState) {
+            GameState.PREPARATION -> handlePreparation()
+            GameState.AIMING -> handleAiming()
+            GameState.SWEEPING -> handleSweeping()
+            GameState.RESULTS -> handleResults()
+            GameState.FINISHED -> {}
+        }
+
+        updateEffects()
+        updateStatus()
+        gameView.invalidate()
+    }
+    
+    private fun handlePreparation() {
+        if (phaseTimer >= preparationDuration) {
+            gameState = GameState.AIMING
+            phaseTimer = 0f
+        }
+    }
+    
+    private fun handleAiming() {
+        if (!hasLaunched) {
+            // Visée avec gyroscope
+            aimingX += tiltX * 0.008f
+            aimingX = aimingX.coerceIn(0.1f, 0.9f)
+            
+            // Puissance avec inclinaison avant/arrière
+            when {
+                tiltY < -0.4f -> {
+                    launchPower += 2f
+                    technique += 0.05f
                 }
-                
-                statusText.postDelayed({
-                    proceedToNextPlayerOrEvent()
-                }, 2000)
+                tiltY > 0.4f -> {
+                    launchPower -= 1.5f
+                }
+                else -> {
+                    // Position stable = bonus de précision
+                    precision += 0.02f
+                }
+            }
+            
+            launchPower = launchPower.coerceIn(20f, 100f)
+        } else {
+            // Pierre lancée - attendre qu'elle s'arrête
+            updateStoneMovement()
+            
+            if (!isStoneMoving) {
+                // Pierre arrêtée - passage au balayage ou résultats
+                if (stonePosition.y > 0.3f) {
+                    // Pierre encore loin - possibilité de balayer
+                    gameState = GameState.SWEEPING
+                    phaseTimer = 0f
+                } else {
+                    // Pierre arrivée - calcul des résultats
+                    calculateFinalScore()
+                    gameState = GameState.RESULTS
+                    phaseTimer = 0f
+                }
             }
         }
         
-        if (gameState == GameState.SHOOTING && shotsFired >= 5) {
-            statusText.postDelayed({
-                distance = totalDistance * 0.5f
-                gameState = GameState.FINAL_SKIING
-            }, 1000)
+        if (phaseTimer >= aimingDuration && !hasLaunched) {
+            // Temps écoulé - lancer automatique
+            launchStone()
         }
+    }
+    
+    private fun handleSweeping() {
+        if (isStoneMoving) {
+            updateStoneMovement()
+            
+            // Balayage avec mouvement du téléphone OU balayage tactile
+            if (sweepingMotionDetected || sweepingActive) {
+                performSweeping()
+            }
+            
+            if (!isStoneMoving) {
+                // Pierre arrêtée
+                calculateFinalScore()
+                gameState = GameState.RESULTS
+                phaseTimer = 0f
+            }
+        }
+        
+        if (phaseTimer >= sweepingDuration) {
+            // Temps de balayage écoulé
+            if (isStoneMoving) {
+                // Arrêter la pierre
+                stoneVelocity = PointF(0f, 0f)
+                isStoneMoving = false
+            }
+            calculateFinalScore()
+            gameState = GameState.RESULTS
+            phaseTimer = 0f
+        }
+    }
+    
+    private fun launchStone() {
+        hasLaunched = true
+        isStoneMoving = true
+        
+        // Calcul de la direction et puissance
+        stoneDirection = (aimingX - 0.5f) * 0.3f // Direction latérale
+        stonePower = launchPower
+        
+        // Vitesse initiale
+        val powerFactor = stonePower / 100f
+        stoneVelocity.x = stoneDirection * powerFactor * 0.015f
+        stoneVelocity.y = -powerFactor * 0.025f // Vers le haut de l'écran
+        
+        // Rotation de la pierre
+        stoneRotation = stoneDirection * 2f
+        
+        // Effets visuels
+        cameraShake = powerFactor * 0.3f
+        generateLaunchEffect()
+        
+        // Score technique
+        val aimingAccuracy = 1f - abs(aimingX - 0.5f) * 2f
+        technique += aimingAccuracy * 10f
+    }
+    
+    private fun updateStoneMovement() {
+        if (!isStoneMoving) return
+        
+        // Mise à jour position
+        stonePosition.x += stoneVelocity.x
+        stonePosition.y += stoneVelocity.y
+        
+        // Friction et ralentissement
+        stoneVelocity.x *= 0.995f
+        stoneVelocity.y *= 0.995f
+        
+        // Rotation continue
+        stoneRotation += stoneDirection * 2f
+        
+        // Génération de traînée
+        generateIceTrail()
+        
+        // Vérification des limites
+        if (stonePosition.x < 0.05f || stonePosition.x > 0.95f) {
+            stoneVelocity.x *= -0.5f // Rebond sur les bords
+            stonePosition.x = stonePosition.x.coerceIn(0.05f, 0.95f)
+        }
+        
+        if (stonePosition.y < 0.05f) {
+            stonePosition.y = 0.05f
+            stoneVelocity.y = 0f
+        }
+        
+        // Arrêt si vitesse trop faible
+        val totalVelocity = sqrt(stoneVelocity.x * stoneVelocity.x + stoneVelocity.y * stoneVelocity.y)
+        if (totalVelocity < 0.001f) {
+            isStoneMoving = false
+            stoneVelocity = PointF(0f, 0f)
+        }
+    }
+    
+    private fun performSweeping() {
+        val currentTime = System.currentTimeMillis()
+        
+        if (currentTime - lastSweepTime > 200) {
+            sweepingCount++
+            lastSweepTime = currentTime
+            totalSweepingTime += 0.2f
+            
+            // Effet du balayage sur la pierre
+            if (isStoneMoving) {
+                // Réduction de la friction = pierre va plus loin
+                stoneVelocity.x *= 1.002f
+                stoneVelocity.y *= 1.003f
+                
+                // Légère correction de trajectoire
+                val targetDirection = (targetCenter.x - stonePosition.x) * 0.001f
+                stoneVelocity.x += targetDirection
+                
+                strategy += 1f
+            }
+            
+            // Effets visuels
+            generateSweepingEffect()
+        }
+        
+        sweepingIntensity = if (sweepingMotionDetected || sweepingActive) {
+            (sweepingIntensity + 0.1f).coerceAtMost(1f)
+        } else {
+            (sweepingIntensity - 0.05f).coerceAtLeast(0f)
+        }
+    }
+    
+    private fun generateLaunchEffect() {
+        repeat(10) {
+            stoneSparkles.add(StoneSparkle(
+                x = stonePosition.x + (kotlin.random.Random.nextFloat() - 0.5f) * 0.1f,
+                y = stonePosition.y + (kotlin.random.Random.nextFloat() - 0.5f) * 0.1f,
+                color = Color.CYAN,
+                life = 1.5f
+            ))
+        }
+    }
+    
+    private fun generateIceTrail() {
+        iceTrails.add(IceTrail(
+            x = stonePosition.x,
+            y = stonePosition.y,
+            timestamp = System.currentTimeMillis()
+        ))
+        
+        if (iceTrails.size > 30) {
+            iceTrails.removeFirst()
+        }
+    }
+    
+    private fun generateSweepingEffect() {
+        repeat(5) {
+            sweepingEffects.add(SweepingEffect(
+                x = stonePosition.x + (kotlin.random.Random.nextFloat() - 0.5f) * 0.15f,
+                y = stonePosition.y + (kotlin.random.Random.nextFloat() - 0.5f) * 0.08f,
+                life = 1f
+            ))
+        }
+        
+        if (sweepingEffects.size > 20) {
+            sweepingEffects.removeFirst()
+        }
+    }
+    
+    private fun generateTargetHitEffect() {
+        repeat(15) {
+            targetRipples.add(TargetRipple(
+                x = targetCenter.x,
+                y = targetCenter.y,
+                radius = 0f,
+                maxRadius = 0.3f,
+                life = 2f
+            ))
+        }
+    }
+    
+    private fun updateEffects() {
+        // Mise à jour des traînées de glace
+        val currentTime = System.currentTimeMillis()
+        iceTrails.removeAll { currentTime - it.timestamp > 4000 }
+        
+        // Mise à jour des effets de balayage
+        sweepingEffects.removeAll { effect ->
+            effect.life -= 0.03f
+            effect.life <= 0f
+        }
+        
+        // Mise à jour des ondulations de cible
+        targetRipples.removeAll { ripple ->
+            ripple.radius += 0.01f
+            ripple.life -= 0.02f
+            ripple.life <= 0f || ripple.radius > ripple.maxRadius
+        }
+        
+        // Mise à jour des étincelles de pierre
+        stoneSparkles.removeAll { sparkle ->
+            sparkle.life -= 0.02f
+            sparkle.life <= 0f
+        }
+        
+        cameraShake = maxOf(0f, cameraShake - 0.02f)
+    }
+    
+    private fun handleResults() {
+        if (phaseTimer >= resultsDuration) {
+            gameState = GameState.FINISHED
+            
+            if (!practiceMode) {
+                tournamentData.addScore(currentPlayerIndex, eventIndex, finalScore)
+            }
+            
+            statusText.postDelayed({
+                proceedToNextPlayerOrEvent()
+            }, 3000)
+        }
+    }
+    
+    private fun calculateFinalScore() {
+        if (!scoreCalculated) {
+            // Calcul de la distance à la cible
+            finalDistance = sqrt(
+                (stonePosition.x - targetCenter.x) * (stonePosition.x - targetCenter.x) +
+                (stonePosition.y - targetCenter.y) * (stonePosition.y - targetCenter.y)
+            )
+            
+            // Détermination de l'anneau touché
+            ringScore = when {
+                finalDistance <= ringRadii[2] -> 50 // Centre (or)
+                finalDistance <= ringRadii[1] -> 35 // Anneau intérieur (argent)
+                finalDistance <= ringRadii[0] -> 20 // Anneau extérieur (bronze)
+                else -> 0 // Hors cible
+            }
+            
+            // Bonus de performance
+            val techniqueBonus = ((technique - 100f) * 0.5f).toInt()
+            val precisionBonus = ((precision - 100f) * 0.3f).toInt()
+            val strategyBonus = ((strategy - 100f) * 0.2f).toInt()
+            val sweepingBonus = (sweepingCount * 2).coerceAtMost(20)
+            
+            finalScore = maxOf(30, ringScore + techniqueBonus + precisionBonus + strategyBonus + sweepingBonus)
+            scoreCalculated = true
+            
+            // Effet visuel si dans la cible
+            if (ringScore > 0) {
+                generateTargetHitEffect()
+            }
+        }
+    }
 
-        updateStatus()
-        gameView.invalidate()
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                if (gameState == GameState.AIMING && !hasLaunched) {
+                    // Lancer la pierre
+                    launchStone()
+                    return true
+                } else if (gameState == GameState.SWEEPING) {
+                    // Commencer le balayage tactile
+                    sweepingActive = true
+                    return true
+                }
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (gameState == GameState.SWEEPING && sweepingActive) {
+                    // Balayage en cours
+                    return true
+                }
+            }
+            MotionEvent.ACTION_UP -> {
+                if (gameState == GameState.SWEEPING) {
+                    // Arrêter le balayage tactile
+                    sweepingActive = false
+                    return true
+                }
+            }
+        }
+        return super.onTouchEvent(event)
     }
 
     private fun proceedToNextPlayerOrEvent() {
@@ -187,7 +564,7 @@ class CurlingActivity : Activity(), SensorEventListener {
                 startActivity(intent)
                 finish()
             } else {
-                val aiScore = generateAIScore()
+                val aiScore = (70..170).random()
                 tournamentData.addScore(nextPlayer, eventIndex, aiScore)
                 proceedToNextPlayerOrEvent()
             }
@@ -209,182 +586,421 @@ class CurlingActivity : Activity(), SensorEventListener {
             }
         }
     }
-    
-    private fun generateAIScore(): Int {
-        val aiAccuracy = (1..4).random()
-        val aiDistance = (4000..5000).random()
-        val accuracyBonus = aiAccuracy * 50
-        val distanceBonus = (aiDistance / totalDistance * 100).toInt()
-        val penalty = (5 - aiAccuracy) * 20
-        return maxOf(50, accuracyBonus + distanceBonus - penalty)
-    }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-    
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (event.action == MotionEvent.ACTION_DOWN && gameState == GameState.SHOOTING && shotsFired < 5) {
-            shotsFired++
-            
-            for (i in targetPositions.indices) {
-                val dx = crosshair.x - targetPositions[i].x
-                val dy = crosshair.y - targetPositions[i].y
-                if (!targetHitStatus[i] && sqrt(dx * dx + dy * dy) < 0.08f) {
-                    targetHitStatus[i] = true
-                    targetsHit++
-                    break
-                }
-            }
-            
-            updateStatus()
-            gameView.invalidate()
-            return true
-        }
-        return super.onTouchEvent(event)
-    }
 
     private fun updateStatus() {
         statusText.text = when (gameState) {
-            GameState.SKIING -> "🥌 CURLING - ${tournamentData.playerNames[currentPlayerIndex]} | Distance: ${distance.toInt()}m / ${totalDistance.toInt()}m"
-            GameState.SHOOTING -> "🎯 CURLING - ${tournamentData.playerNames[currentPlayerIndex]} | Tir ${shotsFired}/5 — Touchés: $targetsHit"
-            GameState.FINAL_SKIING -> "🥌 CURLING - ${tournamentData.playerNames[currentPlayerIndex]} | Sprint final: ${distance.toInt()}m / ${totalDistance.toInt()}m"
-            GameState.FINISHED -> "✅ CURLING - ${tournamentData.playerNames[currentPlayerIndex]} | Score final: ${calculateScore()} points"
+            GameState.PREPARATION -> "🥌 ${tournamentData.playerNames[currentPlayerIndex]} | Préparation... ${(preparationDuration - phaseTimer).toInt() + 1}s"
+            GameState.AIMING -> {
+                if (!hasLaunched) {
+                    "🥌 ${tournamentData.playerNames[currentPlayerIndex]} | Visez et tapez pour lancer | Puissance: ${launchPower.toInt()}%"
+                } else {
+                    "🥌 ${tournamentData.playerNames[currentPlayerIndex]} | Pierre en mouvement..."
+                }
+            }
+            GameState.SWEEPING -> "🥌 ${tournamentData.playerNames[currentPlayerIndex]} | Balayez! Compteur: $sweepingCount | Intensité: ${(sweepingIntensity * 100).toInt()}%"
+            GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | ${getRingText()} | Score: ${finalScore}"
+            GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Tir terminé!"
         }
     }
-
-    private fun calculateScore(): Int {
-        val accuracyBonus = targetsHit * 50
-        val distanceBonus = (distance / totalDistance * 100).toInt()
-        val penaltyForMissedShots = (5 - targetsHit) * 20
-        return maxOf(0, accuracyBonus + distanceBonus - penaltyForMissedShots)
+    
+    private fun getRingText(): String {
+        return when (ringScore) {
+            50 -> "🥇 CENTRE!"
+            35 -> "🥈 Anneau intérieur"
+            20 -> "🥉 Anneau extérieur"
+            else -> "❌ Hors cible"
+        }
     }
 
     inner class CurlingView(context: Context) : View(context) {
         private val paint = Paint()
-        private val bgPaint = Paint().apply { color = Color.parseColor("#87CEEB") }
-        private val snowPaint = Paint().apply { color = Color.WHITE }
-        private val trackPaint = Paint().apply { color = Color.LTGRAY }
 
         override fun onDraw(canvas: Canvas) {
             val w = canvas.width
             val h = canvas.height
             
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), bgPaint)
-            
-            for (i in 0..10) {
-                val lineX = (backgroundOffset + i * 100) % (w + 200)
-                snowPaint.alpha = 50
-                canvas.drawRect(lineX, 0f, lineX + 2, h.toFloat(), snowPaint)
+            // Appliquer camera shake
+            if (cameraShake > 0f) {
+                canvas.save()
+                canvas.translate(
+                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 10f,
+                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 10f
+                )
             }
             
-            snowPaint.alpha = 255
-            canvas.drawRect(0f, h * 0.6f, w.toFloat(), h.toFloat(), snowPaint)
+            when (gameState) {
+                GameState.PREPARATION -> drawPreparation(canvas, w, h)
+                GameState.AIMING -> drawAiming(canvas, w, h)
+                GameState.SWEEPING -> drawSweeping(canvas, w, h)
+                GameState.RESULTS -> drawResults(canvas, w, h)
+                GameState.FINISHED -> drawResults(canvas, w, h)
+            }
             
-            canvas.drawRect(0f, h * 0.75f, w.toFloat(), h.toFloat(), trackPaint)
-
-            val progressRatio = distance / totalDistance
-            val skierX = (w * 0.1f) + (progressRatio * w * 0.6f) + playerOffset * 100f - skierBitmap.width / 2f
-            val skierY = h * 0.75f - skierBitmap.height
-            canvas.drawBitmap(skierBitmap, skierX, skierY, null)
-
-            if (gameState == GameState.SHOOTING || gameState == GameState.FINISHED) {
-                paint.color = Color.parseColor("#1a1a2e")
-                canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
-                
-                paint.color = Color.WHITE
-                paint.textSize = 40f
+            drawAllEffects(canvas, w, h)
+            
+            if (cameraShake > 0f) {
+                canvas.restore()
+            }
+        }
+        
+        private fun drawPreparation(canvas: Canvas, w: Int, h: Int) {
+            // Fond de patinoire de curling
+            paint.color = Color.parseColor("#F0F8FF")
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            
+            // Piste de curling
+            drawCurlingRink(canvas, w, h)
+            
+            // Instructions
+            paint.color = Color.parseColor("#001144")
+            paint.textSize = 36f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("🥌 CURLING STRATÉGIQUE 🥌", w/2f, h * 0.15f, paint)
+            
+            paint.textSize = 22f
+            paint.color = Color.parseColor("#0066CC")
+            canvas.drawText("Préparez votre tir de précision...", w/2f, h * 0.85f, paint)
+            
+            paint.textSize = 16f
+            paint.color = Color.parseColor("#666666")
+            canvas.drawText("📱 Inclinez pour viser, tapez pour lancer", w/2f, h * 0.9f, paint)
+            canvas.drawText("📱 Balayez l'écran ou le téléphone pour aider la pierre", w/2f, h * 0.95f, paint)
+        }
+        
+        private fun drawAiming(canvas: Canvas, w: Int, h: Int) {
+            // Fond
+            paint.color = Color.parseColor("#F0F8FF")
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            
+            // Piste
+            drawCurlingRink(canvas, w, h)
+            
+            // Ligne de visée
+            if (!hasLaunched) {
+                drawAimingLine(canvas, w, h)
+            }
+            
+            // Pierre
+            drawStone(canvas, w, h)
+            
+            // Interface de visée
+            drawAimingInterface(canvas, w, h)
+            
+            // Instructions
+            if (!hasLaunched) {
+                paint.color = Color.parseColor("#001144")
+                paint.textSize = 20f
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("🥌 ZONE CURLING 🥌", w/2f, 60f, paint)
-                
-                paint.textSize = 24f
-                canvas.drawText("Pivotez pour viser • TAPEZ l'écran pour tirer", w/2f, 100f, paint)
-                
-                if (shotsFired >= 5) {
-                    paint.color = Color.GREEN
-                    paint.textSize = 30f
-                    canvas.drawText("TIR TERMINÉ - Passage au ski final...", w/2f, 140f, paint)
-                }
-                
-                for (i in targetPositions.indices) {
-                    val px = targetPositions[i].x * w
-                    val py = targetPositions[i].y * h + 50
-                    
-                    if (targetHitStatus[i]) {
-                        paint.color = Color.parseColor("#00ff00")
-                        canvas.drawCircle(px, py, 35f, paint)
-                        paint.color = Color.parseColor("#004400")
-                        canvas.drawCircle(px, py, 30f, paint)
-                        paint.color = Color.GREEN
-                        paint.strokeWidth = 8f
-                        paint.style = Paint.Style.STROKE
-                        canvas.drawLine(px-15, py-15, px+15, py+15, paint)
-                        canvas.drawLine(px+15, py-15, px-15, py+15, paint)
-                        paint.style = Paint.Style.FILL
-                        
-                        paint.color = Color.WHITE
-                        paint.textSize = 16f
-                        paint.textAlign = Paint.Align.CENTER
-                        canvas.drawText("+50", px, py + 60f, paint)
-                    } else {
-                        paint.color = Color.WHITE
-                        canvas.drawCircle(px, py, 35f, paint)
-                        paint.color = Color.BLACK
-                        canvas.drawCircle(px, py, 28f, paint)
-                        paint.color = Color.WHITE
-                        canvas.drawCircle(px, py, 21f, paint)
-                        paint.color = Color.BLACK
-                        canvas.drawCircle(px, py, 14f, paint)
-                        paint.color = Color.RED
-                        canvas.drawCircle(px, py, 7f, paint)
-                        
-                        paint.color = Color.WHITE
-                        paint.textSize = 20f
-                        paint.textAlign = Paint.Align.CENTER
-                        canvas.drawText("${i+1}", px, py + 60f, paint)
-                    }
-                }
-                
-                val crossX = crosshair.x * w
-                val crossY = crosshair.y * h + 50
+                canvas.drawText("📱 INCLINEZ POUR VISER • TAPEZ POUR LANCER", w/2f, 50f, paint)
+            } else {
+                paint.color = Color.parseColor("#FF6600")
+                paint.textSize = 18f
+                canvas.drawText("🥌 Pierre en mouvement...", w/2f, 40f, paint)
+            }
+        }
+        
+        private fun drawSweeping(canvas: Canvas, w: Int, h: Int) {
+            // Fond avec effet de mouvement
+            paint.color = Color.parseColor("#F0F8FF")
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            
+            // Piste
+            drawCurlingRink(canvas, w, h)
+            
+            // Pierre en mouvement
+            drawStone(canvas, w, h)
+            
+            // Interface de balayage
+            drawSweepingInterface(canvas, w, h)
+            
+            // Instructions de balayage
+            paint.color = Color.parseColor("#FF6600")
+            paint.textSize = 24f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("🔥 BALAYEZ POUR AIDER LA PIERRE! 🔥", w/2f, 50f, paint)
+            
+            paint.textSize = 18f
+            paint.color = Color.parseColor("#001144")
+            canvas.drawText("📱 Balayez l'écran ou bougez le téléphone", w/2f, h - 30f, paint)
+        }
+        
+        private fun drawResults(canvas: Canvas, w: Int, h: Int) {
+            // Fond
+            paint.color = Color.parseColor("#F8F8FF")
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            
+            // Bandeau selon le résultat
+            val bannerColor = when (ringScore) {
+                50 -> Color.parseColor("#FFD700") // Or
+                35 -> Color.parseColor("#C0C0C0") // Argent
+                20 -> Color.parseColor("#CD7F32") // Bronze
+                else -> Color.parseColor("#DDDDDD") // Gris
+            }
+            paint.color = bannerColor
+            canvas.drawRect(0f, 0f, w.toFloat(), h * 0.4f, paint)
+            
+            // Score final
+            paint.color = Color.parseColor("#001144")
+            paint.textSize = 72f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("${finalScore}", w/2f, h * 0.2f, paint)
+            
+            paint.textSize = 28f
+            canvas.drawText("POINTS", w/2f, h * 0.3f, paint)
+            
+            // Résultat détaillé
+            paint.color = Color.parseColor("#333333")
+            paint.textSize = 20f
+            canvas.drawText(getRingText(), w/2f, h * 0.5f, paint)
+            canvas.drawText("Distance: ${(finalDistance * 1000).toInt()}cm", w/2f, h * 0.55f, paint)
+            canvas.drawText("🎯 Technique: ${technique.toInt()}%", w/2f, h * 0.6f, paint)
+            canvas.drawText("📏 Précision: ${precision.toInt()}%", w/2f, h * 0.65f, paint)
+            canvas.drawText("🧠 Stratégie: ${strategy.toInt()}%", w/2f, h * 0.7f, paint)
+            canvas.drawText("🧹 Balayages: $sweepingCount", w/2f, h * 0.75f, paint)
+        }
+        
+        private fun drawCurlingRink(canvas: Canvas, w: Int, h: Int) {
+            // Surface de glace
+            paint.color = Color.parseColor("#FFFFFF")
+            canvas.drawRect(w * 0.1f, 0f, w * 0.9f, h.toFloat(), paint)
+            
+            // Ligne centrale
+            paint.color = Color.parseColor("#DDDDDD")
+            paint.strokeWidth = 3f
+            paint.style = Paint.Style.STROKE
+            canvas.drawLine(w/2f, 0f, w/2f, h.toFloat(), paint)
+            
+            // Cible (house) en haut
+            val targetScreenX = targetCenter.x * w
+            val targetScreenY = targetCenter.y * h
+            
+            // Trois anneaux concentriques
+            val ringColors = arrayOf(Color.BLUE, Color.WHITE, Color.RED)
+            for (i in ringRadii.indices) {
+                paint.color = ringColors[i]
+                paint.style = Paint.Style.FILL
+                val radius = ringRadii[i] * w * 0.5f
+                canvas.drawCircle(targetScreenX, targetScreenY, radius, paint)
                 
                 paint.color = Color.BLACK
-                paint.strokeWidth = 8f
                 paint.style = Paint.Style.STROKE
-                canvas.drawLine(crossX - 30, crossY, crossX + 30, crossY, paint)
-                canvas.drawLine(crossX, crossY - 30, crossX, crossY + 30, paint)
-                canvas.drawCircle(crossX, crossY, 20f, paint)
-                
-                paint.color = Color.RED
-                paint.strokeWidth = 4f
-                canvas.drawLine(crossX - 25, crossY, crossX + 25, crossY, paint)
-                canvas.drawLine(crossX, crossY - 25, crossX, crossY + 25, paint)
-                
-                paint.color = Color.YELLOW
-                paint.style = Paint.Style.FILL
-                canvas.drawCircle(crossX, crossY, 6f, paint)
-                paint.color = Color.RED
-                canvas.drawCircle(crossX, crossY, 12f, paint)
-                paint.style = Paint.Style.FILL
-                
-                paint.color = Color.WHITE
-                paint.textSize = 24f
-                paint.textAlign = Paint.Align.LEFT
-                canvas.drawText("🔫 Munitions: ${5-shotsFired}/5", 30f, h - 80f, paint)
-                canvas.drawText("🎯 Touchés: $targetsHit/5", 30f, h - 50f, paint)
-                
-                for (i in 0 until 5) {
-                    paint.color = if (i < shotsFired) Color.GRAY else Color.YELLOW
-                    canvas.drawRect(w - 200f + i * 35f, h - 60f, w - 175f + i * 35f, h - 40f, paint)
-                }
+                paint.strokeWidth = 2f
+                canvas.drawCircle(targetScreenX, targetScreenY, radius, paint)
             }
             
-            paint.color = Color.BLACK
-            canvas.drawRect(w * 0.1f, 20f, w * 0.9f, 40f, paint)
+            // Ligne de lancer en bas
+            paint.color = Color.parseColor("#FF0000")
+            paint.strokeWidth = 4f
+            paint.style = Paint.Style.STROKE
+            canvas.drawLine(w * 0.1f, h * 0.9f, w * 0.9f, h * 0.9f, paint)
+            
+            paint.style = Paint.Style.FILL
+        }
+        
+        private fun drawAimingLine(canvas: Canvas, w: Int, h: Int) {
+            // Ligne de visée en pointillés
+            paint.color = Color.parseColor("#AA00FF00")
+            paint.strokeWidth = 3f
+            paint.style = Paint.Style.STROKE
+            
+            val startX = stonePosition.x * w
+            val startY = stonePosition.y * h
+            val endX = aimingX * w
+            val endY = targetCenter.y * h
+            
+            // Ligne en pointillés
+            val dashLength = 20f
+            val distance = sqrt((endX - startX) * (endX - startX) + (endY - startY) * (endY - startY))
+            val steps = (distance / dashLength).toInt()
+            
+            for (i in 0 until steps step 2) {
+                val t1 = i.toFloat() / steps
+                val t2 = ((i + 1).toFloat() / steps).coerceAtMost(1f)
+                
+                val x1 = startX + (endX - startX) * t1
+                val y1 = startY + (endY - startY) * t1
+                val x2 = startX + (endX - startX) * t2
+                val y2 = startY + (endY - startY) * t2
+                
+                canvas.drawLine(x1, y1, x2, y2, paint)
+            }
+            
+            paint.style = Paint.Style.FILL
+        }
+        
+        private fun drawStone(canvas: Canvas, w: Int, h: Int) {
+            val stoneScreenX = stonePosition.x * w
+            val stoneScreenY = stonePosition.y * h
+            
+            canvas.save()
+            canvas.translate(stoneScreenX, stoneScreenY)
+            canvas.rotate(stoneRotation)
+            
+            // Pierre de curling
+            paint.color = Color.parseColor("#666666")
+            canvas.drawCircle(0f, 0f, 25f, paint)
+            
+            paint.color = Color.parseColor("#444444")
+            canvas.drawCircle(0f, 0f, 20f, paint)
+            
+            // Poignée
+            paint.color = Color.parseColor("#FFAA00")
+            canvas.drawCircle(0f, 0f, 8f, paint)
+            
+            // Marque de rotation
+            paint.color = Color.WHITE
+            paint.strokeWidth = 3f
+            paint.style = Paint.Style.STROKE
+            canvas.drawLine(0f, -15f, 0f, -5f, paint)
+            
+            paint.style = Paint.Style.FILL
+            canvas.restore()
+            
+            // Aura si en mouvement
+            if (isStoneMoving) {
+                paint.color = Color.parseColor("#3300FFFF")
+                canvas.drawCircle(stoneScreenX, stoneScreenY, 35f, paint)
+            }
+        }
+        
+        private fun drawAimingInterface(canvas: Canvas, w: Int, h: Int) {
+            val baseY = h - 120f
+            
+            // Indicateur de visée
+            paint.color = Color.parseColor("#001144")
+            paint.textSize = 18f
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("Visée:", 20f, baseY, paint)
+            
+            // Barre de visée
+            paint.color = Color.parseColor("#333333")
+            canvas.drawRect(100f, baseY - 15f, 400f, baseY, paint)
+            
             paint.color = Color.GREEN
-            canvas.drawRect(w * 0.1f, 20f, w * 0.1f + (progressRatio * w * 0.8f), 40f, paint)
+            val aimPos = 100f + (aimingX * 300f)
+            canvas.drawRect(aimPos - 10f, baseY - 15f, aimPos + 10f, baseY, paint)
+            
+            // Indicateur de puissance
+            canvas.drawText("Puissance:", 20f, baseY + 30f, paint)
+            
+            paint.color = Color.parseColor("#333333")
+            canvas.drawRect(100f, baseY + 15f, 400f, baseY + 30f, paint)
+            
+            val powerColor = when {
+                launchPower > 80f -> Color.RED
+                launchPower > 60f -> Color.YELLOW
+                else -> Color.GREEN
+            }
+            paint.color = powerColor
+            val powerWidth = (launchPower / 100f) * 300f
+            canvas.drawRect(100f, baseY + 15f, 100f + powerWidth, baseY + 30f, paint)
+            
+            paint.textAlign = Paint.Align.RIGHT
+            canvas.drawText("${launchPower.toInt()}%", 400f, baseY + 25f, paint)
+        }
+        
+        private fun drawSweepingInterface(canvas: Canvas, w: Int, h: Int) {
+            val baseY = h - 100f
+            
+            // Indicateur de balayage
+            paint.color = Color.parseColor("#001144")
+            paint.textSize = 20f
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("Balayage:", 20f, baseY, paint)
+            canvas.drawText("Compteur: $sweepingCount", 20f, baseY + 25f, paint)
+            
+            // Barre d'intensité
+            paint.color = Color.parseColor("#333333")
+            canvas.drawRect(200f, baseY - 15f, 500f, baseY, paint)
+            
+            paint.color = Color.parseColor("#FF6600")
+            val intensityWidth = sweepingIntensity * 300f
+            canvas.drawRect(200f, baseY - 15f, 200f + intensityWidth, baseY, paint)
+            
+            paint.color = Color.WHITE
+            paint.textSize = 14f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("INTENSITÉ: ${(sweepingIntensity * 100).toInt()}%", 350f, baseY - 3f, paint)
+            
+            // Indication tactile
+            if (!sweepingActive && !sweepingMotionDetected) {
+                paint.color = Color.parseColor("#666666")
+                paint.textSize = 16f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("👆 Balayez l'écran ou 📱 bougez le téléphone", w/2f, baseY + 50f, paint)
+            }
+        }
+        
+        private fun drawAllEffects(canvas: Canvas, w: Int, h: Int) {
+            // Traînées de glace
+            paint.color = Color.parseColor("#AACCCCFF")
+            val currentTime = System.currentTimeMillis()
+            for (trail in iceTrails) {
+                val alpha = ((4000 - (currentTime - trail.timestamp)) / 4000f * 150).toInt()
+                paint.alpha = maxOf(0, alpha)
+                canvas.drawCircle(trail.x * w, trail.y * h, 6f, paint)
+            }
+            paint.alpha = 255
+            
+            // Effets de balayage
+            paint.color = Color.parseColor("#FFAA00")
+            for (effect in sweepingEffects) {
+                paint.alpha = (effect.life * 255).toInt()
+                canvas.drawCircle(effect.x * w, effect.y * h, effect.life * 8f, paint)
+            }
+            paint.alpha = 255
+            
+            // Ondulations de cible
+            paint.color = Color.parseColor("#6600FF00")
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 4f
+            for (ripple in targetRipples) {
+                paint.alpha = (ripple.life * 150).toInt()
+                canvas.drawCircle(ripple.x * w, ripple.y * h, ripple.radius * w * 0.5f, paint)
+            }
+            paint.alpha = 255
+            paint.style = Paint.Style.FILL
+            
+            // Étincelles de pierre
+            for (sparkle in stoneSparkles) {
+                paint.alpha = (sparkle.life * 255).toInt()
+                paint.color = sparkle.color
+                canvas.drawCircle(sparkle.x * w, sparkle.y * h, sparkle.life * 5f, paint)
+            }
+            paint.alpha = 255
         }
     }
 
+    data class IceTrail(
+        val x: Float,
+        val y: Float,
+        val timestamp: Long
+    )
+    
+    data class SweepingEffect(
+        val x: Float,
+        val y: Float,
+        var life: Float
+    )
+    
+    data class TargetRipple(
+        val x: Float,
+        val y: Float,
+        var radius: Float,
+        val maxRadius: Float,
+        var life: Float
+    )
+    
+    data class StoneSparkle(
+        val x: Float,
+        val y: Float,
+        val color: Int,
+        var life: Float
+    )
+
     enum class GameState {
-        SKIING, SHOOTING, FINAL_SKIING, FINISHED
+        PREPARATION, AIMING, SWEEPING, RESULTS, FINISHED
     }
 }
