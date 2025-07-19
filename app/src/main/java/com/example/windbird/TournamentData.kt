@@ -41,7 +41,7 @@ class TournamentData(
         // En mode pratique, toutes les épreuves implémentées sont disponibles
         if (practiceMode) {
             return when (eventIndex) {
-                0, 1 -> EventsMenuActivity.EventStatus.AVAILABLE // Biathlon et Saut à Ski
+                0, 1, 2 -> EventsMenuActivity.EventStatus.AVAILABLE // Biathlon, Saut à Ski et Bobsleigh
                 else -> EventsMenuActivity.EventStatus.LOCKED // Autres épreuves pas encore implémentées
             }
         }
@@ -67,6 +67,7 @@ class TournamentData(
                     // Vérifier si l'épreuve est implémentée
                     when (eventIndex) {
                         1 -> EventsMenuActivity.EventStatus.AVAILABLE // Saut à Ski implémenté
+                        2 -> EventsMenuActivity.EventStatus.AVAILABLE // Bobsleigh implémenté
                         else -> EventsMenuActivity.EventStatus.LOCKED // Autres épreuves pas encore implémentées
                     }
                 } else {
@@ -98,8 +99,8 @@ class TournamentData(
     
     // MODIFIÉ : Vérifier si toutes les épreuves implémentées sont terminées
     fun isTournamentComplete(): Boolean {
-        // Pour l'instant : Biathlon (0) et Saut à Ski (1) sont implémentés
-        val implementedEvents = listOf(0, 1)
+        // Pour l'instant : Biathlon (0), Saut à Ski (1) et Bobsleigh (2) sont implémentés
+        val implementedEvents = listOf(0, 1, 2)
         
         return implementedEvents.all { eventIndex ->
             (0..3).all { playerIndex ->
