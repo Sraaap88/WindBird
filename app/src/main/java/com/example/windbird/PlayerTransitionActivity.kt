@@ -140,7 +140,7 @@ class PlayerTransitionActivity : Activity() {
         setContentView(layout)
     }
     
-    // AJOUTÉ : Méthode pour démarrer la bonne activité selon l'épreuve
+    // CORRIGÉ : Méthode pour démarrer la bonne activité selon l'épreuve
     private fun startEventActivity() {
         val intent = when (eventIndex) {
             0 -> {
@@ -148,7 +148,7 @@ class PlayerTransitionActivity : Activity() {
                 Intent(this, BiathlonActivity::class.java)
             }
             1 -> {
-                // Saut à Ski
+                // Saut à Ski - AJOUTÉ LE CASE MANQUANT
                 Intent(this, SkiJumpActivity::class.java)
             }
             2 -> {
