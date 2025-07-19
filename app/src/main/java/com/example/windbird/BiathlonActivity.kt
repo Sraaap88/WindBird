@@ -90,18 +90,34 @@ class BiathlonActivity : Activity(), SensorEventListener {
         try {
             spriteSheet = BitmapFactory.decodeResource(resources, R.drawable.skidefond_sprite)
             
-            // Découper le sprite sheet en 2 frames (gauche et droite)
-            val frameWidth = spriteSheet.width / 2
-            val frameHeight = spriteSheet.height
+            // CORRIGÉ : Calculer les dimensions en tenant compte des bordures
+            // Cadre de 5px + séparation de 5px entre les images
+            val totalWidth = spriteSheet.width
+            val totalHeight = spriteSheet.height
             
-            leftFrame = Bitmap.createBitmap(spriteSheet, 0, 0, frameWidth, frameHeight)
-            rightFrame = Bitmap.createBitmap(spriteSheet, frameWidth, 0, frameWidth, frameHeight)
+            // Largeur de chaque frame = (largeur totale - cadre gauche - cadre droit - séparation) / 2
+            val frameWidth = (totalWidth - 5 - 5 - 5) / 2  // -15px au total
+            val frameHeight = totalHeight - 5 - 5  // -10px (cadre haut + bas)
+            
+            // Découper en enlevant les bordures
+            leftFrame = Bitmap.createBitmap(spriteSheet, 5, 5, frameWidth, frameHeight)
+            rightFrame = Bitmap.createBitmap(spriteSheet, 5 + frameWidth + 5, 5, frameWidth, frameHeight)
+            
+            // AJOUTÉ : Redimensionner à 1/3 de la taille
+            val newWidth = frameWidth / 3
+            val newHeight = frameHeight / 3
+            
+            leftFrame = Bitmap.createScaledBitmap(leftFrame, newWidth, newHeight, true)
+            rightFrame = Bitmap.createScaledBitmap(rightFrame, newWidth, newHeight, true)
             
             // Frame par défaut
             currentFrame = leftFrame
         } catch (e: Exception) {
             // Fallback au skieur_pixel si le sprite sheet n'existe pas
-            currentFrame = BitmapFactory.decodeResource(resources, R.drawable.skieur_pixel)
+            val fallback = BitmapFactory.decodeResource(resources, R.drawable.skieur_pixel)
+            val scaledWidth = fallback.width / 3
+            val scaledHeight = fallback.height / 3
+            currentFrame = Bitmap.createScaledBitmap(fallback, scaledWidth, scaledHeight, true)
         }
     }
 
