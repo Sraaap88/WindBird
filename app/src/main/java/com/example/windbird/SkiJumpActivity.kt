@@ -1,7 +1,4 @@
-// CORRIGÉ : Validation du currentPlayerIndex
-        if (currentPlayerIndex == -1 || currentPlayerIndex >= tournamentData.playerNames.size) {
-            currentPlayerIndex = 0 // Fallback au premier joueur
-        }package com.example.windbird
+package com.example.windbird
 
 import android.app.Activity
 import android.content.Context
@@ -56,7 +53,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var skierY = 0f
     private var backgroundOffset = 0f
     
-    // AJOUTÉ : Animation sprite sheet
+    // Animation sprite sheet
     private lateinit var skierSpriteSheet: Bitmap
     private val frameWidth = 205
     private val frameHeight = 247
@@ -81,19 +78,24 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         numberOfPlayers = intent.getIntExtra("number_of_players", 1)
         practiceMode = intent.getBooleanExtra("practice_mode", false)
         
-        // CORRIGÉ : Comme dans BiathlonActivity - utiliser getNextPlayer si pas de current_player_index
+        // Logique pour récupérer le currentPlayerIndex
         val intentPlayerIndex = intent.getIntExtra("current_player_index", -1)
         currentPlayerIndex = if (intentPlayerIndex != -1) {
             intentPlayerIndex
         } else {
             tournamentData.getNextPlayer(eventIndex)
         }
+        
+        // Validation du currentPlayerIndex
+        if (currentPlayerIndex == -1 || currentPlayerIndex >= tournamentData.playerNames.size) {
+            currentPlayerIndex = 0 // Fallback au premier joueur
+        }
 
         // Initialiser les capteurs
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
         
-        // AJOUTÉ : Charger le sprite sheet du skieur
+        // Charger le sprite sheet du skieur
         skierSpriteSheet = BitmapFactory.decodeResource(resources, R.drawable.skieur_sprite)
 
         // Créer l'interface
@@ -129,6 +131,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         backgroundOffset = 0f
         takeoffTiming = 0f
         gameState = GameState.APPROACH
+        currentFrame = 3
     }
 
     override fun onResume() {
@@ -225,7 +228,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         roll = roll.coerceIn(-20f, 20f)
         yaw = yaw.coerceIn(-15f, 15f)
         
-        // AJOUTÉ : Mise à jour de la frame selon le roulis
+        // Mise à jour de la frame selon le roulis
         updateSkierFrame()
         
         // Calculer l'impact de la stabilité sur la distance
@@ -235,19 +238,6 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         // Transition vers l'atterrissage
         if (flightTime >= totalFlightTime) {
             gameState = GameState.LANDING
-        }
-    }
-    
-    // AJOUTÉ : Méthode pour choisir la frame selon le gyroscope
-    private fun updateSkierFrame() {
-        currentFrame = when {
-            roll < -15f -> 0  // Gauche extrême
-            roll < -8f  -> 1  // Gauche
-            roll < -3f  -> 2  // Légèrement gauche
-            roll > 15f  -> 6  // Droite extrême
-            roll > 8f   -> 5  // Droite
-            roll > 3f   -> 4  // Légèrement droite
-            else        -> 3  // Centre stable
         }
     }
     
@@ -273,6 +263,19 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         statusText.postDelayed({
             proceedToNextPlayerOrEvent()
         }, 3000)
+    }
+    
+    // Méthode pour choisir la frame selon le gyroscope
+    private fun updateSkierFrame() {
+        currentFrame = when {
+            roll < -15f -> 0  // Gauche extrême
+            roll < -8f  -> 1  // Gauche
+            roll < -3f  -> 2  // Légèrement gauche
+            roll > 15f  -> 6  // Droite extrême
+            roll > 8f   -> 5  // Droite
+            roll > 3f   -> 4  // Légèrement droite
+            else        -> 3  // Centre stable
+        }
     }
     
     private fun generateWindDisturbances() {
@@ -431,7 +434,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             path.close()
             canvas.drawPath(path, paint)
             
-            // MODIFIÉ : Skieur avec sprite sheet (frame centrale en élan)
+            // Skieur avec sprite sheet (frame centrale en élan)
             skierX = w * 0.3f + (speed / maxSpeed) * w * 0.4f
             skierY = startY - ((speed / maxSpeed) * (startY - endY))
             
@@ -449,31 +452,12 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             drawSpeedBar(canvas, w, h)
         }
         
-        // AJOUTÉ : Méthode utilitaire pour dessiner le sprite
-        private fun drawSkierSprite(canvas: Canvas, x: Float, y: Float, scale: Float) {
-            val srcX = frameSpacing + currentFrame * (frameWidth + frameSpacing)
-            val srcY = frameSpacing
-            val srcRect = Rect(srcX, srcY, srcX + frameWidth, srcY + frameHeight)
-            
-            val displayWidth = frameWidth * scale
-            val displayHeight = frameHeight * scale
-            
-            val dstRect = RectF(
-                x - displayWidth/2f,
-                y - displayHeight,
-                x + displayWidth/2f,
-                y
-            )
-            
-            canvas.drawBitmap(skierSpriteSheet, srcRect, dstRect, paint)
-        }
-        
         private fun drawTakeoff(canvas: Canvas, w: Int, h: Int) {
             // Tremplin
             jumpPaint.color = Color.LTGRAY
             canvas.drawRect(w * 0.6f, h * 0.6f, w.toFloat(), h.toFloat(), jumpPaint)
             
-            // MODIFIÉ : Skieur au décollage avec sprite
+            // Skieur au décollage avec sprite
             skierX = w * 0.7f
             skierY = h * 0.6f - 30f
             
@@ -506,7 +490,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             // Particules de neige animées
             drawSnowParticles(canvas, w, h)
             
-            // MODIFIÉ : Skieur avec sprite sheet au centre de l'écran
+            // Skieur avec sprite sheet au centre de l'écran
             val centerX = w / 2f
             val centerY = h / 2f
             
@@ -517,7 +501,64 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             drawPixelUI(canvas, w, h)
         }
         
-        // AJOUTÉ : Méthode pour dessiner le skieur avec sprite sheet
+        private fun drawLanding(canvas: Canvas, w: Int, h: Int) {
+            // Zone d'atterrissage
+            paint.color = Color.WHITE
+            canvas.drawRect(0f, h * 0.7f, w.toFloat(), h.toFloat(), paint)
+            
+            // Skieur à l'atterrissage avec sprite
+            skierX = w * 0.8f
+            skierY = h * 0.7f - 30f
+            
+            // Frame de réception
+            currentFrame = 3 // Retour au centre pour l'atterrissage
+            
+            drawSkierSprite(canvas, skierX, skierY, 0.5f)
+            
+            // Distance finale
+            paint.color = Color.GREEN
+            paint.textSize = 32f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("${jumpDistance.toInt()}m", w/2f, h * 0.5f, paint)
+        }
+        
+        private fun drawFinished(canvas: Canvas, w: Int, h: Int) {
+            // Fond de victoire
+            paint.color = Color.parseColor("#FFD700")
+            canvas.drawRect(0f, 0f, w.toFloat(), h * 0.2f, paint)
+            
+            // Résultats
+            paint.color = Color.BLACK
+            paint.textSize = 24f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("🏆 RÉSULTAT FINAL 🏆", w/2f, h * 0.1f, paint)
+            
+            paint.textSize = 20f
+            canvas.drawText("Distance: ${jumpDistance.toInt()}m", w/2f, h * 0.3f, paint)
+            canvas.drawText("Stabilité: ${(calculateStability() * 100).toInt()}%", w/2f, h * 0.4f, paint)
+            canvas.drawText("Score: ${calculateScore()} points", w/2f, h * 0.5f, paint)
+        }
+        
+        // Méthode utilitaire pour dessiner le sprite
+        private fun drawSkierSprite(canvas: Canvas, x: Float, y: Float, scale: Float) {
+            val srcX = frameSpacing + currentFrame * (frameWidth + frameSpacing)
+            val srcY = frameSpacing
+            val srcRect = Rect(srcX, srcY, srcX + frameWidth, srcY + frameHeight)
+            
+            val displayWidth = frameWidth * scale
+            val displayHeight = frameHeight * scale
+            
+            val dstRect = RectF(
+                x - displayWidth/2f,
+                y - displayHeight,
+                x + displayWidth/2f,
+                y
+            )
+            
+            canvas.drawBitmap(skierSpriteSheet, srcRect, dstRect, paint)
+        }
+        
+        // Méthode pour dessiner le skieur avec sprite sheet
         private fun drawAnimatedSkier(canvas: Canvas, centerX: Float, centerY: Float) {
             // Calculer la position de la frame dans le sprite sheet
             val srcX = frameSpacing + currentFrame * (frameWidth + frameSpacing)
@@ -571,71 +612,6 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 paint.textAlign = Paint.Align.CENTER
                 val arrow = if (roll > 0) "→" else "←"
                 canvas.drawText(arrow, arrowX, centerY - displayHeight/2f - 20f, paint)
-            }
-        }
-        
-        private fun drawPixelSkierTopView(canvas: Canvas, centerX: Float, centerY: Float) {
-            val skierSize = 120f // Gros skieur bien visible
-            
-            // Ombre du skieur (effet de profondeur)
-            paint.color = Color.parseColor("#66000000")
-            canvas.drawOval(-skierSize/2 + 5f, -skierSize/3 + 5f, 
-                           skierSize/2 + 5f, skierSize/3 + 5f, paint)
-            
-            // SKIS (2 rectangles blancs avec détails)
-            val skiLength = skierSize * 0.8f
-            val skiWidth = 12f
-            val skiSeparation = 20f + abs(roll) * 0.5f // Skis s'écartent si déséquilibre
-            
-            // Ski gauche
-            paint.color = Color.WHITE
-            canvas.save()
-            canvas.rotate(pitch * 0.5f - roll * 0.3f) // Inclinaison basée sur gyroscope
-            canvas.drawRect(-skiSeparation/2 - skiWidth, -skiLength/2, 
-                           -skiSeparation/2, skiLength/2, paint)
-            canvas.restore()
-            
-            // Ski droit
-            paint.color = Color.WHITE
-            canvas.save()
-            canvas.rotate(pitch * 0.5f + roll * 0.3f)
-            canvas.drawRect(skiSeparation/2, -skiLength/2, 
-                           skiSeparation/2 + skiWidth, skiLength/2, paint)
-            canvas.restore()
-            
-            // CORPS DU SKIEUR (vue de haut)
-            // Tête/Casque
-            paint.color = Color.parseColor("#0066CC") // Bleu électrique
-            canvas.drawCircle(0f, -15f, 18f, paint)
-            
-            // Corps/Torse 
-            paint.color = Color.parseColor("#003399") // Bleu foncé
-            canvas.drawRect(-20f, -10f, 20f, 25f, paint)
-            
-            // Dossard jaune
-            paint.color = Color.parseColor("#FFD700")
-            canvas.drawRect(-12f, -5f, 12f, 15f, paint)
-            
-            // Numéro sur le dossard
-            paint.color = Color.BLACK
-            paint.textSize = 16f
-            paint.textAlign = Paint.Align.CENTER
-            val playerNumber = if (currentPlayerIndex < 4) currentPlayerIndex + 1 else 1
-            canvas.drawText("$playerNumber", 0f, 8f, paint)
-            
-            // Bras étendus
-            paint.color = Color.parseColor("#0066CC")
-            canvas.drawRect(-35f, -5f, -20f, 5f, paint) // Bras gauche
-            canvas.drawRect(20f, -5f, 35f, 5f, paint)   // Bras droit
-            
-            // Effet de mouvement si déséquilibre
-            if (abs(roll) > 10f || abs(pitch) > 15f) {
-                paint.color = Color.parseColor("#44FF0000")
-                canvas.drawCircle(0f, 0f, skierSize/2 + 10f, paint)
-            } else if (abs(roll) < 5f && abs(pitch) < 8f) {
-                // Halo vert si bon équilibre
-                paint.color = Color.parseColor("#4400FF00")
-                canvas.drawCircle(0f, 0f, skierSize/2 + 5f, paint)
             }
         }
         
@@ -702,12 +678,27 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.alpha = 255
         }
         
+        private fun drawSpeedBar(canvas: Canvas, w: Int, h: Int) {
+            // Barre de vitesse
+            paint.color = Color.BLACK
+            canvas.drawRect(50f, 50f, 250f, 80f, paint)
+            
+            paint.color = if (speed >= 80f) Color.GREEN else Color.YELLOW
+            val speedWidth = (speed / maxSpeed) * 200f
+            canvas.drawRect(50f, 50f, 50f + speedWidth, 80f, paint)
+            
+            paint.color = Color.WHITE
+            paint.textSize = 16f
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("Vitesse: ${speed.toInt()} km/h", 50f, 100f, paint)
+        }
+        
         private fun drawPixelUI(canvas: Canvas, w: Int, h: Int) {
             // Interface utilisateur style pixel/16-bit
             
             // Cadre de stabilité (coin bas-gauche)
             paint.color = Color.parseColor("#333333")
-            canvas.drawRoundRect(20f, h - 200f, 300f, h - 20f, 10f, 10f, paint)
+            canvas.drawRect(20f, h - 200f, 300f, h - 20f, paint)
             
             paint.color = Color.WHITE
             paint.textSize = 18f
@@ -753,90 +744,6 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.textSize = 24f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("Stabilité: ${(stability * 100).toInt()}%", w/2f, 40f, paint)
-        }
-        
-        private fun drawLanding(canvas: Canvas, w: Int, h: Int) {
-            // Zone d'atterrissage
-            paint.color = Color.WHITE
-            canvas.drawRect(0f, h * 0.7f, w.toFloat(), h.toFloat(), paint)
-            
-            // MODIFIÉ : Skieur à l'atterrissage avec sprite
-            skierX = w * 0.8f
-            skierY = h * 0.7f - 30f
-            
-            // Frame de réception
-            currentFrame = 3 // Retour au centre pour l'atterrissage
-            
-            drawSkierSprite(canvas, skierX, skierY, 0.5f)
-            
-            // Distance finale
-            paint.color = Color.GREEN
-            paint.textSize = 32f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("${jumpDistance.toInt()}m", w/2f, h * 0.5f, paint)
-        }
-        
-        private fun drawFinished(canvas: Canvas, w: Int, h: Int) {
-            // Fond de victoire
-            paint.color = Color.parseColor("#FFD700")
-            canvas.drawRect(0f, 0f, w.toFloat(), h * 0.2f, paint)
-            
-            // Résultats
-            paint.color = Color.BLACK
-            paint.textSize = 24f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("🏆 RÉSULTAT FINAL 🏆", w/2f, h * 0.1f, paint)
-            
-            paint.textSize = 20f
-            canvas.drawText("Distance: ${jumpDistance.toInt()}m", w/2f, h * 0.3f, paint)
-            canvas.drawText("Stabilité: ${(calculateStability() * 100).toInt()}%", w/2f, h * 0.4f, paint)
-            canvas.drawText("Score: ${calculateScore()} points", w/2f, h * 0.5f, paint)
-        }
-        
-        private fun drawSpeedBar(canvas: Canvas, w: Int, h: Int) {
-            // Barre de vitesse
-            paint.color = Color.BLACK
-            canvas.drawRect(50f, 50f, 250f, 80f, paint)
-            
-            paint.color = if (speed >= 80f) Color.GREEN else Color.YELLOW
-            val speedWidth = (speed / maxSpeed) * 200f
-            canvas.drawRect(50f, 50f, 50f + speedWidth, 80f, paint)
-            
-            paint.color = Color.WHITE
-            paint.textSize = 16f
-            paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("Vitesse: ${speed.toInt()} km/h", 50f, 100f, paint)
-        }
-        
-        private fun drawStabilityIndicators(canvas: Canvas, w: Int, h: Int) {
-            val indicatorY = h - 150f
-            
-            // Tangage (Pitch)
-            paint.color = if (abs(pitch) < 10f) Color.GREEN else Color.RED
-            canvas.drawRect(50f, indicatorY, 50f + abs(pitch) * 3f, indicatorY + 20f, paint)
-            paint.color = Color.WHITE
-            paint.textSize = 14f
-            paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("Tangage: ${pitch.toInt()}°", 50f, indicatorY + 35f, paint)
-            
-            // Roulis (Roll)
-            paint.color = if (abs(roll) < 7f) Color.GREEN else Color.RED
-            canvas.drawRect(50f, indicatorY + 50f, 50f + abs(roll) * 4f, indicatorY + 70f, paint)
-            paint.color = Color.WHITE
-            canvas.drawText("Roulis: ${roll.toInt()}°", 50f, indicatorY + 85f, paint)
-            
-            // Lacet (Yaw)
-            paint.color = if (abs(yaw) < 5f) Color.GREEN else Color.RED
-            canvas.drawRect(50f, indicatorY + 100f, 50f + abs(yaw) * 5f, indicatorY + 120f, paint)
-            paint.color = Color.WHITE
-            canvas.drawText("Lacet: ${yaw.toInt()}°", 50f, indicatorY + 135f, paint)
-            
-            // Stabilité globale
-            val stability = calculateStability()
-            paint.color = Color.CYAN
-            paint.textSize = 18f
-            paint.textAlign = Paint.Align.RIGHT
-            canvas.drawText("Stabilité: ${(stability * 100).toInt()}%", w - 50f, indicatorY + 60f, paint)
         }
         
         private fun drawUI(canvas: Canvas, w: Int, h: Int) {
