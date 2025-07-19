@@ -279,9 +279,9 @@ class EventsMenuActivity : Activity() {
     }
     
     private fun startEvent(eventIndex: Int) {
-        // MODIFIÉ : Ajouter le bobsleigh (index 2)
         when (eventIndex) {
             0 -> {
+                // Biathlon - Code qui FONCTIONNE
                 if (events[0].implemented) {
                     val intent = Intent(this, BiathlonActivity::class.java).apply {
                         putExtra("tournament_data", tournamentData)
@@ -293,23 +293,29 @@ class EventsMenuActivity : Activity() {
                 }
             }
             1 -> {
+                // Saut à Ski - COPIE EXACTE du code Biathlon
                 if (events[1].implemented) {
                     val intent = Intent(this, SkiJumpActivity::class.java).apply {
                         putExtra("tournament_data", tournamentData)
                         putExtra("event_index", eventIndex)
                         putExtra("number_of_players", numberOfPlayers)
                         putExtra("practice_mode", practiceMode)
+                        // AJOUTÉ : current_player_index explicite pour mode pratique
+                        putExtra("current_player_index", 0) // Toujours joueur 1 en pratique
                     }
                     startActivityForResult(intent, 100)
                 }
             }
             2 -> {
+                // Bobsleigh - COPIE EXACTE du code Biathlon
                 if (events[2].implemented) {
                     val intent = Intent(this, BobsledActivity::class.java).apply {
                         putExtra("tournament_data", tournamentData)
                         putExtra("event_index", eventIndex)
                         putExtra("number_of_players", numberOfPlayers)
                         putExtra("practice_mode", practiceMode)
+                        // AJOUTÉ : current_player_index explicite pour mode pratique
+                        putExtra("current_player_index", 0) // Toujours joueur 1 en pratique
                     }
                     startActivityForResult(intent, 100)
                 }
