@@ -288,6 +288,8 @@ class EventsMenuActivity : Activity() {
                         putExtra("event_index", eventIndex)
                         putExtra("number_of_players", numberOfPlayers)
                         putExtra("practice_mode", practiceMode)
+                        // CORRECTION : Toujours passer current_player_index explicitement
+                        putExtra("current_player_index", if (practiceMode) 0 else tournamentData.getNextPlayer(eventIndex))
                     }
                     startActivityForResult(intent, 100)
                 }
@@ -300,8 +302,8 @@ class EventsMenuActivity : Activity() {
                         putExtra("event_index", eventIndex)
                         putExtra("number_of_players", numberOfPlayers)
                         putExtra("practice_mode", practiceMode)
-                        // AJOUTÉ : current_player_index explicite pour mode pratique
-                        putExtra("current_player_index", 0) // Toujours joueur 1 en pratique
+                        // CORRECTION : Toujours passer current_player_index explicitement
+                        putExtra("current_player_index", if (practiceMode) 0 else tournamentData.getNextPlayer(eventIndex))
                     }
                     startActivityForResult(intent, 100)
                 }
@@ -314,8 +316,8 @@ class EventsMenuActivity : Activity() {
                         putExtra("event_index", eventIndex)
                         putExtra("number_of_players", numberOfPlayers)
                         putExtra("practice_mode", practiceMode)
-                        // AJOUTÉ : current_player_index explicite pour mode pratique
-                        putExtra("current_player_index", 0) // Toujours joueur 1 en pratique
+                        // CORRECTION : Toujours passer current_player_index explicitement
+                        putExtra("current_player_index", if (practiceMode) 0 else tournamentData.getNextPlayer(eventIndex))
                     }
                     startActivityForResult(intent, 100)
                 }
