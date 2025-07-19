@@ -53,9 +53,6 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var skierY = 0f
     private var backgroundOffset = 0f
     
-    // AJOUTÉ : Bitmap du skieur
-    private lateinit var skierBitmap: Bitmap
-    
     // Données du tournoi
     private lateinit var tournamentData: TournamentData
     private var eventIndex: Int = 0
@@ -77,9 +74,6 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         // Initialiser les capteurs
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-        
-        // AJOUTÉ : Charger l'image du skieur
-        skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skieur_pixel)
 
         // Créer l'interface
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -377,12 +371,12 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             path.close()
             canvas.drawPath(path, paint)
             
-            // Skieur en mouvement
+            // Skieur en mouvement (simple cercle bleu pour éviter les erreurs)
             skierX = w * 0.3f + (speed / maxSpeed) * w * 0.4f
             skierY = startY - ((speed / maxSpeed) * (startY - endY))
             
-            // MODIFIÉ : Dessiner le vrai skieur au lieu d'un cercle
-            canvas.drawBitmap(skierBitmap, skierX - skierBitmap.width/2f, skierY - skierBitmap.height, paint)
+            paint.color = Color.BLUE
+            canvas.drawCircle(skierX, skierY - 20f, 15f, paint)
             
             // Barre de vitesse
             drawSpeedBar(canvas, w, h)
@@ -461,51 +455,30 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.color = Color.WHITE
             canvas.save()
             canvas.rotate(pitch * 0.5f - roll * 0.3f) // Inclinaison basée sur gyroscope
-            canvas.drawRoundRect(-skiSeparation/2 - skiWidth, -skiLength/2, 
-                                -skiSeparation/2, skiLength/2, 4f, 4f, paint)
-            
-            // Bordure noire du ski gauche
-            paint.color = Color.BLACK
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 2f
-            canvas.drawRoundRect(-skiSeparation/2 - skiWidth, -skiLength/2, 
-                                -skiSeparation/2, skiLength/2, 4f, 4f, paint)
+            canvas.drawRect(-skiSeparation/2 - skiWidth, -skiLength/2, 
+                           -skiSeparation/2, skiLength/2, paint)
             canvas.restore()
             
             // Ski droit
-            paint.style = Paint.Style.FILL
             paint.color = Color.WHITE
             canvas.save()
             canvas.rotate(pitch * 0.5f + roll * 0.3f)
-            canvas.drawRoundRect(skiSeparation/2, -skiLength/2, 
-                                skiSeparation/2 + skiWidth, skiLength/2, 4f, 4f, paint)
-            
-            // Bordure noire du ski droit
-            paint.color = Color.BLACK
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 2f
-            canvas.drawRoundRect(skiSeparation/2, -skiLength/2, 
-                                skiSeparation/2 + skiWidth, skiLength/2, 4f, 4f, paint)
+            canvas.drawRect(skiSeparation/2, -skiLength/2, 
+                           skiSeparation/2 + skiWidth, skiLength/2, paint)
             canvas.restore()
-            
-            paint.style = Paint.Style.FILL
             
             // CORPS DU SKIEUR (vue de haut)
             // Tête/Casque
             paint.color = Color.parseColor("#0066CC") // Bleu électrique
             canvas.drawCircle(0f, -15f, 18f, paint)
             
-            // Reflet sur le casque
-            paint.color = Color.parseColor("#66FFFFFF")
-            canvas.drawCircle(-6f, -21f, 8f, paint)
-            
             // Corps/Torse 
             paint.color = Color.parseColor("#003399") // Bleu foncé
-            canvas.drawRoundRect(-20f, -10f, 20f, 25f, 8f, 8f, paint)
+            canvas.drawRect(-20f, -10f, 20f, 25f, paint)
             
             // Dossard jaune
             paint.color = Color.parseColor("#FFD700")
-            canvas.drawRoundRect(-12f, -5f, 12f, 15f, 4f, 4f, paint)
+            canvas.drawRect(-12f, -5f, 12f, 15f, paint)
             
             // Numéro sur le dossard
             paint.color = Color.BLACK
@@ -515,20 +488,8 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             
             // Bras étendus
             paint.color = Color.parseColor("#0066CC")
-            // Bras gauche
-            canvas.drawRoundRect(-35f, -5f, -20f, 5f, 6f, 6f, paint)
-            // Bras droit  
-            canvas.drawRoundRect(20f, -5f, 35f, 5f, 6f, 6f, paint)
-            
-            // Gants
-            paint.color = Color.parseColor("#FF4444")
-            canvas.drawCircle(-35f, 0f, 8f, paint)
-            canvas.drawCircle(35f, 0f, 8f, paint)
-            
-            // Jambes
-            paint.color = Color.parseColor("#003399")
-            canvas.drawRoundRect(-12f, 15f, -4f, 35f, 4f, 4f, paint)
-            canvas.drawRoundRect(4f, 15f, 12f, 35f, 4f, 4f, paint)
+            canvas.drawRect(-35f, -5f, -20f, 5f, paint) // Bras gauche
+            canvas.drawRect(20f, -5f, 35f, 5f, paint)   // Bras droit
             
             // Effet de mouvement si déséquilibre
             if (abs(roll) > 10f || abs(pitch) > 15f) {
