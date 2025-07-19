@@ -21,17 +21,17 @@ class EventsMenuActivity : Activity() {
     private lateinit var eventsLayout: LinearLayout
     private lateinit var statusText: TextView
     
-    // MODIFIÉ : 9 épreuves au lieu de 10 (retiré Hockey sur Glace)
+    // MODIFIÉ : 9 épreuves au lieu de 10 (retiré Hockey sur Glace) - TOUTES IMPLÉMENTÉES
     private val events = arrayOf(
         Event("Biathlon", "🎯", "Ski de fond + tir de précision", true),
         Event("Saut à Ski", "🎿", "Envol et atterrissage parfait", true),
-        Event("Bobsleigh", "🛷", "Descente à haute vitesse", true), // MODIFIÉ : maintenant implémenté
-        Event("Patinage Vitesse", "⛸️", "Course sur glace", false),
-        Event("Slalom", "⛷️", "Zigzag entre les portes", false),
-        Event("Snowboard Halfpipe", "🏂", "Figures aériennes", false),
-        Event("Ski Freestyle", "🎿", "Acrobaties en vol", false),
-        Event("Luge", "🛷", "Contrôle de trajectoire", false),
-        Event("Curling", "🥌", "Précision et stratégie", false)
+        Event("Bobsleigh", "🛷", "Descente à haute vitesse", true),
+        Event("Patinage Vitesse", "⛸️", "Course sur glace", true),
+        Event("Slalom", "⛷️", "Zigzag entre les portes", true),
+        Event("Snowboard Halfpipe", "🏂", "Figures aériennes", true),
+        Event("Ski Freestyle", "🎿", "Acrobaties en vol", true),
+        Event("Luge", "🛷", "Contrôle de trajectoire", true),
+        Event("Curling", "🥌", "Précision et stratégie", true)
         // RETIRÉ : Hockey sur Glace
     )
     
@@ -317,6 +317,84 @@ class EventsMenuActivity : Activity() {
                         putExtra("number_of_players", numberOfPlayers)
                         putExtra("practice_mode", practiceMode)
                         // CORRECTION : Toujours passer current_player_index explicitement
+                        putExtra("current_player_index", if (practiceMode) 0 else tournamentData.getNextPlayer(eventIndex))
+                    }
+                    startActivityForResult(intent, 100)
+                }
+            }
+            3 -> {
+                // Patinage Vitesse - COPIE EXACTE du code Biathlon
+                if (events[3].implemented) {
+                    val intent = Intent(this, PatinageVitesseActivity::class.java).apply {
+                        putExtra("tournament_data", tournamentData)
+                        putExtra("event_index", eventIndex)
+                        putExtra("number_of_players", numberOfPlayers)
+                        putExtra("practice_mode", practiceMode)
+                        putExtra("current_player_index", if (practiceMode) 0 else tournamentData.getNextPlayer(eventIndex))
+                    }
+                    startActivityForResult(intent, 100)
+                }
+            }
+            4 -> {
+                // Slalom - COPIE EXACTE du code Biathlon
+                if (events[4].implemented) {
+                    val intent = Intent(this, SlalomActivity::class.java).apply {
+                        putExtra("tournament_data", tournamentData)
+                        putExtra("event_index", eventIndex)
+                        putExtra("number_of_players", numberOfPlayers)
+                        putExtra("practice_mode", practiceMode)
+                        putExtra("current_player_index", if (practiceMode) 0 else tournamentData.getNextPlayer(eventIndex))
+                    }
+                    startActivityForResult(intent, 100)
+                }
+            }
+            5 -> {
+                // Snowboard Halfpipe - COPIE EXACTE du code Biathlon
+                if (events[5].implemented) {
+                    val intent = Intent(this, SnowboardHalfpipeActivity::class.java).apply {
+                        putExtra("tournament_data", tournamentData)
+                        putExtra("event_index", eventIndex)
+                        putExtra("number_of_players", numberOfPlayers)
+                        putExtra("practice_mode", practiceMode)
+                        putExtra("current_player_index", if (practiceMode) 0 else tournamentData.getNextPlayer(eventIndex))
+                    }
+                    startActivityForResult(intent, 100)
+                }
+            }
+            6 -> {
+                // Ski Freestyle - COPIE EXACTE du code Biathlon
+                if (events[6].implemented) {
+                    val intent = Intent(this, SkiFreestyleActivity::class.java).apply {
+                        putExtra("tournament_data", tournamentData)
+                        putExtra("event_index", eventIndex)
+                        putExtra("number_of_players", numberOfPlayers)
+                        putExtra("practice_mode", practiceMode)
+                        putExtra("current_player_index", if (practiceMode) 0 else tournamentData.getNextPlayer(eventIndex))
+                    }
+                    startActivityForResult(intent, 100)
+                }
+            }
+            7 -> {
+                // Luge - COPIE EXACTE du code Biathlon
+                if (events[7].implemented) {
+                    val intent = Intent(this, LugeActivity::class.java).apply {
+                        putExtra("tournament_data", tournamentData)
+                        putExtra("event_index", eventIndex)
+                        putExtra("number_of_players", numberOfPlayers)
+                        putExtra("practice_mode", practiceMode)
+                        putExtra("current_player_index", if (practiceMode) 0 else tournamentData.getNextPlayer(eventIndex))
+                    }
+                    startActivityForResult(intent, 100)
+                }
+            }
+            8 -> {
+                // Curling - COPIE EXACTE du code Biathlon
+                if (events[8].implemented) {
+                    val intent = Intent(this, CurlingActivity::class.java).apply {
+                        putExtra("tournament_data", tournamentData)
+                        putExtra("event_index", eventIndex)
+                        putExtra("number_of_players", numberOfPlayers)
+                        putExtra("practice_mode", practiceMode)
                         putExtra("current_player_index", if (practiceMode) 0 else tournamentData.getNextPlayer(eventIndex))
                     }
                     startActivityForResult(intent, 100)
