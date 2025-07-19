@@ -240,9 +240,9 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     
     private fun generateWindDisturbances() {
         // Générer des perturbations aléatoires pour simuler le vent
-        windPitch = (-2f..2f).random()
-        windRoll = (-1.5f..1.5f).random()
-        windYaw = (-1f..1f).random()
+        windPitch = -2f + kotlin.random.Random.nextFloat() * 4f // -2f à +2f
+        windRoll = -1.5f + kotlin.random.Random.nextFloat() * 3f // -1.5f à +1.5f
+        windYaw = -1f + kotlin.random.Random.nextFloat() * 2f // -1f à +1f
     }
     
     private fun calculateStability(): Float {
@@ -314,7 +314,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     }
     
     private fun generateAIScore(): Int {
-        return (100..250).random()
+        return 100 + kotlin.random.Random.nextInt(151) // 100 à 250
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
