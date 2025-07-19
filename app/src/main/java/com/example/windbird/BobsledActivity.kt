@@ -48,7 +48,13 @@ class BobsledActivity : Activity(), SensorEventListener {
         eventIndex = intent.getIntExtra("event_index", 0)
         numberOfPlayers = intent.getIntExtra("number_of_players", 1)
         practiceMode = intent.getBooleanExtra("practice_mode", false)
-        currentPlayerIndex = intent.getIntExtra("current_player_index", tournamentData.getNextPlayer(eventIndex))
+        
+        // CORRECTION : Gestion du mode pratique
+        currentPlayerIndex = if (practiceMode) {
+            0 // En mode pratique, toujours joueur 0
+        } else {
+            intent.getIntExtra("current_player_index", tournamentData.getNextPlayer(eventIndex))
+        }
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
