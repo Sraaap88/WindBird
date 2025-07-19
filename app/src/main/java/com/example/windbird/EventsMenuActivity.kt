@@ -24,8 +24,8 @@ class EventsMenuActivity : Activity() {
     // MODIFIÉ : 9 épreuves au lieu de 10 (retiré Hockey sur Glace)
     private val events = arrayOf(
         Event("Biathlon", "🎯", "Ski de fond + tir de précision", true),
-        Event("Saut à Ski", "🎿", "Envol et atterrissage parfait", true), // MODIFIÉ : maintenant implémenté
-        Event("Bobsleigh", "🛷", "Descente à haute vitesse", false),
+        Event("Saut à Ski", "🎿", "Envol et atterrissage parfait", true),
+        Event("Bobsleigh", "🛷", "Descente à haute vitesse", true), // MODIFIÉ : maintenant implémenté
         Event("Patinage Vitesse", "⛸️", "Course sur glace", false),
         Event("Slalom", "⛷️", "Zigzag entre les portes", false),
         Event("Snowboard Halfpipe", "🏂", "Figures aériennes", false),
@@ -279,7 +279,7 @@ class EventsMenuActivity : Activity() {
     }
     
     private fun startEvent(eventIndex: Int) {
-        // MODIFIÉ : Ajouter le saut à ski (index 1)
+        // MODIFIÉ : Ajouter le bobsleigh (index 2)
         when (eventIndex) {
             0 -> {
                 if (events[0].implemented) {
@@ -295,6 +295,17 @@ class EventsMenuActivity : Activity() {
             1 -> {
                 if (events[1].implemented) {
                     val intent = Intent(this, SkiJumpActivity::class.java).apply {
+                        putExtra("tournament_data", tournamentData)
+                        putExtra("event_index", eventIndex)
+                        putExtra("number_of_players", numberOfPlayers)
+                        putExtra("practice_mode", practiceMode)
+                    }
+                    startActivityForResult(intent, 100)
+                }
+            }
+            2 -> {
+                if (events[2].implemented) {
+                    val intent = Intent(this, BobsledActivity::class.java).apply {
                         putExtra("tournament_data", tournamentData)
                         putExtra("event_index", eventIndex)
                         putExtra("number_of_players", numberOfPlayers)
