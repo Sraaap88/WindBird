@@ -83,13 +83,7 @@ class BobsledActivity : Activity(), SensorEventListener {
         numberOfPlayers = intent.getIntExtra("number_of_players", 1)
         practiceMode = intent.getBooleanExtra("practice_mode", false)
         
-        // Logique pour récupérer le currentPlayerIndex
-        val intentPlayerIndex = intent.getIntExtra("current_player_index", -1)
-        currentPlayerIndex = if (intentPlayerIndex != -1) {
-            intentPlayerIndex
-        } else {
-            tournamentData.getNextPlayer(eventIndex)
-        }
+        currentPlayerIndex = intent.getIntExtra("current_player_index", 0)
         
         // Validation du currentPlayerIndex
         if (currentPlayerIndex == -1 || currentPlayerIndex >= tournamentData.playerNames.size) {
@@ -101,7 +95,7 @@ class BobsledActivity : Activity(), SensorEventListener {
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
         
         // Charger le sprite sheet du bobsleigh
-        bobsledSpriteSheet = BitmapFactory.decodeResource(resources, R.drawable.bobsled_sprite)
+        // bobsledSpriteSheet = BitmapFactory.decodeResource(resources, R.drawable.bobsled_sprite)
 
         // Créer l'interface
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
