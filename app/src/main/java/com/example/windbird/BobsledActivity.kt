@@ -403,41 +403,23 @@ class BobsledActivity : Activity(), SensorEventListener {
             val topWidth = w * 0.3f
             val bottomWidth = w * 0.8f
             
-            // Mur gauche
-            val leftPath = Path()
-            leftPath.moveTo(w * 0.1f, h.toFloat())
-            leftPath.lineTo(w/2f - topWidth/2f, 0f)
-            leftPath.lineTo(w/2f - topWidth/2f + 20f, 0f)
-            leftPath.lineTo(w * 0.1f + 40f, h.toFloat())
-            leftPath.close()
-            canvas.drawPath(leftPath, paint)
+            // Mur gauche - version simplifiée
+            paint.color = Color.parseColor("#AAAAAA")
+            canvas.drawRect(w * 0.1f, 0f, w * 0.1f + 40f, h.toFloat(), paint)
             
-            // Mur droit
-            val rightPath = Path()
-            rightPath.moveTo(w * 0.9f, h.toFloat())
-            rightPath.lineTo(w/2f + topWidth/2f, 0f)
-            rightPath.lineTo(w/2f + topWidth/2f - 20f, 0f)
-            rightPath.lineTo(w * 0.9f - 40f, h.toFloat())
-            rightPath.close()
-            canvas.drawPath(rightPath, paint)
+            // Mur droit - version simplifiée  
+            canvas.drawRect(w * 0.9f - 40f, 0f, w * 0.9f, h.toFloat(), paint)
             
             // Surface de glace
             paint.color = Color.parseColor("#E0F6FF")
-            val icePath = Path()
-            icePath.moveTo(w * 0.1f + 40f, h.toFloat())
-            icePath.lineTo(w/2f - topWidth/2f + 20f, 0f)
-            icePath.lineTo(w/2f + topWidth/2f - 20f, 0f)
-            icePath.lineTo(w * 0.9f - 40f, h.toFloat())
-            icePath.close()
-            canvas.drawPath(icePath, paint)
+            canvas.drawRect(w * 0.1f + 40f, 0f, w * 0.9f - 40f, h.toFloat(), paint)
             
             // Lignes de guidage
             paint.color = Color.parseColor("#CCCCCC")
             paint.strokeWidth = 3f
             for (i in 1..3) {
                 val lineX = w * 0.1f + 40f + i * (bottomWidth - 80f) / 4f
-                val topLineX = w/2f - topWidth/2f + 20f + i * (topWidth - 40f) / 4f
-                canvas.drawLine(lineX, h.toFloat(), topLineX, 0f, paint)
+                canvas.drawLine(lineX, h.toFloat(), lineX, 0f, paint)
             }
             
             // Virage actuel (décalage de la piste)
@@ -459,15 +441,15 @@ class BobsledActivity : Activity(), SensorEventListener {
             
             // Ombre du bobsleigh
             paint.color = Color.parseColor("#66000000")
-            canvas.drawOval(bobX - 35f, bobY + 5f, bobX + 35f, bobY + 25f, paint)
+            canvas.drawRect(bobX - 35f, bobY + 5f, bobX + 35f, bobY + 25f, paint)
             
             // Corps principal du bobsleigh
             paint.color = Color.parseColor("#FF4444")
-            canvas.drawRoundRect(bobX - 30f, bobY - 15f, bobX + 30f, bobY + 15f, 12f, 12f, paint)
+            canvas.drawRect(bobX - 30f, bobY - 15f, bobX + 30f, bobY + 15f, paint)
             
             // Reflets métalliques
             paint.color = Color.parseColor("#FFAAAA")
-            canvas.drawRoundRect(bobX - 25f, bobY - 10f, bobX + 25f, bobY - 5f, 5f, 5f, paint)
+            canvas.drawRect(bobX - 25f, bobY - 10f, bobX + 25f, bobY - 5f, paint)
             
             // Numéro du joueur
             paint.color = Color.WHITE
