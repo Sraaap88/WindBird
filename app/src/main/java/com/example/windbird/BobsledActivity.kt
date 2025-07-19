@@ -24,21 +24,21 @@ class BobsledActivity : Activity(), SensorEventListener {
     private var sensorManager: SensorManager? = null
     private var gyroscope: Sensor? = null
 
-    // Variables de gameplay LENT et VISUEL
+    // Variables de gameplay TRÈS LENT et VISUEL
     private var gameState = GameState.PREPARATION
     private var phaseTimer = 0f
     
-    // Phases avec durées longues
-    private val preparationDuration = 5f
-    private val pushDuration = 8f
-    private val earlyRaceDuration = 10f
-    private val fastRaceDuration = 8f
-    private val finishDuration = 3f
-    private val resultsDuration = 5f
+    // Phases avec durées TRÈS longues
+    private val preparationDuration = 8f // AUGMENTÉ de 5f
+    private val pushDuration = 12f // AUGMENTÉ de 8f
+    private val earlyRaceDuration = 15f // AUGMENTÉ de 10f
+    private val fastRaceDuration = 12f // AUGMENTÉ de 8f
+    private val finishDuration = 5f // AUGMENTÉ de 3f
+    private val resultsDuration = 8f // AUGMENTÉ de 5f
     
     // Variables de jeu
     private var speed = 0f
-    private var maxSpeed = 120f
+    private var maxSpeed = 90f // RÉDUIT de 120f
     private var pushPower = 0f
     private var trackPosition = 0.5f // 0 = gauche, 1 = droite
     private var currentTurn = 0f
@@ -52,7 +52,7 @@ class BobsledActivity : Activity(), SensorEventListener {
     private var avgSpeed = 0f
     private var raceTime = 0f
     
-    // Contrôles gyroscope
+    // Contrôles gyroscope - MOINS SENSIBLE
     private var tiltX = 0f
     private var tiltY = 0f
     private var tiltZ = 0f
@@ -94,9 +94,9 @@ class BobsledActivity : Activity(), SensorEventListener {
         statusText = TextView(this).apply {
             text = "🛷 BOBSLEIGH - ${tournamentData.playerNames[currentPlayerIndex]}"
             setTextColor(Color.WHITE)
-            textSize = 18f
+            textSize = 22f // AUGMENTÉ de 18f
             setBackgroundColor(Color.parseColor("#001122"))
-            setPadding(20, 15, 20, 15)
+            setPadding(25, 20, 25, 20) // AUGMENTÉ
         }
 
         gameView = BobsledView(this)
@@ -150,9 +150,9 @@ class BobsledActivity : Activity(), SensorEventListener {
         tiltY = event.values[1]
         tiltZ = event.values[2]
 
-        // Progression lente du jeu
-        phaseTimer += 0.05f
-        raceTime += 0.05f
+        // Progression TRÈS lente du jeu
+        phaseTimer += 0.025f // RÉDUIT de 0.05f
+        raceTime += 0.025f
 
         when (gameState) {
             GameState.PREPARATION -> handlePreparation()
@@ -178,54 +178,54 @@ class BobsledActivity : Activity(), SensorEventListener {
     
     private fun handlePush() {
         val currentTime = System.currentTimeMillis()
-        val shakeThreshold = 1.5f
+        val shakeThreshold = 2.0f // AUGMENTÉ de 1.5f - MOINS SENSIBLE
         
-        // Détection des secousses pour la poussée
+        // Détection des secousses pour la poussée - MOINS SENSIBLE
         if (abs(tiltX) > shakeThreshold || abs(tiltY) > shakeThreshold || abs(tiltZ) > shakeThreshold) {
-            if (currentTime - lastShakeTime > 250) {
+            if (currentTime - lastShakeTime > 400) { // AUGMENTÉ de 250ms
                 pushCount++
-                pushPower += 12f
-                speed += 6f
+                pushPower += 8f // RÉDUIT de 12f
+                speed += 4f // RÉDUIT de 6f
                 lastShakeTime = currentTime
                 generateIceParticles()
             }
         }
         
         pushPower = pushPower.coerceAtMost(100f)
-        speed = speed.coerceAtMost(60f)
+        speed = speed.coerceAtMost(45f) // RÉDUIT de 60f
         
         if (phaseTimer >= pushDuration) {
             gameState = GameState.EARLY_RACE
             phaseTimer = 0f
-            speed = 40f + (pushPower * 0.3f)
+            speed = 30f + (pushPower * 0.2f) // RÉDUIT de 40f et 0.3f
         }
     }
     
     private fun handleEarlyRace() {
         // Phase de course lente avec apprentissage des virages
-        updateRacing(1f)
+        updateRacing(0.8f) // RÉDUIT de 1f
         
         if (phaseTimer >= earlyRaceDuration) {
             gameState = GameState.FAST_RACE
             phaseTimer = 0f
-            cameraShake = 0.3f
+            cameraShake = 0.2f // RÉDUIT de 0.3f
         }
     }
     
     private fun handleFastRace() {
         // Phase de course rapide et intense
-        updateRacing(1.8f)
+        updateRacing(1.4f) // RÉDUIT de 1.8f
         
         if (phaseTimer >= fastRaceDuration) {
             gameState = GameState.FINISH
             phaseTimer = 0f
-            cameraShake = 1f
+            cameraShake = 0.6f // RÉDUIT de 1f
         }
     }
     
     private fun handleFinish() {
         // Phase finale
-        updateRacing(0.5f)
+        updateRacing(0.4f) // RÉDUIT de 0.5f
         
         if (phaseTimer >= finishDuration) {
             calculateFinalScore()
@@ -249,79 +249,79 @@ class BobsledActivity : Activity(), SensorEventListener {
     }
     
     private fun updateRacing(intensity: Float) {
-        // Direction basée sur l'inclinaison gauche/droite
-        val steering = tiltX * 0.4f * intensity
-        trackPosition += steering * 0.03f
+        // Direction basée sur l'inclinaison gauche/droite - MOINS SENSIBLE
+        val steering = tiltX * 0.25f * intensity // RÉDUIT de 0.4f
+        trackPosition += steering * 0.02f // RÉDUIT de 0.03f
         trackPosition = trackPosition.coerceIn(0f, 1f)
         
-        // Vitesse basée sur l'inclinaison avant/arrière
-        if (tiltY < -0.3f) {
-            speed += 2f * intensity
-        } else if (tiltY > 0.3f) {
-            speed -= 1.5f * intensity
+        // Vitesse basée sur l'inclinaison avant/arrière - MOINS SENSIBLE
+        if (tiltY < -0.5f) { // AUGMENTÉ de -0.3f
+            speed += 1.5f * intensity // RÉDUIT de 2f
+        } else if (tiltY > 0.5f) { // AUGMENTÉ de 0.3f
+            speed -= 1f * intensity // RÉDUIT de 1.5f
         }
         
-        speed = speed.coerceIn(20f, maxSpeed)
+        speed = speed.coerceIn(15f, maxSpeed) // VITESSE MIN AUGMENTÉE
         
-        // Gestion des collisions avec les murs
-        if (trackPosition <= 0.1f || trackPosition >= 0.9f) {
+        // Gestion des collisions avec les murs - MOINS SENSIBLE
+        if (trackPosition <= 0.05f || trackPosition >= 0.95f) { // SEUILS ÉLARGIS
             wallHits++
-            speed *= 0.7f
-            trackPosition = trackPosition.coerceIn(0.15f, 0.85f)
-            cameraShake += 0.2f
+            speed *= 0.8f // MOINS DE PÉNALITÉ de 0.7f
+            trackPosition = trackPosition.coerceIn(0.1f, 0.9f) // ZONE ÉLARGIE
+            cameraShake += 0.15f // RÉDUIT de 0.2f
         }
         
         // Vérification des virages parfaits
         checkTurnPerformance()
         
-        // Progression
-        distance += speed * 0.08f * intensity
+        // Progression - PLUS LENTE
+        distance += speed * 0.05f * intensity // RÉDUIT de 0.08f
         avgSpeed = (avgSpeed + speed) / 2f
         
         // Génération de nouveaux virages
-        if (distance % 150f < 1f) {
+        if (distance % 200f < 1f) { // AUGMENTÉ de 150f
             generateTrackSection()
         }
         
         // Effets visuels
-        if (speed > 80f) {
+        if (speed > 60f) { // ADAPTÉ
             generateSpeedLines()
         }
     }
     
     private fun checkTurnPerformance() {
-        val idealPosition = 0.5f - (currentTurn * turnIntensity * 0.4f)
+        val idealPosition = 0.5f - (currentTurn * turnIntensity * 0.3f) // RÉDUIT de 0.4f
         val positionError = abs(trackPosition - idealPosition)
         
-        if (positionError < 0.12f && abs(currentTurn) > 0.3f) {
+        if (positionError < 0.15f && abs(currentTurn) > 0.3f) { // ZONE ÉLARGIE de 0.12f
             perfectTurns++
-            speed += 1f
+            speed += 0.8f // RÉDUIT de 1f
         }
     }
     
     private fun generateTrackSection() {
         currentTurn = -1f + kotlin.random.Random.nextFloat() * 2f
-        turnIntensity = 0.4f + kotlin.random.Random.nextFloat() * 0.6f
+        turnIntensity = 0.3f + kotlin.random.Random.nextFloat() * 0.5f // RÉDUIT de 0.4f et 0.6f
     }
     
     private fun generateSpeedLines() {
         speedLines.add(SpeedLine(
             x = kotlin.random.Random.nextFloat() * 1000f,
             y = kotlin.random.Random.nextFloat() * 800f,
-            speed = 8f + kotlin.random.Random.nextFloat() * 4f
+            speed = 5f + kotlin.random.Random.nextFloat() * 3f // RÉDUIT de 8f et 4f
         ))
         
-        if (speedLines.size > 20) {
+        if (speedLines.size > 15) { // RÉDUIT de 20
             speedLines.removeFirst()
         }
     }
     
     private fun generateIceParticles() {
-        repeat(15) {
+        repeat(12) { // RÉDUIT de 15
             iceParticles.add(IceParticle(
                 x = kotlin.random.Random.nextFloat() * 1000f,
                 y = kotlin.random.Random.nextFloat() * 800f,
-                speed = 2f + kotlin.random.Random.nextFloat() * 3f,
+                speed = 1.5f + kotlin.random.Random.nextFloat() * 2f, // RÉDUIT de 2f et 3f
                 size = 1f + kotlin.random.Random.nextFloat() * 2f
             ))
         }
@@ -337,22 +337,22 @@ class BobsledActivity : Activity(), SensorEventListener {
         // Mettre à jour les particules de glace
         iceParticles.removeAll { particle ->
             particle.y += particle.speed
-            particle.x += sin(particle.y * 0.02f) * 0.3f
+            particle.x += sin(particle.y * 0.015f) * 0.2f // RÉDUIT de 0.02f et 0.3f
             particle.y > 1000f
         }
         
-        if (iceParticles.size < 10) {
+        if (iceParticles.size < 8) { // RÉDUIT de 10
             generateIceParticles()
         }
         
-        cameraShake = maxOf(0f, cameraShake - 0.02f)
+        cameraShake = maxOf(0f, cameraShake - 0.015f) // RÉDUIT de 0.02f
     }
     
     private fun calculateFinalScore() {
         if (!scoreCalculated) {
-            val timeBonus = maxOf(0, 120 - raceTime.toInt())
+            val timeBonus = maxOf(0, 150 - raceTime.toInt()) // AUGMENTÉ de 120
             val speedBonus = (avgSpeed / maxSpeed * 80).toInt()
-            val wallPenalty = wallHits * 12
+            val wallPenalty = wallHits * 10 // RÉDUIT de 12
             val turnBonus = perfectTurns * 15
             val pushBonus = (pushPower * 0.4f).toInt()
             
@@ -436,8 +436,8 @@ class BobsledActivity : Activity(), SensorEventListener {
             if (cameraShake > 0f) {
                 canvas.save()
                 canvas.translate(
-                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 12f,
-                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 12f
+                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 10f, // RÉDUIT de 12f
+                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 10f
                 )
             }
             
@@ -470,35 +470,35 @@ class BobsledActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#DDDDDD")
             canvas.drawRect(w * 0.35f, 0f, w * 0.65f, h.toFloat(), paint)
             
-            // Équipe qui se place
+            // Équipe qui se place - PLUS GROSSE
             paint.color = Color.parseColor("#0066CC")
             for (i in 0..3) {
-                val memberX = w * 0.4f + i * 40f
+                val memberX = w * 0.35f + i * 50f // PLUS ESPACÉ
                 val memberY = h * 0.7f
-                canvas.drawCircle(memberX, memberY, 15f, paint)
+                canvas.drawCircle(memberX, memberY, 18f, paint) // PLUS GROS de 15f
                 
-                // Numéros
+                // Numéros - TEXTE PLUS GROS
                 paint.color = Color.WHITE
-                paint.textSize = 16f
+                paint.textSize = 20f // AUGMENTÉ de 16f
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("${i+1}", memberX, memberY + 5f, paint)
+                canvas.drawText("${i+1}", memberX, memberY + 6f, paint)
                 paint.color = Color.parseColor("#0066CC")
             }
             
-            // Bobsleigh en attente
+            // Bobsleigh en attente - PLUS GROS
             paint.color = Color.parseColor("#FF4444")
-            canvas.drawRoundRect(w * 0.42f, h * 0.5f, w * 0.58f, h * 0.6f, 10f, 10f, paint)
+            canvas.drawRoundRect(w * 0.4f, h * 0.5f, w * 0.6f, h * 0.6f, 12f, 12f, paint) // PLUS LARGE
             
-            // Instructions
+            // Instructions - TEXTE PLUS GROS
             paint.color = Color.BLACK
-            paint.textSize = 32f
+            paint.textSize = 44f // AUGMENTÉ de 32f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("🛷 BOBSLEIGH 🛷", w/2f, h * 0.2f, paint)
             
-            paint.textSize = 24f
+            paint.textSize = 32f // AUGMENTÉ de 24f
             canvas.drawText("L'équipe se prépare...", w/2f, h * 0.3f, paint)
             
-            paint.textSize = 20f
+            paint.textSize = 28f // AUGMENTÉ de 20f
             paint.color = Color.parseColor("#0066CC")
             canvas.drawText("Dans ${(preparationDuration - phaseTimer).toInt() + 1} secondes", w/2f, h * 0.35f, paint)
         }
@@ -518,28 +518,28 @@ class BobsledActivity : Activity(), SensorEventListener {
             trackPath.close()
             canvas.drawPath(trackPath, paint)
             
-            // Bobsleigh qui avance
+            // Bobsleigh qui avance - PLUS GROS
             val bobProgress = pushPower / 100f
             val bobX = w * 0.2f + bobProgress * w * 0.5f
             val bobY = h * 0.65f
             
             paint.color = Color.parseColor("#FF4444")
-            canvas.drawRoundRect(bobX - 30f, bobY - 15f, bobX + 50f, bobY + 15f, 8f, 8f, paint)
+            canvas.drawRoundRect(bobX - 40f, bobY - 20f, bobX + 60f, bobY + 20f, 10f, 10f, paint) // PLUS GROS
             
-            // Équipe qui court et pousse
+            // Équipe qui court et pousse - PLUS GROSSE
             paint.color = Color.parseColor("#0066CC")
             for (i in 0..3) {
-                val memberX = bobX - 40f - i * 25f
+                val memberX = bobX - 50f - i * 30f // PLUS ESPACÉ
                 val memberY = bobY
                 
                 // Animation de course
-                val runOffset = sin((phaseTimer + i) * 3f) * 3f
-                canvas.drawCircle(memberX, memberY + runOffset, 12f, paint)
+                val runOffset = sin((phaseTimer + i) * 2f) * 4f // PLUS LENT
+                canvas.drawCircle(memberX, memberY + runOffset, 15f, paint) // PLUS GROS de 12f
                 
                 // Lignes de mouvement
                 paint.color = Color.parseColor("#660066CC")
                 for (j in 1..3) {
-                    canvas.drawCircle(memberX - j * 8f, memberY + runOffset, 8f - j, paint)
+                    canvas.drawCircle(memberX - j * 10f, memberY + runOffset, 10f - j * 2, paint) // PLUS GROS
                 }
                 paint.color = Color.parseColor("#0066CC")
             }
@@ -547,14 +547,14 @@ class BobsledActivity : Activity(), SensorEventListener {
             // Barre de puissance de poussée ÉNORME
             drawPushPowerMeter(canvas, w, h)
             
-            // Instructions
+            // Instructions - TEXTE PLUS GROS
             paint.color = Color.RED
-            paint.textSize = 28f
+            paint.textSize = 36f // AUGMENTÉ de 28f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("🚀 SECOUEZ POUR POUSSER! 🚀", w/2f, h * 0.2f, paint)
             
             paint.color = Color.BLACK
-            paint.textSize = 20f
+            paint.textSize = 28f // AUGMENTÉ de 20f
             canvas.drawText("Poussées: $pushCount", w/2f, h * 0.25f, paint)
         }
         
@@ -566,25 +566,26 @@ class BobsledActivity : Activity(), SensorEventListener {
             // Piste vue de haut
             drawTrackFromAbove(canvas, w, h)
             
-            // Bobsleigh sur la piste
+            // Bobsleigh sur la piste - PLUS GROS
             val bobX = w * 0.2f + trackPosition * (w * 0.6f)
             val bobY = h * 0.7f
             
             paint.color = Color.parseColor("#FF4444")
             canvas.save()
             canvas.translate(bobX, bobY)
-            canvas.rotate(tiltX * 20f)
-            canvas.drawRoundRect(-20f, -10f, 20f, 10f, 5f, 5f, paint)
+            canvas.rotate(tiltX * 15f) // RÉDUIT de 20f
+            canvas.drawRoundRect(-25f, -12f, 25f, 12f, 6f, 6f, paint) // PLUS GROS
             canvas.restore()
             
             // Indicateurs de performance
             drawRaceIndicators(canvas, w, h)
             
-            // Instructions
+            // Instructions - TEXTE PLUS GROS
             paint.color = Color.WHITE
-            paint.textSize = 20f
+            paint.textSize = 28f // AUGMENTÉ de 20f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("📱 INCLINEZ POUR DIRIGER | AVANT/ARRIÈRE POUR VITESSE", w/2f, 40f, paint)
+            canvas.drawText("📱 INCLINEZ POUR DIRIGER", w/2f, 50f, paint)
+            canvas.drawText("AVANT/ARRIÈRE POUR VITESSE", w/2f, 80f, paint)
         }
         
         private fun drawFastRace(canvas: Canvas, w: Int, h: Int) {
@@ -595,12 +596,12 @@ class BobsledActivity : Activity(), SensorEventListener {
             // Effet de vitesse - lignes qui défilent
             drawSpeedLines(canvas, w, h)
             
-            // Piste qui défile rapidement
+            // Piste qui défile rapidement - PLUS LENT
             paint.color = Color.parseColor("#E0F6FF")
-            val trackOffset = (phaseTimer * speed * 2f) % 200f
+            val trackOffset = (phaseTimer * speed * 1.2f) % 200f // RÉDUIT de 2f
             for (i in -1..10) {
                 val lineY = i * 60f - trackOffset
-                val lineWidth = 20f + sin((lineY + trackOffset) * 0.02f) * currentTurn * 30f
+                val lineWidth = 20f + sin((lineY + trackOffset) * 0.015f) * currentTurn * 25f // RÉDUIT
                 canvas.drawRect(w * 0.3f - lineWidth, lineY, w * 0.7f + lineWidth, lineY + 40f, paint)
             }
             
@@ -615,16 +616,17 @@ class BobsledActivity : Activity(), SensorEventListener {
             // Vue du bobsleigh (nous sommes dedans)
             drawCockpitView(canvas, w, h)
             
-            // Compteur de vitesse ÉNORME
+            // Compteur de vitesse ÉNORME - TEXTE PLUS GROS
             paint.color = Color.parseColor("#FF0000")
-            paint.textSize = 48f
+            paint.textSize = 56f // AUGMENTÉ de 48f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("${speed.toInt()} KM/H", w/2f, h - 50f, paint)
+            canvas.drawText("${speed.toInt()} KM/H", w/2f, h - 60f, paint)
             
-            // Instructions urgentes
+            // Instructions urgentes - TEXTE PLUS GROS
             paint.color = Color.YELLOW
-            paint.textSize = 24f
-            canvas.drawText("⚡ VITESSE MAXIMUM! ATTENTION AUX VIRAGES! ⚡", w/2f, 50f, paint)
+            paint.textSize = 32f // AUGMENTÉ de 24f
+            canvas.drawText("⚡ VITESSE MAXIMUM! ⚡", w/2f, 60f, paint)
+            canvas.drawText("ATTENTION AUX VIRAGES!", w/2f, 100f, paint)
         }
         
         private fun drawFinish(canvas: Canvas, w: Int, h: Int) {
@@ -632,27 +634,27 @@ class BobsledActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#87CEEB")
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
-            // Ligne d'arrivée en damier
+            // Ligne d'arrivée en damier - PLUS GROSSE
             for (i in 0..20) {
                 val color = if (i % 2 == 0) Color.BLACK else Color.WHITE
                 paint.color = color
-                canvas.drawRect(i * (w / 20f), h * 0.3f, (i + 1) * (w / 20f), h * 0.4f, paint)
+                canvas.drawRect(i * (w / 20f), h * 0.3f, (i + 1) * (w / 20f), h * 0.45f, paint) // PLUS HAUTE
             }
             
-            // Bobsleigh qui arrive de face
+            // Bobsleigh qui arrive de face - PLUS GROS
             val approachProgress = phaseTimer / finishDuration
-            val bobSize = 20f + approachProgress * 60f
+            val bobSize = 25f + approachProgress * 80f // PLUS GROS
             val bobX = w / 2f
             val bobY = h * 0.6f - approachProgress * h * 0.2f
             
             paint.color = Color.parseColor("#FF4444")
             canvas.drawOval(bobX - bobSize, bobY - bobSize/2f, bobX + bobSize, bobY + bobSize/2f, paint)
             
-            // Équipe visible
+            // Équipe visible - PLUS GROSSE
             paint.color = Color.parseColor("#0066CC")
             for (i in 0..3) {
                 val memberX = bobX + (i - 1.5f) * bobSize * 0.3f
-                canvas.drawCircle(memberX, bobY, bobSize * 0.2f, paint)
+                canvas.drawCircle(memberX, bobY, bobSize * 0.25f, paint) // PLUS GROS
             }
             
             // Explosion d'effets à l'arrivée
@@ -660,14 +662,14 @@ class BobsledActivity : Activity(), SensorEventListener {
                 paint.color = Color.YELLOW
                 for (i in 1..12) {
                     val angle = i * 30f
-                    val effectX = bobX + cos(Math.toRadians(angle.toDouble())).toFloat() * 80f
-                    val effectY = bobY + sin(Math.toRadians(angle.toDouble())).toFloat() * 40f
-                    canvas.drawCircle(effectX, effectY, 12f, paint)
+                    val effectX = bobX + cos(Math.toRadians(angle.toDouble())).toFloat() * 100f // PLUS GROS
+                    val effectY = bobY + sin(Math.toRadians(angle.toDouble())).toFloat() * 50f
+                    canvas.drawCircle(effectX, effectY, 15f, paint) // PLUS GROS
                 }
             }
             
             paint.color = Color.BLACK
-            paint.textSize = 32f
+            paint.textSize = 40f // AUGMENTÉ de 32f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("🏁 LIGNE D'ARRIVÉE! 🏁", w/2f, h * 0.15f, paint)
         }
@@ -681,18 +683,18 @@ class BobsledActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#FFD700")
             canvas.drawRect(0f, 0f, w.toFloat(), h * 0.5f, paint)
             
-            // SCORE ÉNORME ET LISIBLE
+            // SCORE ÉNORME ET LISIBLE - TEXTE PLUS GROS
             paint.color = Color.BLACK
-            paint.textSize = 72f
+            paint.textSize = 80f // AUGMENTÉ de 72f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("${finalScore}", w/2f, h * 0.25f, paint)
             
-            paint.textSize = 28f
+            paint.textSize = 36f // AUGMENTÉ de 28f
             canvas.drawText("POINTS", w/2f, h * 0.35f, paint)
             
-            // Détails du score
+            // Détails du score - TEXTE PLUS GROS
             paint.color = Color.parseColor("#001122")
-            paint.textSize = 20f
+            paint.textSize = 26f // AUGMENTÉ de 20f
             canvas.drawText("🕒 Temps: ${raceTime.toInt()}s", w/2f, h * 0.55f, paint)
             canvas.drawText("⚡ Vitesse moy: ${avgSpeed.toInt()} km/h", w/2f, h * 0.6f, paint)
             canvas.drawText("🚀 Poussée: ${pushPower.toInt()}%", w/2f, h * 0.65f, paint)
@@ -704,15 +706,15 @@ class BobsledActivity : Activity(), SensorEventListener {
             for (i in 1..15) {
                 val confettiX = kotlin.random.Random.nextFloat() * w
                 val confettiY = kotlin.random.Random.nextFloat() * h * 0.5f
-                canvas.drawRect(confettiX, confettiY, confettiX + 8f, confettiY + 8f, paint)
+                canvas.drawRect(confettiX, confettiY, confettiX + 10f, confettiY + 10f, paint) // PLUS GROS
             }
         }
         
         private fun drawTrackFromAbove(canvas: Canvas, w: Int, h: Int) {
-            // Murs de la piste
+            // Murs de la piste - PLUS LARGES
             paint.color = Color.parseColor("#AAAAAA")
-            canvas.drawRect(w * 0.15f, 0f, w * 0.2f, h.toFloat(), paint)
-            canvas.drawRect(w * 0.8f, 0f, w * 0.85f, h.toFloat(), paint)
+            canvas.drawRect(w * 0.12f, 0f, w * 0.2f, h.toFloat(), paint) // PLUS LARGE
+            canvas.drawRect(w * 0.8f, 0f, w * 0.88f, h.toFloat(), paint)
             
             // Surface de course
             paint.color = Color.parseColor("#E0F6FF")
@@ -721,19 +723,19 @@ class BobsledActivity : Activity(), SensorEventListener {
             // Virage actuel si présent
             if (abs(currentTurn) > 0.2f) {
                 paint.color = Color.parseColor("#44FF0000")
-                val turnOffset = currentTurn * turnIntensity * 100f
-                canvas.drawOval(w/2f + turnOffset - 80f, h * 0.2f, 
-                               w/2f + turnOffset + 80f, h * 0.4f, paint)
+                val turnOffset = currentTurn * turnIntensity * 80f // RÉDUIT de 100f
+                canvas.drawOval(w/2f + turnOffset - 100f, h * 0.2f, 
+                               w/2f + turnOffset + 100f, h * 0.4f, paint) // PLUS GROS
                 
                 paint.color = Color.WHITE
-                paint.textSize = 18f
+                paint.textSize = 24f // AUGMENTÉ de 18f
                 paint.textAlign = Paint.Align.CENTER
                 canvas.drawText("VIRAGE", w/2f + turnOffset, h * 0.32f, paint)
             }
             
             // Lignes de guidage
             paint.color = Color.parseColor("#CCCCCC")
-            paint.strokeWidth = 2f
+            paint.strokeWidth = 3f // AUGMENTÉ de 2f
             for (i in 1..3) {
                 val lineX = w * 0.2f + i * (w * 0.6f / 4f)
                 canvas.drawLine(lineX, 0f, lineX, h.toFloat(), paint)
@@ -741,75 +743,76 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
         
         private fun drawRaceIndicators(canvas: Canvas, w: Int, h: Int) {
-            val baseY = h - 120f
+            val baseY = h - 150f // PLUS BAS
             
-            // Position sur piste
+            // Position sur piste - PLUS GROSSE
             paint.color = Color.parseColor("#333333")
-            canvas.drawRect(50f, baseY, 250f, baseY + 20f, paint)
+            canvas.drawRect(60f, baseY, 300f, baseY + 30f, paint) // PLUS LARGE ET HAUTE
             
-            val posX = 50f + trackPosition * 200f
+            val posX = 60f + trackPosition * 240f
             paint.color = when {
-                trackPosition < 0.2f || trackPosition > 0.8f -> Color.RED
-                trackPosition < 0.3f || trackPosition > 0.7f -> Color.YELLOW
+                trackPosition < 0.15f || trackPosition > 0.85f -> Color.RED // ADAPTÉ aux nouveaux seuils
+                trackPosition < 0.25f || trackPosition > 0.75f -> Color.YELLOW
                 else -> Color.GREEN
             }
-            canvas.drawCircle(posX, baseY + 10f, 12f, paint)
+            canvas.drawCircle(posX, baseY + 15f, 15f, paint) // PLUS GROS
             
             paint.color = Color.WHITE
-            paint.textSize = 16f
+            paint.textSize = 20f // AUGMENTÉ de 16f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("Position sur piste", 50f, baseY - 5f, paint)
+            canvas.drawText("Position sur piste", 60f, baseY - 10f, paint)
             
-            // Compteur de vitesse
+            // Compteur de vitesse - PLUS GROS
             paint.color = Color.parseColor("#333333")
-            canvas.drawCircle(w - 80f, 80f, 50f, paint)
+            canvas.drawCircle(w - 100f, 100f, 60f, paint) // PLUS GROS
             
             paint.color = Color.WHITE
-            paint.textSize = 16f
+            paint.textSize = 20f // AUGMENTÉ de 16f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("${speed.toInt()}", w - 80f, 85f, paint)
-            canvas.drawText("km/h", w - 80f, 100f, paint)
+            canvas.drawText("${speed.toInt()}", w - 100f, 105f, paint)
+            canvas.drawText("km/h", w - 100f, 125f, paint)
         }
         
         private fun drawPushPowerMeter(canvas: Canvas, w: Int, h: Int) {
-            // Barre de puissance énorme
+            // Barre de puissance énorme - PLUS GROSSE
             paint.color = Color.parseColor("#333333")
-            canvas.drawRect(100f, h - 100f, w - 100f, h - 50f, paint)
+            canvas.drawRect(150f, h - 120f, w - 150f, h - 60f, paint) // PLUS HAUTE ET LARGE
             
-            paint.color = if (pushPower > 80f) Color.GREEN else if (pushPower > 50f) Color.YELLOW else Color.RED
-            val powerWidth = (pushPower / 100f) * (w - 200f)
-            canvas.drawRect(100f, h - 95f, 100f + powerWidth, h - 55f, paint)
+            paint.color = if (pushPower > 70f) Color.GREEN else if (pushPower > 50f) Color.YELLOW else Color.RED
+            val powerWidth = (pushPower / 100f) * (w - 300f)
+            canvas.drawRect(150f, h - 115f, 150f + powerWidth, h - 65f, paint)
             
             paint.color = Color.WHITE
-            paint.textSize = 20f
+            paint.textSize = 28f // AUGMENTÉ de 20f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("PUISSANCE DE POUSSÉE: ${pushPower.toInt()}%", w/2f, h - 110f, paint)
+            canvas.drawText("PUISSANCE DE POUSSÉE: ${pushPower.toInt()}%", w/2f, h - 130f, paint)
         }
         
         private fun drawSpeedLines(canvas: Canvas, w: Int, h: Int) {
             paint.color = Color.WHITE
             paint.alpha = 120
+            paint.strokeWidth = 5f // PLUS ÉPAIS
             for (line in speedLines) {
-                canvas.drawLine(line.x, line.y, line.x + 30f, line.y, paint)
+                canvas.drawLine(line.x, line.y, line.x + 40f, line.y, paint) // PLUS LONG
             }
             paint.alpha = 255
         }
         
         private fun drawCockpitView(canvas: Canvas, w: Int, h: Int) {
-            // Vue depuis l'intérieur du bobsleigh
+            // Vue depuis l'intérieur du bobsleigh - PLUS VISIBLE
             paint.color = Color.parseColor("#333333")
-            canvas.drawRect(0f, h * 0.8f, w.toFloat(), h.toFloat(), paint)
+            canvas.drawRect(0f, h * 0.75f, w.toFloat(), h.toFloat(), paint) // PLUS HAUT
             
-            // Bord du bobsleigh
+            // Bord du bobsleigh - PLUS GROS
             paint.color = Color.parseColor("#FF4444")
-            canvas.drawRect(0f, h * 0.75f, w * 0.1f, h * 0.85f, paint)
-            canvas.drawRect(w * 0.9f, h * 0.75f, w.toFloat(), h * 0.85f, paint)
+            canvas.drawRect(0f, h * 0.7f, w * 0.15f, h * 0.85f, paint) // PLUS LARGE
+            canvas.drawRect(w * 0.85f, h * 0.7f, w.toFloat(), h * 0.85f, paint)
             
-            // Indication de direction
-            if (abs(tiltX) > 0.2f) {
+            // Indication de direction - TEXTE PLUS GROS
+            if (abs(tiltX) > 0.3f) { // SEUIL ADAPTÉ
                 paint.color = if (tiltX > 0) Color.RED else Color.BLUE
                 val arrow = if (tiltX > 0) "➤➤➤" else "⬅⬅⬅"
-                paint.textSize = 24f
+                paint.textSize = 32f // AUGMENTÉ de 24f
                 paint.textAlign = Paint.Align.CENTER
                 canvas.drawText(arrow, w/2f, h * 0.82f, paint)
             }
@@ -819,7 +822,7 @@ class BobsledActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#CCEEEE")
             paint.alpha = 180
             for (particle in iceParticles) {
-                canvas.drawCircle(particle.x, particle.y, particle.size, paint)
+                canvas.drawCircle(particle.x, particle.y, particle.size * 1.5f, paint) // PLUS GROS
             }
             paint.alpha = 255
         }
