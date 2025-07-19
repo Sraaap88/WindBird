@@ -32,11 +32,9 @@ class BiathlonActivity : Activity(), SensorEventListener {
     private var previousGyroDirection = 0
     private var backgroundOffset = 0f
 
-    private lateinit var skierBitmap: Bitmap
-    private val frameWidth = 64
-    private val frameHeight = 64
-    private val totalFrames = 2
-    private var currentFrame = 0
+    private lateinit var skierLeftBitmap: Bitmap
+    private lateinit var skierRightBitmap: Bitmap
+    private var currentDirection = 0 // 0 = gauche, 1 = droite
 
     private var gameState = GameState.SKIING
     private var targetsHit = 0
@@ -63,7 +61,8 @@ class BiathlonActivity : Activity(), SensorEventListener {
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-        skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skieur_sprite)
+        skierLeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.skieur_gauche)
+        skierRightBitmap = BitmapFactory.decodeResource(resources, R.drawable.skieur_droite)
 
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
@@ -103,11 +102,11 @@ class BiathlonActivity : Activity(), SensorEventListener {
             playerOffset += x * 0.1f
             playerOffset = playerOffset.coerceIn(-1f, 1f)
 
-            // Changer la frame selon la rotation (comme un volant)
-            currentFrame = when {
+            // Changer la direction selon la rotation (comme un volant)
+            currentDirection = when {
                 z > 0.5f -> 1  // Rotation droite
                 z < -0.5f -> 0 // Rotation gauche
-                else -> currentFrame // Garder la frame actuelle
+                else -> currentDirection // Garder la direction actuelle
             }
 
             // Mouvement vers l'avant avec rotation du téléphone comme un volant (z = rotation à plat)
@@ -143,11 +142,11 @@ class BiathlonActivity : Activity(), SensorEventListener {
             playerOffset += x * 0.1f
             playerOffset = playerOffset.coerceIn(-1f, 1f)
 
-            // Changer la frame selon la rotation (comme un volant)
-            currentFrame = when {
+            // Changer la direction selon la rotation (comme un volant)
+            currentDirection = when {
                 z > 0.5f -> 1  // Rotation droite
                 z < -0.5f -> 0 // Rotation gauche
-                else -> currentFrame // Garder la frame actuelle
+                else -> currentDirection // Garder la direction actuelle
             }
 
             // Mouvement vers l'avant avec rotation du téléphone comme un volant (z = rotation à plat)
@@ -303,25 +302,11 @@ class BiathlonActivity : Activity(), SensorEventListener {
     }
 
     private fun drawSkierSprite(canvas: Canvas, x: Float, y: Float) {
-        if (!::skierBitmap.isInitialized) {
-            return
+        val bitmap = if (currentDirection == 0) skierLeftBitmap else skierRightBitmap
+        
+        if (::skierLeftBitmap.isInitialized && ::skierRightBitmap.isInitialized) {
+            canvas.drawBitmap(bitmap, x - bitmap.width/2f, y - bitmap.height, null)
         }
-        
-        val srcX = currentFrame * frameWidth
-        val srcY = 0
-        val srcRect = Rect(srcX, srcY, srcX + frameWidth, srcY + frameHeight)
-        
-        val displayWidth = frameWidth.toFloat()
-        val displayHeight = frameHeight.toFloat()
-        
-        val dstRect = RectF(
-            x - displayWidth/2f,
-            y - displayHeight/2f,
-            x + displayWidth/2f,
-            y + displayHeight/2f
-        )
-        
-        canvas.drawBitmap(skierBitmap, srcRect, dstRect, null)
     }
 
     inner class BiathlonView(context: Context) : View(context) {
@@ -354,7 +339,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
             // Position du skieur qui progresse de gauche à droite
             val progressRatio = distance / totalDistance
             val skierX = (w * 0.1f) + (progressRatio * w * 0.6f) + playerOffset * 100f
-            val skierY = h * 0.75f - frameHeight
+            val skierY = h * 0.75f - if (::skierLeftBitmap.isInitialized) skierLeftBitmap.height else 50f
 
             drawSkierSprite(canvas, skierX, skierY)
 
