@@ -31,11 +31,11 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var backgroundOffset = 0f
 
     private lateinit var skierBitmap: Bitmap
-    private val frameWidth = 80
-    private val frameHeight = 120
-    private val frameSpacing = 5
-    private val totalFrames = 5
-    private var currentFrame = 2
+    private val frameWidth = 64
+    private val frameHeight = 64
+    private val frameSpacing = 0
+    private val totalFrames = 7
+    private var currentFrame = 3
 
     private var gameState = GameState.APPROACH
     private var speed = 0f
@@ -471,12 +471,12 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 return
             }
             
-            val srcX = frameSpacing + currentFrame * (frameWidth + frameSpacing)
-            val srcY = frameSpacing
+            val srcX = currentFrame * frameWidth
+            val srcY = 0
             val srcRect = Rect(srcX, srcY, srcX + frameWidth, srcY + frameHeight)
             
-            val displayWidth = frameWidth * 0.8f
-            val displayHeight = frameHeight * 0.8f
+            val displayWidth = frameWidth.toFloat()
+            val displayHeight = frameHeight.toFloat()
             
             val dstRect = RectF(
                 x - displayWidth/2f,
