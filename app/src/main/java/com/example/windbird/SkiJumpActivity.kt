@@ -53,6 +53,9 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var skierY = 0f
     private var backgroundOffset = 0f
     
+    // AJOUTÉ : Bitmap du skieur
+    private lateinit var skierBitmap: Bitmap
+    
     // Données du tournoi
     private lateinit var tournamentData: TournamentData
     private var eventIndex: Int = 0
@@ -74,6 +77,9 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         // Initialiser les capteurs
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+        
+        // AJOUTÉ : Charger l'image du skieur
+        skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skieur_pixel)
 
         // Créer l'interface
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -375,8 +381,8 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             skierX = w * 0.3f + (speed / maxSpeed) * w * 0.4f
             skierY = startY - ((speed / maxSpeed) * (startY - endY))
             
-            paint.color = Color.BLUE
-            canvas.drawCircle(skierX, skierY - 20f, 15f, paint)
+            // MODIFIÉ : Dessiner le vrai skieur au lieu d'un cercle
+            canvas.drawBitmap(skierBitmap, skierX - skierBitmap.width/2f, skierY - skierBitmap.height, paint)
             
             // Barre de vitesse
             drawSpeedBar(canvas, w, h)
@@ -402,32 +408,253 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         }
         
         private fun drawFlight(canvas: Canvas, w: Int, h: Int) {
-            // Montagne en arrière-plan
-            paint.color = Color.parseColor("#654321")
-            canvas.drawRect(0f, h * 0.7f, w.toFloat(), h.toFloat(), paint)
+            // Fond dégradé style 16-bit
+            val gradient = LinearGradient(0f, 0f, 0f, h.toFloat(), 
+                Color.parseColor("#87CEEB"), Color.parseColor("#4682B4"), Shader.TileMode.CLAMP)
+            paint.shader = gradient
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            paint.shader = null
             
-            // Skieur en vol avec orientation basée sur les axes
-            val flightProgress = flightTime / totalFlightTime
-            skierX = w * 0.2f + flightProgress * w * 0.6f
-            skierY = h * 0.3f + (sin(flightProgress * PI) * jumpHeight).toFloat()
+            // Nuages pixel art en arrière-plan
+            drawPixelClouds(canvas, w, h)
             
-            // Sauvegarder l'état du canvas
+            // Montagnes pixel style 16-bit
+            drawPixelMountains(canvas, w, h)
+            
+            // Particules de neige animées
+            drawSnowParticles(canvas, w, h)
+            
+            // Skieur au centre de l'écran (VUE DE HAUT)
+            val centerX = w / 2f
+            val centerY = h / 2f
+            
+            // Sauvegarder l'état du canvas pour les rotations
             canvas.save()
+            canvas.translate(centerX, centerY)
             
-            // Appliquer les rotations du skieur
-            canvas.translate(skierX, skierY)
-            canvas.rotate(pitch * 0.5f) // Tangage
-            canvas.skew(roll * 0.01f, yaw * 0.01f) // Roulis et lacet
+            // Appliquer les rotations du gyroscope
+            canvas.rotate(yaw * 2f) // Rotation générale
             
-            // Dessiner le skieur
-            paint.color = Color.BLUE
-            canvas.drawCircle(0f, 0f, 15f, paint)
+            // Dessiner le skieur pixel art vue de haut
+            drawPixelSkierTopView(canvas, centerX, centerY)
             
-            // Restaurer l'état du canvas
             canvas.restore()
             
-            // Indicateurs de stabilité
-            drawStabilityIndicators(canvas, w, h)
+            // Interface utilisateur pixel style
+            drawPixelUI(canvas, w, h)
+        }
+        
+        private fun drawPixelSkierTopView(canvas: Canvas, centerX: Float, centerY: Float) {
+            val skierSize = 120f // Gros skieur bien visible
+            
+            // Ombre du skieur (effet de profondeur)
+            paint.color = Color.parseColor("#66000000")
+            canvas.drawOval(-skierSize/2 + 5f, -skierSize/3 + 5f, 
+                           skierSize/2 + 5f, skierSize/3 + 5f, paint)
+            
+            // SKIS (2 rectangles blancs avec détails)
+            val skiLength = skierSize * 0.8f
+            val skiWidth = 12f
+            val skiSeparation = 20f + abs(roll) * 0.5f // Skis s'écartent si déséquilibre
+            
+            // Ski gauche
+            paint.color = Color.WHITE
+            canvas.save()
+            canvas.rotate(pitch * 0.5f - roll * 0.3f) // Inclinaison basée sur gyroscope
+            canvas.drawRoundRect(-skiSeparation/2 - skiWidth, -skiLength/2, 
+                                -skiSeparation/2, skiLength/2, 4f, 4f, paint)
+            
+            // Bordure noire du ski gauche
+            paint.color = Color.BLACK
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 2f
+            canvas.drawRoundRect(-skiSeparation/2 - skiWidth, -skiLength/2, 
+                                -skiSeparation/2, skiLength/2, 4f, 4f, paint)
+            canvas.restore()
+            
+            // Ski droit
+            paint.style = Paint.Style.FILL
+            paint.color = Color.WHITE
+            canvas.save()
+            canvas.rotate(pitch * 0.5f + roll * 0.3f)
+            canvas.drawRoundRect(skiSeparation/2, -skiLength/2, 
+                                skiSeparation/2 + skiWidth, skiLength/2, 4f, 4f, paint)
+            
+            // Bordure noire du ski droit
+            paint.color = Color.BLACK
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 2f
+            canvas.drawRoundRect(skiSeparation/2, -skiLength/2, 
+                                skiSeparation/2 + skiWidth, skiLength/2, 4f, 4f, paint)
+            canvas.restore()
+            
+            paint.style = Paint.Style.FILL
+            
+            // CORPS DU SKIEUR (vue de haut)
+            // Tête/Casque
+            paint.color = Color.parseColor("#0066CC") // Bleu électrique
+            canvas.drawCircle(0f, -15f, 18f, paint)
+            
+            // Reflet sur le casque
+            paint.color = Color.parseColor("#66FFFFFF")
+            canvas.drawCircle(-6f, -21f, 8f, paint)
+            
+            // Corps/Torse 
+            paint.color = Color.parseColor("#003399") // Bleu foncé
+            canvas.drawRoundRect(-20f, -10f, 20f, 25f, 8f, 8f, paint)
+            
+            // Dossard jaune
+            paint.color = Color.parseColor("#FFD700")
+            canvas.drawRoundRect(-12f, -5f, 12f, 15f, 4f, 4f, paint)
+            
+            // Numéro sur le dossard
+            paint.color = Color.BLACK
+            paint.textSize = 16f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("${currentPlayerIndex + 1}", 0f, 8f, paint)
+            
+            // Bras étendus
+            paint.color = Color.parseColor("#0066CC")
+            // Bras gauche
+            canvas.drawRoundRect(-35f, -5f, -20f, 5f, 6f, 6f, paint)
+            // Bras droit  
+            canvas.drawRoundRect(20f, -5f, 35f, 5f, 6f, 6f, paint)
+            
+            // Gants
+            paint.color = Color.parseColor("#FF4444")
+            canvas.drawCircle(-35f, 0f, 8f, paint)
+            canvas.drawCircle(35f, 0f, 8f, paint)
+            
+            // Jambes
+            paint.color = Color.parseColor("#003399")
+            canvas.drawRoundRect(-12f, 15f, -4f, 35f, 4f, 4f, paint)
+            canvas.drawRoundRect(4f, 15f, 12f, 35f, 4f, 4f, paint)
+            
+            // Effet de mouvement si déséquilibre
+            if (abs(roll) > 10f || abs(pitch) > 15f) {
+                paint.color = Color.parseColor("#44FF0000")
+                canvas.drawCircle(0f, 0f, skierSize/2 + 10f, paint)
+            } else if (abs(roll) < 5f && abs(pitch) < 8f) {
+                // Halo vert si bon équilibre
+                paint.color = Color.parseColor("#4400FF00")
+                canvas.drawCircle(0f, 0f, skierSize/2 + 5f, paint)
+            }
+        }
+        
+        private fun drawPixelClouds(canvas: Canvas, w: Int, h: Int) {
+            paint.color = Color.parseColor("#EEEEEE")
+            
+            // Nuages qui défilent selon le temps de vol
+            val cloudOffset = (flightTime * 50f) % w
+            
+            for (i in 0..4) {
+                val x = (i * w/3f - cloudOffset) % (w + 100f)
+                val y = h * 0.2f + i * 30f
+                
+                // Nuage pixel style (plusieurs cercles)
+                canvas.drawCircle(x, y, 25f, paint)
+                canvas.drawCircle(x + 20f, y, 20f, paint)
+                canvas.drawCircle(x + 35f, y, 15f, paint)
+                canvas.drawCircle(x - 15f, y, 18f, paint)
+            }
+        }
+        
+        private fun drawPixelMountains(canvas: Canvas, w: Int, h: Int) {
+            // Montagnes en arrière-plan style 16-bit
+            paint.color = Color.parseColor("#8B4513")
+            
+            val mountainPath = Path()
+            mountainPath.moveTo(0f, h * 0.8f)
+            mountainPath.lineTo(w * 0.2f, h * 0.6f)
+            mountainPath.lineTo(w * 0.4f, h * 0.7f)
+            mountainPath.lineTo(w * 0.6f, h * 0.5f)
+            mountainPath.lineTo(w * 0.8f, h * 0.65f)
+            mountainPath.lineTo(w.toFloat(), h * 0.55f)
+            mountainPath.lineTo(w.toFloat(), h.toFloat())
+            mountainPath.lineTo(0f, h.toFloat())
+            mountainPath.close()
+            
+            canvas.drawPath(mountainPath, paint)
+            
+            // Neige sur les sommets
+            paint.color = Color.WHITE
+            canvas.drawCircle(w * 0.2f, h * 0.6f, 15f, paint)
+            canvas.drawCircle(w * 0.6f, h * 0.5f, 20f, paint)
+        }
+        
+        private fun drawSnowParticles(canvas: Canvas, w: Int, h: Int) {
+            paint.color = Color.WHITE
+            
+            // Particules de neige animées
+            for (i in 0..20) {
+                val x = (i * 50f + flightTime * 100f) % w
+                val y = (i * 30f + flightTime * 80f) % h
+                val size = 2f + (i % 3)
+                
+                canvas.drawCircle(x, y, size, paint)
+            }
+            
+            // Effet de trainée de vent
+            paint.alpha = 100
+            for (i in 0..10) {
+                val x = w * 0.1f + i * w * 0.08f
+                val y = h/2f + sin(flightTime + i * 0.5f) * 20f
+                canvas.drawCircle(x, y, 3f, paint)
+            }
+            paint.alpha = 255
+        }
+        
+        private fun drawPixelUI(canvas: Canvas, w: Int, h: Int) {
+            // Interface utilisateur style pixel/16-bit
+            
+            // Cadre de stabilité (coin bas-gauche)
+            paint.color = Color.parseColor("#333333")
+            canvas.drawRoundRect(20f, h - 200f, 300f, h - 20f, 10f, 10f, paint)
+            
+            paint.color = Color.WHITE
+            paint.textSize = 18f
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("STABILITÉ", 30f, h - 170f, paint)
+            
+            // Barres de stabilité pixel style
+            val barY = h - 140f
+            val barHeight = 15f
+            
+            // Tangage
+            paint.color = if (abs(pitch) < 10f) Color.GREEN else Color.RED
+            canvas.drawRect(30f, barY, 30f + abs(pitch) * 4f, barY + barHeight, paint)
+            paint.color = Color.WHITE
+            paint.textSize = 12f
+            canvas.drawText("Tangage: ${pitch.toInt()}°", 30f, barY + 30f, paint)
+            
+            // Roulis  
+            paint.color = if (abs(roll) < 7f) Color.GREEN else Color.RED
+            canvas.drawRect(30f, barY + 40f, 30f + abs(roll) * 5f, barY + 40f + barHeight, paint)
+            paint.color = Color.WHITE
+            canvas.drawText("Roulis: ${roll.toInt()}°", 30f, barY + 70f, paint)
+            
+            // Lacet
+            paint.color = if (abs(yaw) < 5f) Color.GREEN else Color.RED
+            canvas.drawRect(30f, barY + 80f, 30f + abs(yaw) * 6f, barY + 80f + barHeight, paint)
+            paint.color = Color.WHITE
+            canvas.drawText("Lacet: ${yaw.toInt()}°", 30f, barY + 110f, paint)
+            
+            // Distance actuelle (coin haut-droit)
+            paint.color = Color.parseColor("#FFD700")
+            paint.textSize = 32f
+            paint.textAlign = Paint.Align.RIGHT
+            canvas.drawText("${jumpDistance.toInt()}m", w - 30f, 60f, paint)
+            
+            // Indicateur de stabilité globale (centre-haut)
+            val stability = calculateStability()
+            paint.color = when {
+                stability > 0.8f -> Color.GREEN
+                stability > 0.5f -> Color.YELLOW
+                else -> Color.RED
+            }
+            paint.textSize = 24f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("Stabilité: ${(stability * 100).toInt()}%", w/2f, 40f, paint)
         }
         
         private fun drawLanding(canvas: Canvas, w: Int, h: Int) {
