@@ -7,18 +7,19 @@ class TournamentData(
     val playerCountries: ArrayList<String>
 ) : Serializable {
     
-    private val eventScores = Array(4) { Array(10) { -1 } }
-    private val attempts = Array(4) { Array(10) { 0 } }
+    // MODIFIÉ : 9 épreuves (indices 0 à 8) au lieu de 10
+    private val eventScores = Array(4) { Array(9) { -1 } }
+    private val attempts = Array(4) { Array(9) { 0 } }
     
     fun addScore(playerIndex: Int, eventIndex: Int, score: Int) {
-        if (playerIndex in 0..3 && eventIndex in 0..9) {
+        if (playerIndex in 0..3 && eventIndex in 0..8) { // MODIFIÉ : 0..8 au lieu de 0..9
             eventScores[playerIndex][eventIndex] = score
             attempts[playerIndex][eventIndex]++
         }
     }
     
     fun getScore(playerIndex: Int, eventIndex: Int): Int {
-        return if (playerIndex in 0..3 && eventIndex in 0..9) {
+        return if (playerIndex in 0..3 && eventIndex in 0..8) { // MODIFIÉ : 0..8 au lieu de 0..9
             eventScores[playerIndex][eventIndex]
         } else -1
     }
@@ -30,46 +31,75 @@ class TournamentData(
     }
     
     fun getAttempts(playerIndex: Int, eventIndex: Int): Int {
-        return if (playerIndex in 0..3 && eventIndex in 0..9) {
+        return if (playerIndex in 0..3 && eventIndex in 0..8) { // MODIFIÉ : 0..8 au lieu de 0..9
             attempts[playerIndex][eventIndex]
         } else 0
     }
     
-    fun getEventStatus(eventIndex: Int): EventsMenuActivity.EventStatus {
+    // MODIFIÉ : Logique de déverrouillage séquentiel pour le mode tournoi
+    fun getEventStatus(eventIndex: Int, practiceMode: Boolean = false): EventsMenuActivity.EventStatus {
+        // En mode pratique, toutes les épreuves implémentées sont disponibles
+        if (practiceMode) {
+            return when (eventIndex) {
+                0, 1 -> EventsMenuActivity.EventStatus.AVAILABLE // Biathlon et Saut à Ski
+                else -> EventsMenuActivity.EventStatus.LOCKED // Autres épreuves pas encore implémentées
+            }
+        }
+        
+        // En mode tournoi : déverrouillage séquentiel
         val totalAttempts = (0..3).sumOf { attempts[it][eventIndex] }
         val allCompleted = (0..3).all { attempts[it][eventIndex] >= 1 }
         
         return when {
+            // Épreuve terminée
             allCompleted -> EventsMenuActivity.EventStatus.COMPLETED
+            
+            // Épreuve en cours
             totalAttempts > 0 -> EventsMenuActivity.EventStatus.IN_PROGRESS
+            
+            // Première épreuve (Biathlon) : toujours disponible
             eventIndex == 0 -> EventsMenuActivity.EventStatus.AVAILABLE
+            
+            // Épreuves suivantes : disponibles seulement si la précédente est terminée
+            eventIndex > 0 -> {
+                val previousEventCompleted = (0..3).all { attempts[it][eventIndex - 1] >= 1 }
+                if (previousEventCompleted) {
+                    // Vérifier si l'épreuve est implémentée
+                    when (eventIndex) {
+                        1 -> EventsMenuActivity.EventStatus.AVAILABLE // Saut à Ski implémenté
+                        else -> EventsMenuActivity.EventStatus.LOCKED // Autres épreuves pas encore implémentées
+                    }
+                } else {
+                    EventsMenuActivity.EventStatus.LOCKED
+                }
+            }
+            
             else -> EventsMenuActivity.EventStatus.LOCKED
         }
     }
     
     fun getNextPlayer(eventIndex: Int): Int {
         for (player in 0..3) {
-            if (attempts[player][eventIndex] < 1) { // Changé de 2 à 1 (un seul essai par joueur)
+            if (attempts[player][eventIndex] < 1) {
                 return player
             }
         }
         return -1
     }
     
-    // Méthodes ajoutées pour la compatibilité avec ScoreTransitionActivity
+    // Méthodes de compatibilité
     fun getNumberOfPlayers(): Int = 4
     
-    fun getNumberOfEvents(): Int = 10
+    fun getNumberOfEvents(): Int = 9 // MODIFIÉ : 9 au lieu de 10
     
     fun getPlayerName(index: Int): String = playerNames.getOrElse(index) { "Joueur ${index + 1}" }
     
     fun getPlayerCountry(index: Int): String = playerCountries.getOrElse(index) { "?" }
     
-    // Vérifier si toutes les épreuves implémentées sont terminées
+    // MODIFIÉ : Vérifier si toutes les épreuves implémentées sont terminées
     fun isTournamentComplete(): Boolean {
-        // Pour l'instant seul le Biathlon (épreuve 0) est implémenté
-        // Quand on aura plus d'épreuves, on vérifiera toutes les épreuves implémentées
-        val implementedEvents = listOf(0) // Liste des épreuves implémentées
+        // Pour l'instant : Biathlon (0) et Saut à Ski (1) sont implémentés
+        val implementedEvents = listOf(0, 1)
         
         return implementedEvents.all { eventIndex ->
             (0..3).all { playerIndex ->
@@ -105,7 +135,8 @@ class TournamentData(
     private fun calculateTournamentMedals(playerIndex: Int): IntArray {
         val medals = intArrayOf(0, 0, 0)
         
-        for (eventIndex in 0..9) {
+        // MODIFIÉ : Boucle sur 9 épreuves (0 à 8)
+        for (eventIndex in 0..8) {
             val scores = mutableListOf<Pair<Int, Int>>()
             
             for (i in 0..3) {
@@ -132,7 +163,8 @@ class TournamentData(
     
     private fun countCompletedEvents(playerIndex: Int): Int {
         var count = 0
-        for (eventIndex in 0..9) {
+        // MODIFIÉ : Boucle sur 9 épreuves (0 à 8)
+        for (eventIndex in 0..8) {
             if (getScore(playerIndex, eventIndex) > 0) {
                 count++
             }
