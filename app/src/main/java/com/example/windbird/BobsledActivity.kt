@@ -55,9 +55,9 @@ class BobsledActivity : Activity(), SensorEventListener {
     
     // Animation sprite sheet bobsleigh
     private lateinit var bobsledSpriteSheet: Bitmap
-    private val frameWidth = 80
-    private val frameHeight = 120
-    private val frameSpacing = 5
+    private val frameWidth = 100
+    private val frameHeight = 200
+    private val frameSpacing = 0
     private val totalFrames = 5
     private var currentFrame = 2
     
@@ -555,12 +555,12 @@ class BobsledActivity : Activity(), SensorEventListener {
                 return
             }
             
-            val srcX = frameSpacing + currentFrame * (frameWidth + frameSpacing)
-            val srcY = frameSpacing
+            val srcX = currentFrame * frameWidth
+            val srcY = 0
             val srcRect = Rect(srcX, srcY, srcX + frameWidth, srcY + frameHeight)
             
-            val displayWidth = frameWidth * 0.8f
-            val displayHeight = frameHeight * 0.8f
+            val displayWidth = frameWidth * 0.4f
+            val displayHeight = frameHeight * 0.4f
             
             val dstRect = RectF(
                 x - displayWidth/2f,
@@ -570,9 +570,6 @@ class BobsledActivity : Activity(), SensorEventListener {
             )
             
             canvas.save()
-            
-            // Retourner verticalement l'image (flip Y)
-            canvas.scale(1f, -1f, x, y)
             canvas.rotate(steeringAngle * 10f, x, y)
             
             if (accelerationEffect > 0f) {
