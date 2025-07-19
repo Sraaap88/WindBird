@@ -24,7 +24,18 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var sensorManager: SensorManager? = null
     private var gyroscope: Sensor? = null
 
+    private var playerOffset = 0f
+    private var distance = 0f
+    private val totalDistance = 3000f
+    private var previousGyroDirection = 0
+    private var backgroundOffset = 0f
+
     private lateinit var skierBitmap: Bitmap
+    private val frameWidth = 80
+    private val frameHeight = 120
+    private val frameSpacing = 5
+    private val totalFrames = 5
+    private var currentFrame = 2
 
     private var gameState = GameState.APPROACH
     private var speed = 0f
@@ -59,7 +70,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-        skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skieur_pixel)
+        skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skieur_sprite)
 
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
@@ -126,6 +137,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         
         if (y < -0.5f) {
             speed += 2f
+            backgroundOffset -= 5f
         }
         
         if (abs(x) > 0.3f) {
@@ -249,7 +261,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         val aiAccuracy = (1..4).random()
         val aiDistance = (4000..5000).random()
         val accuracyBonus = aiAccuracy * 50
-        val distanceBonus = (aiDistance / 3000f * 100).toInt()
+        val distanceBonus = (aiDistance / totalDistance * 100).toInt()
         val penalty = (5 - aiAccuracy) * 20
         return maxOf(50, accuracyBonus + distanceBonus - penalty)
     }
@@ -315,7 +327,13 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             val skierX = w * 0.3f + (speed / maxSpeed) * w * 0.4f
             val skierY = startY - ((speed / maxSpeed) * (startY - endY))
             
-            canvas.drawBitmap(skierBitmap, skierX - skierBitmap.width/2f, skierY - skierBitmap.height, paint)
+            if (::skierBitmap.isInitialized) {
+                drawSkierSprite(canvas, skierX, skierY)
+            } else {
+                // Fallback si l'image n'est pas chargée
+                paint.color = Color.parseColor("#FF4444")
+                canvas.drawRect(skierX - 15f, skierY - 30f, skierX + 15f, skierY, paint)
+            }
             
             drawSpeedBar(canvas, w, h)
         }
@@ -327,7 +345,12 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             val skierX = w * 0.7f
             val skierY = h * 0.6f - 30f
             
-            canvas.drawBitmap(skierBitmap, skierX - skierBitmap.width/2f, skierY - skierBitmap.height, paint)
+            if (::skierBitmap.isInitialized) {
+                drawSkierSprite(canvas, skierX, skierY)
+            } else {
+                paint.color = Color.parseColor("#FF4444")
+                canvas.drawRect(skierX - 15f, skierY - 30f, skierX + 15f, skierY, paint)
+            }
             
             paint.color = Color.YELLOW
             paint.textSize = 24f
@@ -343,7 +366,14 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             canvas.save()
             canvas.translate(skierX, skierY)
             canvas.rotate(pitch * 0.5f + roll * 0.3f)
-            canvas.drawBitmap(skierBitmap, -skierBitmap.width/2f, -skierBitmap.height/2f, paint)
+            
+            if (::skierBitmap.isInitialized) {
+                drawSkierSprite(canvas, 0f, 0f)
+            } else {
+                paint.color = Color.parseColor("#FF4444")
+                canvas.drawRect(-15f, -15f, 15f, 15f, paint)
+            }
+            
             canvas.restore()
             
             drawStabilityIndicators(canvas, w, h)
@@ -356,7 +386,12 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             val skierX = w * 0.8f
             val skierY = h * 0.7f - 20f
             
-            canvas.drawBitmap(skierBitmap, skierX - skierBitmap.width/2f, skierY - skierBitmap.height, paint)
+            if (::skierBitmap.isInitialized) {
+                drawSkierSprite(canvas, skierX, skierY)
+            } else {
+                paint.color = Color.parseColor("#FF4444")
+                canvas.drawRect(skierX - 15f, skierY - 30f, skierX + 15f, skierY, paint)
+            }
             
             paint.color = Color.GREEN
             paint.textSize = 32f
@@ -427,6 +462,30 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             }
             
             canvas.drawText(instruction, w/2f, 30f, paint)
+        }
+        
+        private fun drawSkierSprite(canvas: Canvas, x: Float, y: Float) {
+            if (!::skierBitmap.isInitialized) {
+                paint.color = Color.parseColor("#FF4444")
+                canvas.drawRect(x - 15f, y - 15f, x + 15f, y + 15f, paint)
+                return
+            }
+            
+            val srcX = frameSpacing + currentFrame * (frameWidth + frameSpacing)
+            val srcY = frameSpacing
+            val srcRect = Rect(srcX, srcY, srcX + frameWidth, srcY + frameHeight)
+            
+            val displayWidth = frameWidth * 0.8f
+            val displayHeight = frameHeight * 0.8f
+            
+            val dstRect = RectF(
+                x - displayWidth/2f,
+                y - displayHeight/2f,
+                x + displayWidth/2f,
+                y + displayHeight/2f
+            )
+            
+            canvas.drawBitmap(skierBitmap, srcRect, dstRect, paint)
         }
     }
 
