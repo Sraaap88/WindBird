@@ -1,5 +1,5 @@
 package com.example.windbird
-
+ 
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -24,7 +24,14 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var sensorManager: SensorManager? = null
     private var gyroscope: Sensor? = null
 
-    // Variables de jeu
+    private var playerOffset = 0f
+    private var distance = 0f
+    private val totalDistance = 3000f
+    private var previousGyroDirection = 0
+    private var backgroundOffset = 0f
+
+    private lateinit var skierBitmap: Bitmap
+
     private var gameState = GameState.APPROACH
     private var speed = 0f
     private var maxSpeed = 100f
@@ -32,21 +39,14 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var jumpHeight = 0f
     private var takeoffTiming = 0f
     
-    // Variables de vol
     private var pitch = 0f
     private var roll = 0f
     private var yaw = 0f
     
-    // Variables de temps
     private var approachTime = 0f
     private var flightTime = 0f
     private var totalFlightTime = 3.0f
-    
-    // Variables d'animation
-    private var skierX = 0f
-    private var skierY = 0f
-    
-    // Données du tournoi
+
     private lateinit var tournamentData: TournamentData
     private var eventIndex: Int = 0
     private var numberOfPlayers: Int = 1
@@ -61,10 +61,11 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         eventIndex = intent.getIntExtra("event_index", 0)
         numberOfPlayers = intent.getIntExtra("number_of_players", 1)
         practiceMode = intent.getBooleanExtra("practice_mode", false)
-        currentPlayerIndex = intent.getIntExtra("current_player_index", 0)
+        currentPlayerIndex = intent.getIntExtra("current_player_index", tournamentData.getNextPlayer(eventIndex))
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+        skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skieur_pixel)
 
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
@@ -131,6 +132,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         
         if (y < -0.5f) {
             speed += 2f
+            backgroundOffset -= 5f
         }
         
         if (abs(x) > 0.3f) {
@@ -199,15 +201,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             proceedToNextPlayerOrEvent()
         }, 3000)
     }
-    
-    private fun calculateScore(): Int {
-        val speedBonus = (speed / maxSpeed * 100).toInt()
-        val distanceBonus = (jumpDistance * 2).toInt()
-        val stabilityBonus = 50
-        
-        return maxOf(50, speedBonus + distanceBonus + stabilityBonus)
-    }
-    
+
     private fun proceedToNextPlayerOrEvent() {
         if (practiceMode) {
             val intent = Intent(this, EventsMenuActivity::class.java).apply {
@@ -235,7 +229,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 startActivity(intent)
                 finish()
             } else {
-                val aiScore = 100 + kotlin.random.Random.nextInt(151)
+                val aiScore = generateAIScore()
                 tournamentData.addScore(nextPlayer, eventIndex, aiScore)
                 proceedToNextPlayerOrEvent()
             }
@@ -257,9 +251,18 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             }
         }
     }
+    
+    private fun generateAIScore(): Int {
+        val aiAccuracy = (1..4).random()
+        val aiDistance = (4000..5000).random()
+        val accuracyBonus = aiAccuracy * 50
+        val distanceBonus = (aiDistance / totalDistance * 100).toInt()
+        val penalty = (5 - aiAccuracy) * 20
+        return maxOf(50, accuracyBonus + distanceBonus - penalty)
+    }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-    
+
     private fun updateStatus() {
         statusText.text = when (gameState) {
             GameState.APPROACH -> "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | Élan: ${speed.toInt()} km/h"
@@ -270,14 +273,25 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         }
     }
 
+    private fun calculateScore(): Int {
+        val speedBonus = (speed / maxSpeed * 100).toInt()
+        val distanceBonus = (jumpDistance * 2).toInt()
+        val stabilityBonus = ((1f - (abs(pitch) + abs(roll) + abs(yaw)) / 65f) * 50).toInt()
+        
+        return maxOf(50, speedBonus + distanceBonus + stabilityBonus)
+    }
+
     inner class SkiJumpView(context: Context) : View(context) {
         private val paint = Paint()
+        private val bgPaint = Paint().apply { color = Color.parseColor("#87CEEB") }
+        private val snowPaint = Paint().apply { color = Color.WHITE }
+        private val jumpPaint = Paint().apply { color = Color.LTGRAY }
 
         override fun onDraw(canvas: Canvas) {
             val w = canvas.width
             val h = canvas.height
             
-            canvas.drawColor(Color.parseColor("#87CEEB"))
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), bgPaint)
             
             when (gameState) {
                 GameState.APPROACH -> drawApproach(canvas, w, h)
@@ -286,39 +300,41 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 GameState.LANDING -> drawLanding(canvas, w, h)
                 GameState.FINISHED -> drawFinished(canvas, w, h)
             }
+            
+            drawUI(canvas, w, h)
         }
         
         private fun drawApproach(canvas: Canvas, w: Int, h: Int) {
-            paint.color = Color.LTGRAY
-            canvas.drawRect(0f, h * 0.8f, w.toFloat(), h.toFloat(), paint)
+            jumpPaint.color = Color.LTGRAY
+            val startY = h * 0.8f
+            val endY = h * 0.6f
+            canvas.drawRect(0f, startY, w.toFloat(), h.toFloat(), jumpPaint)
             
             paint.color = Color.WHITE
             val path = Path()
-            path.moveTo(0f, h * 0.8f)
-            path.lineTo(w.toFloat(), h * 0.6f)
+            path.moveTo(0f, startY)
+            path.lineTo(w.toFloat(), endY)
             path.lineTo(w.toFloat(), h.toFloat())
             path.lineTo(0f, h.toFloat())
             path.close()
             canvas.drawPath(path, paint)
             
-            skierX = w * 0.3f + (speed / maxSpeed) * w * 0.4f
-            skierY = h * 0.8f - ((speed / maxSpeed) * h * 0.2f)
+            val skierX = w * 0.3f + (speed / maxSpeed) * w * 0.4f
+            val skierY = startY - ((speed / maxSpeed) * (startY - endY))
             
-            paint.color = Color.BLUE
-            canvas.drawCircle(skierX, skierY - 20f, 15f, paint)
+            canvas.drawBitmap(skierBitmap, skierX - skierBitmap.width/2f, skierY - skierBitmap.height, paint)
             
-            paint.color = Color.BLACK
-            canvas.drawRect(50f, 50f, 250f, 80f, paint)
-            paint.color = if (speed >= 80f) Color.GREEN else Color.YELLOW
-            canvas.drawRect(50f, 50f, 50f + (speed / maxSpeed) * 200f, 80f, paint)
+            drawSpeedBar(canvas, w, h)
         }
         
         private fun drawTakeoff(canvas: Canvas, w: Int, h: Int) {
-            paint.color = Color.LTGRAY
-            canvas.drawRect(w * 0.6f, h * 0.6f, w.toFloat(), h.toFloat(), paint)
+            jumpPaint.color = Color.LTGRAY
+            canvas.drawRect(w * 0.6f, h * 0.6f, w.toFloat(), h.toFloat(), jumpPaint)
             
-            paint.color = Color.BLUE
-            canvas.drawCircle(w * 0.7f, h * 0.6f - 30f, 15f, paint)
+            val skierX = w * 0.7f
+            val skierY = h * 0.6f - 30f
+            
+            canvas.drawBitmap(skierBitmap, skierX - skierBitmap.width/2f, skierY - skierBitmap.height, paint)
             
             paint.color = Color.YELLOW
             paint.textSize = 24f
@@ -328,26 +344,26 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         
         private fun drawFlight(canvas: Canvas, w: Int, h: Int) {
             val flightProgress = flightTime / totalFlightTime
-            skierX = w * 0.2f + flightProgress * w * 0.6f
-            skierY = h * 0.3f + (sin(flightProgress * PI) * jumpHeight).toFloat()
+            val skierX = w * 0.2f + flightProgress * w * 0.6f
+            val skierY = h * 0.3f + (sin(flightProgress * PI) * jumpHeight).toFloat()
             
-            paint.color = Color.BLUE
-            canvas.drawCircle(skierX, skierY, 15f, paint)
+            canvas.save()
+            canvas.translate(skierX, skierY)
+            canvas.rotate(pitch * 0.5f + roll * 0.3f)
+            canvas.drawBitmap(skierBitmap, -skierBitmap.width/2f, -skierBitmap.height/2f, paint)
+            canvas.restore()
             
-            paint.color = Color.WHITE
-            paint.textSize = 16f
-            paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("Tangage: ${pitch.toInt()}°", 30f, h - 120f, paint)
-            canvas.drawText("Roulis: ${roll.toInt()}°", 30f, h - 100f, paint)
-            canvas.drawText("Lacet: ${yaw.toInt()}°", 30f, h - 80f, paint)
+            drawStabilityIndicators(canvas, w, h)
         }
         
         private fun drawLanding(canvas: Canvas, w: Int, h: Int) {
             paint.color = Color.WHITE
             canvas.drawRect(0f, h * 0.7f, w.toFloat(), h.toFloat(), paint)
             
-            paint.color = Color.BLUE
-            canvas.drawCircle(w * 0.8f, h * 0.7f - 20f, 15f, paint)
+            val skierX = w * 0.8f
+            val skierY = h * 0.7f - 20f
+            
+            canvas.drawBitmap(skierBitmap, skierX - skierBitmap.width/2f, skierY - skierBitmap.height, paint)
             
             paint.color = Color.GREEN
             paint.textSize = 32f
@@ -367,6 +383,57 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.textSize = 20f
             canvas.drawText("Distance: ${jumpDistance.toInt()}m", w/2f, h * 0.3f, paint)
             canvas.drawText("Score: ${calculateScore()} points", w/2f, h * 0.4f, paint)
+        }
+        
+        private fun drawSpeedBar(canvas: Canvas, w: Int, h: Int) {
+            paint.color = Color.BLACK
+            canvas.drawRect(50f, 50f, 250f, 80f, paint)
+            
+            paint.color = if (speed >= 80f) Color.GREEN else Color.YELLOW
+            val speedWidth = (speed / maxSpeed) * 200f
+            canvas.drawRect(50f, 50f, 50f + speedWidth, 80f, paint)
+            
+            paint.color = Color.WHITE
+            paint.textSize = 16f
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("Vitesse: ${speed.toInt()} km/h", 50f, 100f, paint)
+        }
+        
+        private fun drawStabilityIndicators(canvas: Canvas, w: Int, h: Int) {
+            val indicatorY = h - 150f
+            
+            paint.color = if (abs(pitch) < 10f) Color.GREEN else Color.RED
+            canvas.drawRect(50f, indicatorY, 50f + abs(pitch) * 3f, indicatorY + 20f, paint)
+            paint.color = Color.WHITE
+            paint.textSize = 14f
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("Tangage: ${pitch.toInt()}°", 50f, indicatorY + 35f, paint)
+            
+            paint.color = if (abs(roll) < 7f) Color.GREEN else Color.RED
+            canvas.drawRect(50f, indicatorY + 50f, 50f + abs(roll) * 4f, indicatorY + 70f, paint)
+            paint.color = Color.WHITE
+            canvas.drawText("Roulis: ${roll.toInt()}°", 50f, indicatorY + 85f, paint)
+            
+            paint.color = if (abs(yaw) < 5f) Color.GREEN else Color.RED
+            canvas.drawRect(50f, indicatorY + 100f, 50f + abs(yaw) * 5f, indicatorY + 120f, paint)
+            paint.color = Color.WHITE
+            canvas.drawText("Lacet: ${yaw.toInt()}°", 50f, indicatorY + 135f, paint)
+        }
+        
+        private fun drawUI(canvas: Canvas, w: Int, h: Int) {
+            paint.color = Color.WHITE
+            paint.textSize = 16f
+            paint.textAlign = Paint.Align.CENTER
+            
+            val instruction = when (gameState) {
+                GameState.APPROACH -> "📱 Inclinez vers l'avant pour accélérer"
+                GameState.TAKEOFF -> "⬆️ Redressez le téléphone pour sauter"
+                GameState.FLIGHT -> "⚖️ Stabilisez les 3 axes pour maintenir l'équilibre"
+                GameState.LANDING -> "📱 Inclinez vers l'avant pour atterrir"
+                GameState.FINISHED -> "🎉 Saut terminé!"
+            }
+            
+            canvas.drawText(instruction, w/2f, 30f, paint)
         }
     }
 
