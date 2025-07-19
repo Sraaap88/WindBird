@@ -339,7 +339,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
             // Position du skieur qui progresse de gauche à droite
             val progressRatio = distance / totalDistance
             val skierX = (w * 0.1f) + (progressRatio * w * 0.6f) + playerOffset * 100f
-            val skierY = h * 0.75f - if (::skierLeftBitmap.isInitialized) skierLeftBitmap.height else 50f
+            val skierY = h * 0.75f - if (::skierLeftBitmap.isInitialized) skierLeftBitmap.height.toFloat() else 50f
 
             drawSkierSprite(canvas, skierX, skierY)
 
