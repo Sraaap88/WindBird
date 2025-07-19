@@ -16,6 +16,28 @@ class PlayerTransitionActivity : Activity() {
     private var numberOfPlayers: Int = 1
     private var nextPlayerIndex: Int = 0
 
+    // AJOUTÉ : Informations sur les épreuves
+    private val eventNames = arrayOf(
+        "Biathlon", "Saut à Ski", "Bobsleigh", "Patinage Vitesse", 
+        "Slalom", "Snowboard Halfpipe", "Ski Freestyle", "Luge", "Curling"
+    )
+    
+    private val eventIcons = arrayOf(
+        "🎯", "🎿", "🛷", "⛸️", "⛷️", "🏂", "🎿", "🛷", "🥌"
+    )
+    
+    private val eventInstructions = arrayOf(
+        "• Inclinez le téléphone pour skier\n• Secouez pour tirer sur les cibles",
+        "• Inclinez vers l'avant pour l'élan\n• Redressez pour le décollage\n• Stabilisez les 3 axes en vol",
+        "• Instructions à venir...",
+        "• Instructions à venir...",
+        "• Instructions à venir...",
+        "• Instructions à venir...",
+        "• Instructions à venir...",
+        "• Instructions à venir...",
+        "• Instructions à venir..."
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -46,6 +68,17 @@ class PlayerTransitionActivity : Activity() {
         }
         layout.addView(titleText)
 
+        // MODIFIÉ : Affichage de l'épreuve actuelle
+        val eventText = TextView(this).apply {
+            text = "ÉPREUVE : ${eventIcons[eventIndex]} ${eventNames[eventIndex]}"
+            textSize = 20f
+            setTextColor(Color.CYAN)
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, 20)
+        }
+        layout.addView(eventText)
+
         val playerText = TextView(this).apply {
             text = "C'est maintenant au tour de :"
             textSize = 18f
@@ -74,8 +107,9 @@ class PlayerTransitionActivity : Activity() {
         }
         layout.addView(countryText)
 
+        // MODIFIÉ : Instructions spécifiques à l'épreuve
         val instructionText = TextView(this).apply {
-            text = "🎿 Préparez-vous pour l'épreuve de Biathlon!\n\n• Inclinez le téléphone pour skier\n• Secouez pour tirer sur les cibles"
+            text = "${eventIcons[eventIndex]} Préparez-vous pour l'épreuve de ${eventNames[eventIndex]}!\n\n${eventInstructions[eventIndex]}"
             textSize = 14f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
@@ -92,14 +126,7 @@ class PlayerTransitionActivity : Activity() {
             setPadding(30, 20, 30, 20)
             
             setOnClickListener {
-                val intent = Intent(this@PlayerTransitionActivity, BiathlonActivity::class.java).apply {
-                    putExtra("tournament_data", tournamentData)
-                    putExtra("event_index", eventIndex)
-                    putExtra("number_of_players", numberOfPlayers)
-                    putExtra("current_player_index", nextPlayerIndex)
-                }
-                startActivity(intent)
-                finish()
+                startEventActivity()
             }
         }
         
@@ -111,5 +138,34 @@ class PlayerTransitionActivity : Activity() {
         layout.addView(readyButton)
 
         setContentView(layout)
+    }
+    
+    // AJOUTÉ : Méthode pour démarrer la bonne activité selon l'épreuve
+    private fun startEventActivity() {
+        val intent = when (eventIndex) {
+            0 -> {
+                // Biathlon
+                Intent(this, BiathlonActivity::class.java)
+            }
+            1 -> {
+                // Saut à Ski
+                Intent(this, SkiJumpActivity::class.java)
+            }
+            else -> {
+                // Autres épreuves pas encore implémentées - retourner au Biathlon par défaut
+                Toast.makeText(this, "Épreuve pas encore implémentée, retour au Biathlon", Toast.LENGTH_SHORT).show()
+                Intent(this, BiathlonActivity::class.java)
+            }
+        }
+        
+        intent.apply {
+            putExtra("tournament_data", tournamentData)
+            putExtra("event_index", eventIndex)
+            putExtra("number_of_players", numberOfPlayers)
+            putExtra("current_player_index", nextPlayerIndex)
+        }
+        
+        startActivity(intent)
+        finish()
     }
 }
