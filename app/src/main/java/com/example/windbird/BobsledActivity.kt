@@ -53,19 +53,6 @@ class BobsledActivity : Activity(), SensorEventListener {
     private var raceTime = 0f
     private var lapStartTime = 0L
     
-    // Animation sprite sheet bobsleigh
-    private lateinit var bobsledSpriteSheet: Bitmap
-    private val frameWidth = 100
-    private val frameHeight = 200
-    private val frameSpacing = 0
-    private val totalFrames = 5
-    private var currentFrame = 2
-    
-    // Effets visuels pour accélération/freinage
-    private var accelerationEffect = 0f
-    private var brakingEffect = 0f
-    private val particles = mutableListOf<Particle>()
-    
     // Données du tournoi
     private lateinit var tournamentData: TournamentData
     private var eventIndex: Int = 0
@@ -93,9 +80,6 @@ class BobsledActivity : Activity(), SensorEventListener {
         // Initialiser les capteurs
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-        
-        // Charger le sprite sheet du bobsleigh
-        bobsledSpriteSheet = BitmapFactory.decodeResource(resources, R.drawable.bobsled_sprite)
 
         // Créer l'interface
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -131,10 +115,6 @@ class BobsledActivity : Activity(), SensorEventListener {
         steeringAngle = 0f
         raceTime = 0f
         gameState = GameState.START_PUSH
-        currentFrame = 2
-        accelerationEffect = 0f
-        brakingEffect = 0f
-        particles.clear()
         generateTrackSection()
     }
 
@@ -193,25 +173,14 @@ class BobsledActivity : Activity(), SensorEventListener {
         steeringAngle = x * 0.5f
         steeringAngle = steeringAngle.coerceIn(-1f, 1f)
         
-        // Mise à jour de la frame selon le braquage
-        updateBobsledFrame()
-        
         // Incliner avant/arrière = vitesse
         if (y < -0.5f) {
             speed += 1.5f
-            accelerationEffect = 1f
-            brakingEffect = 0f
-            generateAccelerationParticles()
         } else if (y > 0.5f) {
             brakingForce = y * 0.3f
             speed -= brakingForce * 3f
-            brakingEffect = 1f
-            accelerationEffect = 0f
-            generateBrakingParticles()
         } else {
             brakingForce = 0f
-            accelerationEffect = maxOf(0f, accelerationEffect - 0.05f)
-            brakingEffect = maxOf(0f, brakingEffect - 0.05f)
         }
         
         speed = speed.coerceIn(0f, maxSpeed)
@@ -230,8 +199,6 @@ class BobsledActivity : Activity(), SensorEventListener {
         distance += speed * 0.1f
         trackProgress = distance / totalDistance
         
-        updateParticles()
-        
         if (distance % 200f < 1f) {
             generateTrackSection()
         }
@@ -247,55 +214,6 @@ class BobsledActivity : Activity(), SensorEventListener {
             statusText.postDelayed({
                 proceedToNextPlayerOrEvent()
             }, 3000)
-        }
-    }
-    
-    private fun updateBobsledFrame() {
-        currentFrame = when {
-            steeringAngle < -0.6f -> 0
-            steeringAngle < -0.3f -> 1
-            steeringAngle > 0.6f  -> 4
-            steeringAngle > 0.3f  -> 3
-            else                  -> 2
-        }
-    }
-    
-    private fun generateAccelerationParticles() {
-        repeat(3) {
-            particles.add(Particle(
-                x = -50f - kotlin.random.Random.nextFloat() * 30f,
-                y = kotlin.random.Random.nextFloat() * 20f - 10f,
-                color = if (kotlin.random.Random.nextBoolean()) Color.parseColor("#FF6600") else Color.parseColor("#FF9900"),
-                life = 1f,
-                type = ParticleType.ACCELERATION
-            ))
-        }
-    }
-    
-    private fun generateBrakingParticles() {
-        repeat(2) {
-            particles.add(Particle(
-                x = kotlin.random.Random.nextFloat() * 40f - 20f,
-                y = 15f + kotlin.random.Random.nextFloat() * 10f,
-                color = if (kotlin.random.Random.nextBoolean()) Color.WHITE else Color.parseColor("#CCCCCC"),
-                life = 0.8f,
-                type = ParticleType.BRAKING
-            ))
-        }
-    }
-    
-    private fun updateParticles() {
-        particles.removeAll { particle ->
-            particle.life -= 0.05f
-            particle.x += when (particle.type) {
-                ParticleType.ACCELERATION -> -5f
-                ParticleType.BRAKING -> 0f
-            }
-            particle.y += when (particle.type) {
-                ParticleType.ACCELERATION -> kotlin.random.Random.nextFloat() * 2f - 1f
-                ParticleType.BRAKING -> 2f
-            }
-            particle.life <= 0f
         }
     }
     
@@ -428,28 +346,34 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
         
         private fun drawStartPush(canvas: Canvas, w: Int, h: Int) {
+            // Fond ciel
             paint.color = Color.parseColor("#87CEEB")
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
+            // Ligne de départ
             paint.color = Color.WHITE
             paint.strokeWidth = 10f
             canvas.drawLine(w * 0.8f, 0f, w * 0.8f, h.toFloat(), paint)
             
+            // Piste de glace
             paint.color = Color.parseColor("#E0F6FF")
             canvas.drawRect(0f, h * 0.4f, w.toFloat(), h * 0.8f, paint)
             
+            // Bobsleigh (rectangle rouge)
             val bobX = w * 0.6f + (pushTime / maxPushTime) * w * 0.15f
             val bobY = h * 0.6f
             
             paint.color = Color.parseColor("#FF4444")
             canvas.drawRect(bobX - 40f, bobY - 15f, bobX + 40f, bobY + 15f, paint)
             
+            // Équipe qui pousse (cercles bleus)
             paint.color = Color.parseColor("#0066CC")
             for (i in 0..3) {
                 val memberX = bobX - 60f - i * 20f
                 canvas.drawCircle(memberX, bobY, 12f, paint)
             }
             
+            // Instructions
             paint.color = Color.WHITE
             paint.textSize = 24f
             paint.textAlign = Paint.Align.CENTER
@@ -458,12 +382,14 @@ class BobsledActivity : Activity(), SensorEventListener {
             paint.textSize = 20f
             canvas.drawText("Poussées: $pushCount", w/2f, h * 0.35f, paint)
             
+            // Barre de temps
             paint.color = Color.YELLOW
             val timeProgress = pushTime / maxPushTime
             canvas.drawRect(w * 0.2f, h * 0.9f, w * 0.2f + timeProgress * w * 0.6f, h * 0.95f, paint)
         }
         
         private fun drawRacing(canvas: Canvas, w: Int, h: Int) {
+            // Fond de piste
             paint.color = Color.parseColor("#334455")
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
@@ -473,13 +399,16 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
         
         private fun drawTrack(canvas: Canvas, w: Int, h: Int) {
+            // Murs de la piste
             paint.color = Color.parseColor("#AAAAAA")
             canvas.drawRect(w * 0.1f, 0f, w * 0.1f + 40f, h.toFloat(), paint)
             canvas.drawRect(w * 0.9f - 40f, 0f, w * 0.9f, h.toFloat(), paint)
             
+            // Piste de glace
             paint.color = Color.parseColor("#E0F6FF")
             canvas.drawRect(w * 0.1f + 40f, 0f, w * 0.9f - 40f, h.toFloat(), paint)
             
+            // Lignes de la piste
             paint.color = Color.parseColor("#CCCCCC")
             paint.strokeWidth = 3f
             for (i in 1..3) {
@@ -487,6 +416,7 @@ class BobsledActivity : Activity(), SensorEventListener {
                 canvas.drawLine(lineX, h.toFloat(), lineX, 0f, paint)
             }
             
+            // Indication des virages
             if (abs(currentTurn) > 0.2f) {
                 paint.color = Color.parseColor("#66FF0000")
                 paint.style = Paint.Style.FILL
@@ -502,27 +432,20 @@ class BobsledActivity : Activity(), SensorEventListener {
             val bobX = w * 0.1f + 40f + trackPosition * (w * 0.8f - 80f)
             val bobY = h * 0.8f
             
-            drawParticles(canvas, bobX, bobY)
-            
-            if (accelerationEffect > 0f) {
-                paint.color = Color.parseColor("#66FF6600")
-                paint.alpha = (accelerationEffect * 150).toInt()
-                canvas.drawCircle(bobX, bobY, 50f, paint)
-                paint.alpha = 255
-            }
-            
-            if (brakingEffect > 0f) {
-                paint.color = Color.parseColor("#660066FF")
-                paint.alpha = (brakingEffect * 150).toInt()
-                canvas.drawCircle(bobX, bobY, 45f, paint)
-                paint.alpha = 255
-            }
-            
+            // Ombre du bobsleigh
             paint.color = Color.parseColor("#66000000")
             canvas.drawRect(bobX - 35f, bobY + 5f, bobX + 35f, bobY + 25f, paint)
             
-            drawBobsledSprite(canvas, bobX, bobY)
+            // Bobsleigh (rectangle rouge avec rotation)
+            canvas.save()
+            canvas.rotate(steeringAngle * 10f, bobX, bobY)
             
+            paint.color = Color.parseColor("#FF4444")
+            canvas.drawRect(bobX - 30f, bobY - 20f, bobX + 30f, bobY + 20f, paint)
+            
+            canvas.restore()
+            
+            // Lignes de vitesse
             if (speed > 60f) {
                 paint.color = Color.parseColor("#44FFFFFF")
                 val speedLines = (speed / 20f).toInt().coerceAtMost(8)
@@ -534,6 +457,7 @@ class BobsledActivity : Activity(), SensorEventListener {
                 paint.alpha = 255
             }
             
+            // Indicateur de direction
             if (abs(steeringAngle) > 0.2f) {
                 paint.color = if (steeringAngle > 0) Color.parseColor("#66FF0000") else Color.parseColor("#660000FF")
                 val arrowX = bobX + steeringAngle * 50f
@@ -545,81 +469,17 @@ class BobsledActivity : Activity(), SensorEventListener {
                 val arrow = if (steeringAngle > 0) "➤" else "⬅"
                 canvas.drawText(arrow, arrowX, bobY - 30f, paint)
             }
-        }
-        
-        private fun drawBobsledSprite(canvas: Canvas, x: Float, y: Float) {
-            if (!::bobsledSpriteSheet.isInitialized) {
-                // Fallback si le sprite sheet n'est pas chargé
-                paint.color = Color.parseColor("#FF4444")
-                canvas.drawRect(x - 30f, y - 20f, x + 30f, y + 20f, paint)
-                return
-            }
             
-            val srcX = currentFrame * frameWidth
-            val srcY = 0
-            val srcRect = Rect(srcX, srcY, srcX + frameWidth, srcY + frameHeight)
-            
-            val displayWidth = frameWidth * 0.4f
-            val displayHeight = frameHeight * 0.4f
-            
-            val dstRect = RectF(
-                x - displayWidth/2f,
-                y - displayHeight/2f,
-                x + displayWidth/2f,
-                y + displayHeight/2f
-            )
-            
-            canvas.save()
-            canvas.rotate(steeringAngle * 10f, x, y)
-            
-            if (accelerationEffect > 0f) {
-                val colorFilter = PorterDuffColorFilter(
-                    Color.parseColor("#44FF6600"), 
-                    PorterDuff.Mode.SRC_ATOP
-                )
-                paint.colorFilter = colorFilter
-            } else if (brakingEffect > 0f) {
-                val colorFilter = PorterDuffColorFilter(
-                    Color.parseColor("#440066FF"), 
-                    PorterDuff.Mode.SRC_ATOP
-                )
-                paint.colorFilter = colorFilter
-            }
-            
-            canvas.drawBitmap(bobsledSpriteSheet, srcRect, dstRect, paint)
-            paint.colorFilter = null
-            
-            canvas.restore()
-            
+            // Numéro du joueur
             paint.color = Color.WHITE
             paint.textSize = 14f
             paint.textAlign = Paint.Align.CENTER
             val playerNumber = if (currentPlayerIndex < 4) currentPlayerIndex + 1 else 1
-            canvas.drawText("$playerNumber", x, y + 5f, paint)
-        }
-        
-        private fun drawParticles(canvas: Canvas, bobX: Float, bobY: Float) {
-            for (particle in particles) {
-                paint.color = particle.color
-                paint.alpha = (particle.life * 255).toInt()
-                
-                val particleX = bobX + particle.x
-                val particleY = bobY + particle.y
-                
-                when (particle.type) {
-                    ParticleType.ACCELERATION -> {
-                        canvas.drawCircle(particleX, particleY, 3f + particle.life * 2f, paint)
-                    }
-                    ParticleType.BRAKING -> {
-                        canvas.drawCircle(particleX, particleY, 2f + particle.life * 1f, paint)
-                        canvas.drawLine(particleX, particleY, particleX - 3f, particleY - 3f, paint)
-                    }
-                }
-            }
-            paint.alpha = 255
+            canvas.drawText("$playerNumber", bobX, bobY + 5f, paint)
         }
         
         private fun drawRaceUI(canvas: Canvas, w: Int, h: Int) {
+            // Compteur de vitesse
             paint.color = Color.parseColor("#333333")
             canvas.drawCircle(w - 80f, 80f, 60f, paint)
             
@@ -634,6 +494,7 @@ class BobsledActivity : Activity(), SensorEventListener {
             paint.textSize = 10f
             canvas.drawText("km/h", w - 80f, 100f, paint)
             
+            // Position sur la piste
             paint.color = Color.parseColor("#666666")
             canvas.drawRect(50f, 50f, 250f, 70f, paint)
             
@@ -646,6 +507,7 @@ class BobsledActivity : Activity(), SensorEventListener {
             paint.textAlign = Paint.Align.LEFT
             canvas.drawText("Position sur piste", 50f, 40f, paint)
             
+            // Barre de progression
             paint.color = Color.parseColor("#666666")
             canvas.drawRect(50f, h - 50f, w - 50f, h - 30f, paint)
             
@@ -657,6 +519,7 @@ class BobsledActivity : Activity(), SensorEventListener {
             paint.textAlign = Paint.Align.LEFT
             canvas.drawText("${distance.toInt()}m / ${totalDistance.toInt()}m", 50f, h - 55f, paint)
             
+            // Statistiques
             paint.textSize = 12f
             canvas.drawText("Contacts murs: $wallContacts", 50f, h - 100f, paint)
             canvas.drawText("Virages parfaits: $perfectTurns", 50f, h - 85f, paint)
@@ -664,9 +527,11 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
         
         private fun drawFinished(canvas: Canvas, w: Int, h: Int) {
+            // Bandeau d'arrivée
             paint.color = Color.parseColor("#FFD700")
             canvas.drawRect(0f, 0f, w.toFloat(), h * 0.3f, paint)
             
+            // Damier
             paint.color = Color.BLACK
             paint.strokeWidth = 8f
             for (i in 0..10) {
@@ -684,6 +549,7 @@ class BobsledActivity : Activity(), SensorEventListener {
             paint.textSize = 20f
             canvas.drawText("Temps final: ${raceTime.toInt()}s", w/2f, h * 0.25f, paint)
             
+            // Statistiques finales
             paint.color = Color.WHITE
             paint.textSize = 18f
             canvas.drawText("Vitesse moyenne: ${(distance/raceTime).toInt()} km/h", w/2f, h * 0.7f, paint)
@@ -691,19 +557,6 @@ class BobsledActivity : Activity(), SensorEventListener {
             canvas.drawText("Virages parfaits: $perfectTurns", w/2f, h * 0.8f, paint)
             canvas.drawText("Score final: ${calculateScore()} points", w/2f, h * 0.85f, paint)
         }
-    }
-
-    // Classes pour les particules et leurs types
-    data class Particle(
-        var x: Float,
-        var y: Float,
-        val color: Int,
-        var life: Float,
-        val type: ParticleType
-    )
-    
-    enum class ParticleType {
-        ACCELERATION, BRAKING
     }
 
     enum class GameState {
