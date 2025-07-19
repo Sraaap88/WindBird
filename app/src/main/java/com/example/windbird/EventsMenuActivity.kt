@@ -21,17 +21,18 @@ class EventsMenuActivity : Activity() {
     private lateinit var eventsLayout: LinearLayout
     private lateinit var statusText: TextView
     
+    // MODIFIÉ : 9 épreuves au lieu de 10 (retiré Hockey sur Glace)
     private val events = arrayOf(
         Event("Biathlon", "🎯", "Ski de fond + tir de précision", true),
-        Event("Saut à Ski", "🎿", "Envol et atterrissage parfait", false),
+        Event("Saut à Ski", "🎿", "Envol et atterrissage parfait", true), // MODIFIÉ : maintenant implémenté
         Event("Bobsleigh", "🛷", "Descente à haute vitesse", false),
         Event("Patinage Vitesse", "⛸️", "Course sur glace", false),
         Event("Slalom", "⛷️", "Zigzag entre les portes", false),
         Event("Snowboard Halfpipe", "🏂", "Figures aériennes", false),
         Event("Ski Freestyle", "🎿", "Acrobaties en vol", false),
         Event("Luge", "🛷", "Contrôle de trajectoire", false),
-        Event("Curling", "🥌", "Précision et stratégie", false),
-        Event("Hockey sur Glace", "🏒", "Tirs au but", false)
+        Event("Curling", "🥌", "Précision et stratégie", false)
+        // RETIRÉ : Hockey sur Glace
     )
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -158,6 +159,7 @@ class EventsMenuActivity : Activity() {
     }
     
     private fun createEventsList() {
+        // MODIFIÉ : Boucle jusqu'à 8 (9 épreuves : 0 à 8)
         for (i in events.indices) {
             val event = events[i]
             val eventStatus = tournamentData.getEventStatus(i)
@@ -277,16 +279,33 @@ class EventsMenuActivity : Activity() {
     }
     
     private fun startEvent(eventIndex: Int) {
-        if (eventIndex == 0 && events[0].implemented) {
-            val intent = Intent(this, BiathlonActivity::class.java).apply {
-                putExtra("tournament_data", tournamentData)
-                putExtra("event_index", eventIndex)
-                putExtra("number_of_players", numberOfPlayers)
-                putExtra("practice_mode", practiceMode)
+        // MODIFIÉ : Ajouter le saut à ski (index 1)
+        when (eventIndex) {
+            0 -> {
+                if (events[0].implemented) {
+                    val intent = Intent(this, BiathlonActivity::class.java).apply {
+                        putExtra("tournament_data", tournamentData)
+                        putExtra("event_index", eventIndex)
+                        putExtra("number_of_players", numberOfPlayers)
+                        putExtra("practice_mode", practiceMode)
+                    }
+                    startActivityForResult(intent, 100)
+                }
             }
-            startActivityForResult(intent, 100)
-        } else {
-            Toast.makeText(this, "Cette épreuve n'est pas encore implémentée", Toast.LENGTH_SHORT).show()
+            1 -> {
+                if (events[1].implemented) {
+                    val intent = Intent(this, SkiJumpActivity::class.java).apply {
+                        putExtra("tournament_data", tournamentData)
+                        putExtra("event_index", eventIndex)
+                        putExtra("number_of_players", numberOfPlayers)
+                        putExtra("practice_mode", practiceMode)
+                    }
+                    startActivityForResult(intent, 100)
+                }
+            }
+            else -> {
+                Toast.makeText(this, "Cette épreuve n'est pas encore implémentée", Toast.LENGTH_SHORT).show()
+            }
         }
     }
     
