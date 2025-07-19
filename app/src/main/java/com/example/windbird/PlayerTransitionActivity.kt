@@ -29,7 +29,7 @@ class PlayerTransitionActivity : Activity() {
     private val eventInstructions = arrayOf(
         "• Inclinez le téléphone pour skier\n• Secouez pour tirer sur les cibles",
         "• Inclinez vers l'avant pour l'élan\n• Redressez pour le décollage\n• Stabilisez les 3 axes en vol",
-        "• Instructions à venir...",
+        "• Secouez pour la poussée de départ\n• Inclinez gauche/droite pour diriger\n• Avant/arrière pour vitesse/freinage",
         "• Instructions à venir...",
         "• Instructions à venir...",
         "• Instructions à venir...",
@@ -150,6 +150,10 @@ class PlayerTransitionActivity : Activity() {
             1 -> {
                 // Saut à Ski
                 Intent(this, SkiJumpActivity::class.java)
+            }
+            2 -> {
+                // Bobsleigh
+                Intent(this, BobsledActivity::class.java)
             }
             else -> {
                 // Autres épreuves pas encore implémentées - retourner au Biathlon par défaut
