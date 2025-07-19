@@ -16,7 +16,7 @@ class PlayerTransitionActivity : Activity() {
     private var numberOfPlayers: Int = 1
     private var nextPlayerIndex: Int = 0
 
-    // AJOUTÉ : Informations sur les épreuves
+    // AJOUTÉ : Informations sur les épreuves - TOUTES LES 9 ÉPREUVES
     private val eventNames = arrayOf(
         "Biathlon", "Saut à Ski", "Bobsleigh", "Patinage Vitesse", 
         "Slalom", "Snowboard Halfpipe", "Ski Freestyle", "Luge", "Curling"
@@ -30,12 +30,12 @@ class PlayerTransitionActivity : Activity() {
         "• Inclinez le téléphone pour skier\n• Secouez pour tirer sur les cibles",
         "• Inclinez vers l'avant pour l'élan\n• Redressez pour le décollage\n• Stabilisez les 3 axes en vol",
         "• Secouez pour la poussée de départ\n• Inclinez gauche/droite pour diriger\n• Avant/arrière pour vitesse/freinage",
-        "• Instructions à venir...",
-        "• Instructions à venir...",
-        "• Instructions à venir...",
-        "• Instructions à venir...",
-        "• Instructions à venir...",
-        "• Instructions à venir..."
+        "• Inclinez le téléphone pour patiner\n• Secouez pour accélérer sur la glace",
+        "• Inclinez gauche/droite pour zigzaguer\n• Secouez pour maintenir la vitesse",
+        "• Inclinez pour les figures aériennes\n• Secouez pour les rotations",
+        "• Inclinez pour les acrobaties\n• Secouez pour les figures en vol",
+        "• Inclinez pour contrôler la trajectoire\n• Secouez pour la vitesse de descente",
+        "• Inclinez pour viser la pierre\n• Secouez pour ajuster la force"
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -140,7 +140,7 @@ class PlayerTransitionActivity : Activity() {
         setContentView(layout)
     }
     
-    // CORRIGÉ : Méthode pour démarrer la bonne activité selon l'épreuve
+    // CORRIGÉ : Méthode pour démarrer la bonne activité selon l'épreuve - TOUTES LES 9 ÉPREUVES
     private fun startEventActivity() {
         val intent = when (eventIndex) {
             0 -> {
@@ -148,15 +148,39 @@ class PlayerTransitionActivity : Activity() {
                 Intent(this, BiathlonActivity::class.java)
             }
             1 -> {
-                // Saut à Ski - AJOUTÉ LE CASE MANQUANT
+                // Saut à Ski
                 Intent(this, SkiJumpActivity::class.java)
             }
             2 -> {
                 // Bobsleigh
                 Intent(this, BobsledActivity::class.java)
             }
+            3 -> {
+                // Patinage Vitesse
+                Intent(this, PatinageVitesseActivity::class.java)
+            }
+            4 -> {
+                // Slalom
+                Intent(this, SlalomActivity::class.java)
+            }
+            5 -> {
+                // Snowboard Halfpipe
+                Intent(this, SnowboardHalfpipeActivity::class.java)
+            }
+            6 -> {
+                // Ski Freestyle
+                Intent(this, SkiFreestyleActivity::class.java)
+            }
+            7 -> {
+                // Luge
+                Intent(this, LugeActivity::class.java)
+            }
+            8 -> {
+                // Curling
+                Intent(this, CurlingActivity::class.java)
+            }
             else -> {
-                // Autres épreuves pas encore implémentées - retourner au Biathlon par défaut
+                // Fallback - retourner au Biathlon par défaut
                 Toast.makeText(this, "Épreuve pas encore implémentée, retour au Biathlon", Toast.LENGTH_SHORT).show()
                 Intent(this, BiathlonActivity::class.java)
             }
