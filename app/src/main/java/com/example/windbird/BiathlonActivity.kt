@@ -1,4 +1,4 @@
-// BiathlonActivity.kt — version complète avec enchaînement des joueurs et des épreuves
+// BiathlonActivity.kt — version avec animation sprite basée sur skidefond_sprite.png
 package com.example.windbird
  
 import android.app.Activity
@@ -32,7 +32,13 @@ class BiathlonActivity : Activity(), SensorEventListener {
     private var previousGyroDirection = 0
     private var backgroundOffset = 0f
 
-    private lateinit var skierBitmap: Bitmap
+    // MODIFIÉ : Sprite sheet avec 2 frames d'animation
+    private lateinit var spriteSheet: Bitmap
+    private lateinit var leftFrame: Bitmap
+    private lateinit var rightFrame: Bitmap
+    private var currentFrame: Bitmap? = null
+    private var animationTimer = 0L
+    private var useLeftFrame = true
 
     private var gameState = GameState.SKIING
     private var targetsHit = 0
@@ -59,7 +65,9 @@ class BiathlonActivity : Activity(), SensorEventListener {
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-        skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skieur_pixel)
+        
+        // MODIFIÉ : Charger et découper le sprite sheet
+        loadSpriteSheet()
 
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
@@ -77,6 +85,26 @@ class BiathlonActivity : Activity(), SensorEventListener {
         setContentView(layout)
     }
 
+    // AJOUTÉ : Fonction pour charger et découper le sprite sheet
+    private fun loadSpriteSheet() {
+        try {
+            spriteSheet = BitmapFactory.decodeResource(resources, R.drawable.skidefond_sprite)
+            
+            // Découper le sprite sheet en 2 frames (gauche et droite)
+            val frameWidth = spriteSheet.width / 2
+            val frameHeight = spriteSheet.height
+            
+            leftFrame = Bitmap.createBitmap(spriteSheet, 0, 0, frameWidth, frameHeight)
+            rightFrame = Bitmap.createBitmap(spriteSheet, frameWidth, 0, frameWidth, frameHeight)
+            
+            // Frame par défaut
+            currentFrame = leftFrame
+        } catch (e: Exception) {
+            // Fallback au skieur_pixel si le sprite sheet n'existe pas
+            currentFrame = BitmapFactory.decodeResource(resources, R.drawable.skieur_pixel)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         gyroscope?.let { sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
@@ -92,50 +120,19 @@ class BiathlonActivity : Activity(), SensorEventListener {
 
         val y = event.values[1]
         val x = event.values[0]
-        val z = event.values[2]  // Ajout de l'axe Z pour la rotation
+        val z = event.values[2]
 
         if (gameState == GameState.SKIING) {
-            // Mouvement horizontal du skieur (incliner gauche/droite)
+            // MODIFIÉ : Animation basée sur l'inclinaison
             playerOffset += x * 0.1f
             playerOffset = playerOffset.coerceIn(-1f, 1f)
-
-            // Mouvement vers l'avant avec rotation du téléphone comme un volant (z = rotation à plat)
-            val rotationDirection = when {
-                z > 1.0f -> 1    // Rotation dans un sens
-                z < -1.0f -> -1  // Rotation dans l'autre sens
-                else -> 0
-            }
-            if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
-                distance += 25f
-                backgroundOffset -= 10f // Le fond défile vers l'arrière
-                previousGyroDirection = rotationDirection
-            }
             
-            // Transition vers le tir à mi-parcours
-            if (distance >= totalDistance * 0.5f) {
-                gameState = GameState.SHOOTING
-            }
-        }
+            // Changer l'animation selon l'inclinaison
+            updateAnimation(x)
 
-        if (gameState == GameState.SHOOTING) {
-            // Mouvement de la visée avec le gyroscope (rotation du téléphone)
-            crosshair.x += z * 0.005f  // Changé Y vers Z pour la visée aussi
-            crosshair.y += x * 0.005f
-            crosshair.x = crosshair.x.coerceIn(0.1f, 0.9f)
-            crosshair.y = crosshair.y.coerceIn(0.2f, 0.6f)
-            
-            // Le tir se fait maintenant par touch sur l'écran (voir onTouchEvent)
-        }
-
-        if (gameState == GameState.FINAL_SKIING) {
-            // Mouvement horizontal du skieur (incliner gauche/droite)
-            playerOffset += x * 0.1f
-            playerOffset = playerOffset.coerceIn(-1f, 1f)
-
-            // Mouvement vers l'avant avec rotation du téléphone comme un volant (z = rotation à plat)
             val rotationDirection = when {
-                z > 1.0f -> 1    // Rotation dans un sens
-                z < -1.0f -> -1  // Rotation dans l'autre sens
+                z > 1.0f -> 1
+                z < -1.0f -> -1
                 else -> 0
             }
             if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
@@ -144,27 +141,53 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 previousGyroDirection = rotationDirection
             }
             
-            // Fin de l'épreuve
+            if (distance >= totalDistance * 0.5f) {
+                gameState = GameState.SHOOTING
+            }
+        }
+
+        if (gameState == GameState.SHOOTING) {
+            crosshair.x += z * 0.005f
+            crosshair.y += x * 0.005f
+            crosshair.x = crosshair.x.coerceIn(0.1f, 0.9f)
+            crosshair.y = crosshair.y.coerceIn(0.2f, 0.6f)
+        }
+
+        if (gameState == GameState.FINAL_SKIING) {
+            // MODIFIÉ : Animation aussi dans le ski final
+            playerOffset += x * 0.1f
+            playerOffset = playerOffset.coerceIn(-1f, 1f)
+            
+            // Changer l'animation selon l'inclinaison
+            updateAnimation(x)
+
+            val rotationDirection = when {
+                z > 1.0f -> 1
+                z < -1.0f -> -1
+                else -> 0
+            }
+            if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
+                distance += 25f
+                backgroundOffset -= 10f
+                previousGyroDirection = rotationDirection
+            }
+            
             if (distance >= totalDistance) {
                 gameState = GameState.FINISHED
                 
                 if (!practiceMode) {
-                    // Mode tournoi - sauvegarder le score
                     tournamentData.addScore(currentPlayerIndex, eventIndex, calculateScore())
                 }
                 
-                // Attendre 2 secondes avant de continuer
                 statusText.postDelayed({
                     proceedToNextPlayerOrEvent()
                 }, 2000)
             }
         }
         
-        // Bouton pour passer au ski final après avoir tiré 5 fois
         if (gameState == GameState.SHOOTING && shotsFired >= 5) {
-            // Attendre 1 seconde puis passer au ski final
             statusText.postDelayed({
-                distance = totalDistance * 0.5f  // Reset à 2500m
+                distance = totalDistance * 0.5f
                 gameState = GameState.FINAL_SKIING
             }, 1000)
         }
@@ -173,9 +196,27 @@ class BiathlonActivity : Activity(), SensorEventListener {
         gameView.invalidate()
     }
 
+    // AJOUTÉ : Fonction pour mettre à jour l'animation selon l'inclinaison
+    private fun updateAnimation(tiltX: Float) {
+        val currentTime = System.currentTimeMillis()
+        
+        // Changer de frame toutes les 200ms quand il y a du mouvement
+        if (abs(tiltX) > 0.1f && currentTime - animationTimer > 200) {
+            animationTimer = currentTime
+            
+            // Choisir la frame selon l'inclinaison
+            currentFrame = when {
+                tiltX < -0.1f -> leftFrame  // Inclinaison vers la gauche
+                tiltX > 0.1f -> rightFrame  // Inclinaison vers la droite
+                else -> if (useLeftFrame) leftFrame else rightFrame // Alternance par défaut
+            }
+            
+            useLeftFrame = !useLeftFrame
+        }
+    }
+
     private fun proceedToNextPlayerOrEvent() {
         if (practiceMode) {
-            // Mode pratique - retourner au menu des épreuves
             val intent = Intent(this, EventsMenuActivity::class.java).apply {
                 putExtra("practice_mode", true)
                 putExtra("tournament_data", tournamentData)
@@ -188,13 +229,10 @@ class BiathlonActivity : Activity(), SensorEventListener {
             return
         }
         
-        // Mode tournoi - logique normale
         val nextPlayer = tournamentData.getNextPlayer(eventIndex)
         
         if (nextPlayer != -1) {
-            // Vérifier si le prochain joueur est humain ou IA
             if (nextPlayer < numberOfPlayers) {
-                // Joueur humain - aller à l'écran de transition
                 val intent = Intent(this, PlayerTransitionActivity::class.java).apply {
                     putExtra("tournament_data", tournamentData)
                     putExtra("event_index", eventIndex)
@@ -204,17 +242,12 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 startActivity(intent)
                 finish()
             } else {
-                // Joueur IA - générer un score automatiquement
                 val aiScore = generateAIScore()
                 tournamentData.addScore(nextPlayer, eventIndex, aiScore)
-                
-                // Continuer avec le prochain joueur
                 proceedToNextPlayerOrEvent()
             }
         } else {
-            // Tous les joueurs ont terminé cette épreuve
             if (tournamentData.isTournamentComplete()) {
-                // Tournoi complètement terminé - Grand podium final
                 val resultIntent = Intent(this, ScoreboardActivity::class.java).apply {
                     putExtra("tournament_data", tournamentData)
                     putExtra("tournament_final", true)
@@ -222,7 +255,6 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 startActivity(resultIntent)
                 finish()
             } else {
-                // Épreuve terminée mais pas le tournoi - Podium d'épreuve
                 val resultIntent = Intent(this, ScoreboardActivity::class.java).apply {
                     putExtra("tournament_data", tournamentData)
                     putExtra("event_completed", eventIndex)
@@ -234,23 +266,20 @@ class BiathlonActivity : Activity(), SensorEventListener {
     }
     
     private fun generateAIScore(): Int {
-        // Score aléatoire pour l'IA (pas trop fort pour être battable)
-        val aiAccuracy = (1..4).random() // 1 à 4 cibles touchées
-        val aiDistance = (4000..5000).random() // Distance variable
+        val aiAccuracy = (1..4).random()
+        val aiDistance = (4000..5000).random()
         val accuracyBonus = aiAccuracy * 50
         val distanceBonus = (aiDistance / totalDistance * 100).toInt()
         val penalty = (5 - aiAccuracy) * 20
-        return maxOf(50, accuracyBonus + distanceBonus - penalty) // Score minimum de 50
+        return maxOf(50, accuracyBonus + distanceBonus - penalty)
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
     
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN && gameState == GameState.SHOOTING && shotsFired < 5) {
-            // Tirer quand on touche l'écran
             shotsFired++
             
-            // Vérifier si on touche une cible
             for (i in targetPositions.indices) {
                 val dx = crosshair.x - targetPositions[i].x
                 val dy = crosshair.y - targetPositions[i].y
@@ -294,58 +323,52 @@ class BiathlonActivity : Activity(), SensorEventListener {
             val w = canvas.width
             val h = canvas.height
             
-            // Fond ciel
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), bgPaint)
             
-            // Effet de défilement du fond avec des lignes de neige
             for (i in 0..10) {
                 val lineX = (backgroundOffset + i * 100) % (w + 200)
                 snowPaint.alpha = 50
                 canvas.drawRect(lineX, 0f, lineX + 2, h.toFloat(), snowPaint)
             }
             
-            // Sol neigeux
             snowPaint.alpha = 255
             canvas.drawRect(0f, h * 0.6f, w.toFloat(), h.toFloat(), snowPaint)
             
-            // Piste de ski
             canvas.drawRect(0f, h * 0.75f, w.toFloat(), h.toFloat(), trackPaint)
 
-            // Position du skieur qui progresse de gauche à droite
+            // MODIFIÉ : Affichage du sprite animé
             val progressRatio = distance / totalDistance
-            val skierX = (w * 0.1f) + (progressRatio * w * 0.6f) + playerOffset * 100f - skierBitmap.width / 2f
-            val skierY = h * 0.75f - skierBitmap.height
-            canvas.drawBitmap(skierBitmap, skierX, skierY, null)
+            val skierX = (w * 0.1f) + (progressRatio * w * 0.6f) + playerOffset * 100f
+            val skierY = h * 0.75f - (currentFrame?.height ?: 50)
+            
+            currentFrame?.let { frame ->
+                val destX = skierX - frame.width / 2f
+                canvas.drawBitmap(frame, destX, skierY, null)
+            }
 
             if (gameState == GameState.SHOOTING || gameState == GameState.FINISHED) {
-                // Fond sombre pour le tir
                 paint.color = Color.parseColor("#1a1a2e")
                 canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
                 
-                // Titre
                 paint.color = Color.WHITE
                 paint.textSize = 40f
                 paint.textAlign = Paint.Align.CENTER
                 canvas.drawText("🎯 ZONE DE TIR 🎯", w/2f, 60f, paint)
                 
-                // Instructions plus claires
                 paint.textSize = 24f
                 canvas.drawText("Pivotez pour viser • TAPEZ l'écran pour tirer", w/2f, 100f, paint)
                 
-                // Affichage du statut de tir
                 if (shotsFired >= 5) {
                     paint.color = Color.GREEN
                     paint.textSize = 30f
                     canvas.drawText("TIR TERMINÉ - Passage au ski final...", w/2f, 140f, paint)
                 }
                 
-                // Cibles avec design amélioré
                 for (i in targetPositions.indices) {
                     val px = targetPositions[i].x * w
                     val py = targetPositions[i].y * h + 50
                     
                     if (targetHitStatus[i]) {
-                        // Cible touchée - effet vert avec X
                         paint.color = Color.parseColor("#00ff00")
                         canvas.drawCircle(px, py, 35f, paint)
                         paint.color = Color.parseColor("#004400")
@@ -357,14 +380,11 @@ class BiathlonActivity : Activity(), SensorEventListener {
                         canvas.drawLine(px+15, py-15, px-15, py+15, paint)
                         paint.style = Paint.Style.FILL
                         
-                        // Score sur la cible
                         paint.color = Color.WHITE
                         paint.textSize = 16f
                         paint.textAlign = Paint.Align.CENTER
                         canvas.drawText("+50", px, py + 60f, paint)
                     } else {
-                        // Cible non touchée - design cible classique
-                        // Cercles concentriques blanc/noir
                         paint.color = Color.WHITE
                         canvas.drawCircle(px, py, 35f, paint)
                         paint.color = Color.BLACK
@@ -376,7 +396,6 @@ class BiathlonActivity : Activity(), SensorEventListener {
                         paint.color = Color.RED
                         canvas.drawCircle(px, py, 7f, paint)
                         
-                        // Numéro de la cible
                         paint.color = Color.WHITE
                         paint.textSize = 20f
                         paint.textAlign = Paint.Align.CENTER
@@ -384,11 +403,9 @@ class BiathlonActivity : Activity(), SensorEventListener {
                     }
                 }
                 
-                // Viseur en croix avec design amélioré (plus visible)
                 val crossX = crosshair.x * w
                 val crossY = crosshair.y * h + 50
                 
-                // Ombre de la visée (plus épaisse)
                 paint.color = Color.BLACK
                 paint.strokeWidth = 8f
                 paint.style = Paint.Style.STROKE
@@ -396,13 +413,11 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 canvas.drawLine(crossX, crossY - 30, crossX, crossY + 30, paint)
                 canvas.drawCircle(crossX, crossY, 20f, paint)
                 
-                // Visée principale (plus visible)
                 paint.color = Color.RED
                 paint.strokeWidth = 4f
                 canvas.drawLine(crossX - 25, crossY, crossX + 25, crossY, paint)
                 canvas.drawLine(crossX, crossY - 25, crossX, crossY + 25, paint)
                 
-                // Point central de visée (plus gros)
                 paint.color = Color.YELLOW
                 paint.style = Paint.Style.FILL
                 canvas.drawCircle(crossX, crossY, 6f, paint)
@@ -410,21 +425,18 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 canvas.drawCircle(crossX, crossY, 12f, paint)
                 paint.style = Paint.Style.FILL
                 
-                // Compteur de munitions
                 paint.color = Color.WHITE
                 paint.textSize = 24f
                 paint.textAlign = Paint.Align.LEFT
                 canvas.drawText("🔫 Munitions: ${5-shotsFired}/5", 30f, h - 80f, paint)
                 canvas.drawText("🎯 Touchés: $targetsHit/5", 30f, h - 50f, paint)
                 
-                // Barre de munitions visuelle
                 for (i in 0 until 5) {
                     paint.color = if (i < shotsFired) Color.GRAY else Color.YELLOW
                     canvas.drawRect(w - 200f + i * 35f, h - 60f, w - 175f + i * 35f, h - 40f, paint)
                 }
             }
             
-            // Barre de progression
             paint.color = Color.BLACK
             canvas.drawRect(w * 0.1f, 20f, w * 0.9f, 40f, paint)
             paint.color = Color.GREEN
