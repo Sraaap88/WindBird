@@ -17,7 +17,7 @@ class ScoreboardActivity : Activity() {
     private val eventNames = arrayOf(
         "Biathlon", "Saut à Ski", "Bobsleigh", "Patinage Vitesse", 
         "Slalom", "Snowboard Halfpipe", "Ski Freestyle", "Luge",
-        "Curling", "Hockey sur Glace"
+        "Curling" // MODIFIÉ : 9 épreuves au lieu de 10
     )
     
     private val medals = arrayOf("🥇", "🥈", "🥉", "🏅")
@@ -49,7 +49,7 @@ class ScoreboardActivity : Activity() {
         val titleText = TextView(this).apply {
             text = when {
                 tournamentFinal -> "🏆 CLASSEMENT FINAL DU TOURNOI 🏆"
-                eventCompleted >= 0 -> "🏆 RÉSULTATS BIATHLON 🏆"
+                eventCompleted >= 0 -> "🏆 RÉSULTATS ${eventNames[eventCompleted].toUpperCase()} 🏆"
                 else -> "🏆 TABLEAU DES SCORES 🏆"
             }
             textSize = 28f
@@ -642,7 +642,7 @@ class ScoreboardActivity : Activity() {
             playerInfo.addView(countryText)
             
             val statsText = TextView(this).apply {
-                text = "Épreuves: ${ranking.eventsCompleted}/10"
+                text = "Épreuves: ${ranking.eventsCompleted}/9" // MODIFIÉ : 9 au lieu de 10
                 textSize = 11f
                 setTextColor(if (i < 3) Color.parseColor("#444444") else Color.LTGRAY)
             }
@@ -688,7 +688,8 @@ class ScoreboardActivity : Activity() {
         }
         parent.addView(eventTitle)
         
-        for (eventIndex in 0..9) {
+        // MODIFIÉ : Boucle sur 9 épreuves (0 à 8) au lieu de 10 (0 à 9)
+        for (eventIndex in 0..8) {
             val eventLayout = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(15, 15, 15, 15)
@@ -800,7 +801,8 @@ class ScoreboardActivity : Activity() {
     private fun calculateMedals(playerIndex: Int): IntArray {
         val medals = intArrayOf(0, 0, 0)
         
-        for (eventIndex in 0..9) {
+        // MODIFIÉ : Boucle sur 9 épreuves (0 à 8)
+        for (eventIndex in 0..8) {
             val scores = mutableListOf<Pair<Int, Int>>()
             
             for (i in 0..3) {
@@ -827,7 +829,8 @@ class ScoreboardActivity : Activity() {
     
     private fun countCompletedEvents(playerIndex: Int): Int {
         var count = 0
-        for (eventIndex in 0..9) {
+        // MODIFIÉ : Boucle sur 9 épreuves (0 à 8)
+        for (eventIndex in 0..8) {
             if (tournamentData.getScore(playerIndex, eventIndex) > 0) {
                 count++
             }
