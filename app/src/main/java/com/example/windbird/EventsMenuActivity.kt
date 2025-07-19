@@ -162,7 +162,7 @@ class EventsMenuActivity : Activity() {
         // MODIFIÉ : Boucle jusqu'à 8 (9 épreuves : 0 à 8)
         for (i in events.indices) {
             val event = events[i]
-            val eventStatus = tournamentData.getEventStatus(i)
+            val eventStatus = tournamentData.getEventStatus(i, practiceMode)
             
             val eventLayout = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
