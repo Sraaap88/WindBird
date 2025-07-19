@@ -1,4 +1,7 @@
-package com.example.windbird
+// CORRIGÉ : Validation du currentPlayerIndex
+        if (currentPlayerIndex == -1 || currentPlayerIndex >= tournamentData.playerNames.size) {
+            currentPlayerIndex = 0 // Fallback au premier joueur
+        }package com.example.windbird
 
 import android.app.Activity
 import android.content.Context
@@ -15,7 +18,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.view.ViewGroup
 import kotlin.math.*
- 
+
 class BobsledActivity : Activity(), SensorEventListener {
 
     private lateinit var gameView: BobsledView
@@ -69,7 +72,14 @@ class BobsledActivity : Activity(), SensorEventListener {
         eventIndex = intent.getIntExtra("event_index", 0)
         numberOfPlayers = intent.getIntExtra("number_of_players", 1)
         practiceMode = intent.getBooleanExtra("practice_mode", false)
-        currentPlayerIndex = intent.getIntExtra("current_player_index", tournamentData.getNextPlayer(eventIndex))
+        
+        // CORRIGÉ : Comme dans BiathlonActivity - utiliser getNextPlayer si pas de current_player_index
+        val intentPlayerIndex = intent.getIntExtra("current_player_index", -1)
+        currentPlayerIndex = if (intentPlayerIndex != -1) {
+            intentPlayerIndex
+        } else {
+            tournamentData.getNextPlayer(eventIndex)
+        }
 
         // Initialiser les capteurs
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -327,10 +337,20 @@ class BobsledActivity : Activity(), SensorEventListener {
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
     
     private fun updateStatus() {
-        statusText.text = when (gameState) {
-            GameState.START_PUSH -> "🚀 ${tournamentData.playerNames[currentPlayerIndex]} | Poussée: ${pushCount} (secouez pour pousser!)"
-            GameState.RACING -> "🛷 ${tournamentData.playerNames[currentPlayerIndex]} | Vitesse: ${speed.toInt()} km/h | ${distance.toInt()}/${totalDistance.toInt()}m"
-            GameState.FINISHED -> "🏁 ${tournamentData.playerNames[currentPlayerIndex]} | Temps: ${raceTime.toInt()}s | Score: ${calculateScore()}"
+        try {
+            val playerName = if (currentPlayerIndex < tournamentData.playerNames.size) {
+                tournamentData.playerNames[currentPlayerIndex]
+            } else {
+                "Joueur ${currentPlayerIndex + 1}"
+            }
+            
+            statusText.text = when (gameState) {
+                GameState.START_PUSH -> "🚀 $playerName | Poussée: ${pushCount} (secouez pour pousser!)"
+                GameState.RACING -> "🛷 $playerName | Vitesse: ${speed.toInt()} km/h | ${distance.toInt()}/${totalDistance.toInt()}m"
+                GameState.FINISHED -> "🏁 $playerName | Temps: ${raceTime.toInt()}s | Score: ${calculateScore()}"
+            }
+        } catch (e: Exception) {
+            statusText.text = "Bobsleigh - Phase: ${gameState.name}"
         }
     }
 
@@ -468,7 +488,8 @@ class BobsledActivity : Activity(), SensorEventListener {
             paint.color = Color.WHITE
             paint.textSize = 14f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("${currentPlayerIndex + 1}", bobX, bobY + 5f, paint)
+            val playerNumber = if (currentPlayerIndex < 4) currentPlayerIndex + 1 else 1
+            canvas.drawText("$playerNumber", bobX, bobY + 5f, paint)
             
             // Patins/Lames
             paint.color = Color.parseColor("#CCCCCC")
