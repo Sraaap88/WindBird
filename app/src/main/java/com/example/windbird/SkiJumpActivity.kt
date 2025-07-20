@@ -581,7 +581,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.color = Color.YELLOW
             canvas.drawText("Dans ${(preparationDuration - phaseTimer).toInt() + 1} secondes", w/2f, h * 0.5f, paint)
             
-            paint.textSize = 32f // AUGMENTÉ de 28f
+            paint.textSize = 40f // PLUS GROS
             paint.color = Color.CYAN
             canvas.drawText("📱 Penchez vers VOUS pour accélérer", w/2f, h * 0.7f, paint)
             canvas.drawText("📱 Penchez vers l'AVANT au signal", w/2f, h * 0.75f, paint)
@@ -697,7 +697,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             
             // Instructions - TEXTE PLUS GROS
             paint.color = Color.WHITE
-            paint.textSize = 36f // AUGMENTÉ de 28f
+            paint.textSize = 50f // ÉNORME
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("📱 PENCHEZ LE TÉLÉPHONE VERS VOUS", w/2f, 70f, paint)
         }
@@ -740,12 +740,12 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 
                 // Instructions pour accumulation de puissance
                 paint.color = Color.YELLOW
-                paint.textSize = 48f
+                paint.textSize = 60f // PLUS GROS
                 paint.textAlign = Paint.Align.CENTER
                 canvas.drawText("🚀 PENCHEZ VERS L'AVANT! 🚀", w/2f, h * 0.15f, paint)
                 
                 paint.color = Color.WHITE
-                paint.textSize = 32f
+                paint.textSize = 45f // PLUS GROS
                 canvas.drawText("Puissance: ${takeoffPower.toInt()}%", w/2f, h * 0.2f, paint)
                 
             } else {
@@ -780,7 +780,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 
                 // Instructions pour le saut
                 paint.color = Color.YELLOW
-                paint.textSize = 48f
+                paint.textSize = 60f // PLUS GROS
                 paint.textAlign = Paint.Align.CENTER
                 canvas.drawText("🛫 ENVOL! 🛫", w/2f, h * 0.15f, paint)
             }
@@ -861,12 +861,12 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             
             // Instructions - TEXTE PLUS GROS
             paint.color = Color.WHITE
-            paint.textSize = 40f
+            paint.textSize = 55f // ÉNORME
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("⚖️ COMPENSEZ LE VENT! ⚖️", w/2f, 70f, paint)
             
             // Indication de contrôle d'attitude
-            paint.textSize = 28f
+            paint.textSize = 40f // PLUS GROS
             paint.color = Color.CYAN
             canvas.drawText("📱 Avant/Arrière = Angle de vol", w/2f, h - 60f, paint)
         }
@@ -904,15 +904,15 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             // Position du skieur selon la distance de saut
             val landingProgress = phaseTimer / landingDuration
             val baseSkierX = w * 0.1f + (jumpDistance / 150f) * (w * 0.8f) // Position selon distance
-            val skierY = h * 0.7f + (baseSkierX / w) * (h * 0.1f) - 60f // Sur la pente, légèrement au-dessus
+            val skierY = h * 0.65f // PLUS HAUT pour être visible sur la piste
             
             // Glissement après l'atterrissage
             val slideDistance = if (landingProgress > 0.4f) (landingProgress - 0.4f) * 100f else 0f
             val skierX = baseSkierX + slideDistance
             
-            val scale = 0.6f // Taille raisonnable pour l'atterrissage
+            val scale = 1.2f // BEAUCOUP plus gros pour être visible
             
-            // Séquence d'atterrissage en 3 phases
+            // Séquence d'atterrissage en 3 phases - TRÈS VISIBLE
             val currentBitmap = when {
                 landingProgress < 0.4f -> skierLand1Bitmap // 0-2s: Approche
                 landingProgress < 0.6f -> skierLand2Bitmap // 2-3s: Impact
@@ -929,50 +929,50 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 canvas.drawBitmap(bmp, null, dstRect, paint)
             }
             
-            // Explosion de neige à l'impact (seulement pendant la phase d'impact)
+            // Explosion de neige à l'impact (seulement pendant la phase d'impact) - PLUS VISIBLE
             if (landingProgress >= 0.4f && landingProgress < 0.7f) {
                 paint.color = Color.WHITE
-                paint.alpha = 150
-                for (i in 1..12) { // Plus de particules
-                    val angle = i * 30f
-                    val particleX = skierX + cos(Math.toRadians(angle.toDouble())).toFloat() * 60f
-                    val particleY = skierY + sin(Math.toRadians(angle.toDouble())).toFloat() * 30f
-                    canvas.drawCircle(particleX, particleY, 18f, paint) // Plus grosses
+                paint.alpha = 200 // PLUS OPAQUE
+                for (i in 1..15) { // PLUS de particules
+                    val angle = i * 24f
+                    val particleX = skierX + cos(Math.toRadians(angle.toDouble())).toFloat() * 80f // PLUS GROS
+                    val particleY = skierY + sin(Math.toRadians(angle.toDouble())).toFloat() * 40f
+                    canvas.drawCircle(particleX, particleY, 25f, paint) // BEAUCOUP plus grosses
                 }
                 paint.alpha = 255
             }
             
             // Distance atteinte ÉNORME - TEXTE PLUS GROS
             paint.color = Color.YELLOW
-            paint.textSize = 84f // ENCORE PLUS GROS
+            paint.textSize = 120f // ÉNORME
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("${jumpDistance.toInt()}m", w/2f, h * 0.2f, paint)
+            canvas.drawText("${jumpDistance.toInt()}m", w/2f, h * 0.15f, paint)
             
             // Instructions d'atterrissage ÉNORMES et visibles
             paint.color = Color.WHITE
-            paint.textSize = 44f // ÉNORME
+            paint.textSize = 60f // ÉNORME
             
             val instruction = when {
                 landingProgress < 0.4f -> "📱 PRÉPAREZ L'ATTERRISSAGE"
-                landingProgress < 0.6f -> "📱 PENCHEZ LÉGÈREMENT VERS VOUS"
+                landingProgress < 0.6f -> "📱 PENCHEZ VERS VOUS"
                 else -> "🎉 EXCELLENT SAUT!"
             }
-            canvas.drawText(instruction, w/2f, h * 0.3f, paint)
+            canvas.drawText(instruction, w/2f, h * 0.25f, paint)
             
-            // Bonus atterrissage en temps réel
-            paint.textSize = 36f
+            // Bonus atterrissage en temps réel - PLUS GROS
+            paint.textSize = 48f // AUGMENTÉ
             paint.color = if (landingBonus > 10f) Color.GREEN else if (landingBonus > 5f) Color.YELLOW else Color.RED
-            canvas.drawText("Bonus atterrissage: +${landingBonus.toInt()}", w/2f, h * 0.35f, paint)
+            canvas.drawText("Bonus: +${landingBonus.toInt()}", w/2f, h * 0.32f, paint)
             
-            // Indication de phase
-            paint.textSize = 28f
+            // Indication de phase - PLUS GROS
+            paint.textSize = 40f // AUGMENTÉ
             paint.color = Color.CYAN
             val phaseText = when {
                 landingProgress < 0.4f -> "Phase: Approche"
                 landingProgress < 0.6f -> "Phase: Impact"
                 else -> "Phase: Célébration"
             }
-            canvas.drawText(phaseText, w/2f, h * 0.4f, paint)
+            canvas.drawText(phaseText, w/2f, h * 0.38f, paint)
         }
         
         private fun drawResults(canvas: Canvas, w: Int, h: Int) {
