@@ -364,12 +364,15 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         init {
             // Créer un bitmap générique avec du code puisqu'on n'a pas accès au sprite sheet
             // En production, remplacez cette ligne par :
-            // skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_sprite_sheet)
-            skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_sprite_sheet)
+            // skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_sprite)
+            skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_sprite)
             skierBitmap?.let {
-            frameWidth = it.width / spriteCols
-            frameHeight = it.height / spriteRows
-}
+                frameWidth = it.width / spriteCols
+                frameHeight = it.height / spriteRows
+            } ?: run {
+                // Si le chargement échoue, utiliser le fallback
+                createFallbackSkierBitmap()
+            }
         }
         
         private fun createFallbackSkierBitmap() {
