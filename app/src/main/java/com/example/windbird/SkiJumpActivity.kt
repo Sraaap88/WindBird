@@ -719,7 +719,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             val skierY = h * 0.4f
             val scale = 2.0f
             
-            skierBitmap?.let { bmp ->
+            skierJumpBitmap?.let { bmp ->
                 val dstRect = RectF(
                     skierX - bmp.width * scale / 2f,
                     skierY - bmp.height * scale / 2f,
@@ -732,7 +732,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             // Effet de ralenti avec trails
             paint.alpha = 100
             for (i in 1..5) {
-                skierBitmap?.let { bmp ->
+                skierJumpBitmap?.let { bmp ->
                     val trailRect = RectF(
                         skierX - bmp.width * scale / 2f - i * 15f,
                         skierY - bmp.height * scale / 2f,
@@ -825,7 +825,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.textSize = 32f
             canvas.drawText("Puissance: ${takeoffPower.toInt()}%", w/2f, h * 0.2f, paint)
         }
-            
+        
         private fun drawFlight(canvas: Canvas, w: Int, h: Int) {
             // VUE LATÉRALE - Skieur qui traverse l'écran de gauche à droite
             paint.color = Color.parseColor("#87CEEB")
@@ -906,7 +906,6 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.textSize = 28f
             paint.color = Color.CYAN
             canvas.drawText("📱 Avant/Arrière = Angle de vol", w/2f, h - 60f, paint)
-        }
         }
         
         private fun drawLanding(canvas: Canvas, w: Int, h: Int) {
