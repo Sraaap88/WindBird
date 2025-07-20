@@ -24,26 +24,26 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     private var sensorManager: SensorManager? = null
     private var gyroscope: Sensor? = null
 
-    // Variables de gameplay PATINAGE
+    // Variables de gameplay PATINAGE - RALENTI
     private var gameState = GameState.PREPARATION
     private var phaseTimer = 0f
     
-    // Phases avec durées réalistes
-    private val preparationDuration = 4f
-    private val raceDuration = 20f
-    private val sprintDuration = 8f
-    private val resultsDuration = 5f
+    // Phases avec durées PLUS LONGUES et accessibles
+    private val preparationDuration = 8f  // 4f -> 8f
+    private val raceDuration = 35f        // 20f -> 35f
+    private val sprintDuration = 15f      // 8f -> 15f
+    private val resultsDuration = 8f      // 5f -> 8f
     
     // Variables de course
     private var speed = 0f
-    private var maxSpeed = 60f
+    private var maxSpeed = 45f    // 60f -> 45f - Vitesse max réduite
     private var distance = 0f
     private var totalDistance = 1000f
     private var rhythm = 0f
     private var energy = 100f
     private var technique = 100f
     
-    // Contrôles gyroscope pour patinage alterné
+    // Contrôles gyroscope pour patinage alterné - SENSIBILITÉ RÉDUITE
     private var tiltX = 0f
     private var tiltY = 0f
     private var tiltZ = 0f
@@ -91,9 +91,9 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         statusText = TextView(this).apply {
             text = "⛸️ PATINAGE VITESSE - ${tournamentData.playerNames[currentPlayerIndex]}"
             setTextColor(Color.WHITE)
-            textSize = 18f
+            textSize = 22f  // 18f -> 22f - Texte plus grand
             setBackgroundColor(Color.parseColor("#001133"))
-            setPadding(20, 15, 20, 15)
+            setPadding(25, 20, 25, 20)  // Plus de padding
         }
 
         gameView = PatinageVitesseView(this)
@@ -147,10 +147,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         tiltY = event.values[1]
         tiltZ = event.values[2]
 
-        // Progression du jeu
-        phaseTimer += 0.05f
+        // Progression du jeu PLUS LENTE
+        phaseTimer += 0.025f  // 0.05f -> 0.025f
         if (gameState == GameState.RACE || gameState == GameState.SPRINT) {
-            raceTime += 0.05f
+            raceTime += 0.025f  // 0.05f -> 0.025f
         }
 
         when (gameState) {
@@ -183,30 +183,30 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         // Gestion de l'énergie et technique
         updatePerformanceStats()
         
-        // Transition vers sprint final
-        if (currentLap >= totalLaps - 1 && lapProgress > 0.7f) {
+        // Transition vers sprint final - PLUS TARD
+        if (currentLap >= totalLaps - 1 && lapProgress > 0.8f) {  // 0.7f -> 0.8f
             gameState = GameState.SPRINT
             phaseTimer = 0f
-            cameraShake = 0.5f
+            cameraShake = 0.3f  // 0.5f -> 0.3f - Moins violent
         }
     }
     
     private fun handleSkatingMovement() {
         val currentTime = System.currentTimeMillis()
-        val minStrokeInterval = 200L
+        val minStrokeInterval = 400L  // 200L -> 400L - Plus lent entre les mouvements
         
-        // Détection des mouvements de patinage alternés
+        // Détection des mouvements de patinage alternés - SENSIBILITÉ RÉDUITE
         if (currentTime - lastStroke > minStrokeInterval) {
             var strokeDetected = false
             var strokePower = 0f
             
-            if (leftStroke && tiltX < -0.4f && abs(tiltY) < 0.3f) {
+            if (leftStroke && tiltX < -0.6f && abs(tiltY) < 0.4f) {  // -0.4f -> -0.6f, 0.3f -> 0.4f
                 // Poussée pied gauche
                 strokeDetected = true
                 strokePower = calculateStrokePower(tiltX, tiltY, tiltZ)
                 leftStroke = false
                 
-            } else if (!leftStroke && tiltX > 0.4f && abs(tiltY) < 0.3f) {
+            } else if (!leftStroke && tiltX > 0.6f && abs(tiltY) < 0.4f) {  // 0.4f -> 0.6f
                 // Poussée pied droit
                 strokeDetected = true
                 strokePower = calculateStrokePower(tiltX, tiltY, tiltZ)
@@ -217,14 +217,14 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 lastStroke = currentTime
                 strokeCount++
                 
-                // Augmentation de vitesse basée sur la technique
-                speed += strokePower * (technique / 100f) * 3f
+                // Augmentation de vitesse basée sur la technique - PLUS MODÉRÉE
+                speed += strokePower * (technique / 100f) * 2f  // 3f -> 2f
                 
                 // Bonus pour rythme régulier
                 updateRhythm()
                 
-                // Évaluation de la technique
-                if (strokePower > 0.8f) {
+                // Évaluation de la technique - SEUIL PLUS BAS
+                if (strokePower > 0.7f) {  // 0.8f -> 0.7f
                     perfectStrokes++
                     generateSparkles()
                 }
@@ -232,44 +232,44 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 // Traces sur la glace
                 addIceTrail()
                 
-                // Coût en énergie
-                energy -= 1.5f
+                // Coût en énergie - RÉDUIT
+                energy -= 1f  // 1.5f -> 1f
             }
         }
         
-        // Décélération naturelle
-        speed *= 0.98f
+        // Décélération naturelle PLUS LENTE
+        speed *= 0.985f  // 0.98f -> 0.985f
         speed = speed.coerceIn(0f, maxSpeed)
         
-        // Pénalité pour manque d'énergie
+        // Pénalité pour manque d'énergie MOINS SÉVÈRE
         if (energy < 20f) {
-            speed *= 0.95f
+            speed *= 0.97f  // 0.95f -> 0.97f
         }
     }
     
     private fun calculateStrokePower(x: Float, y: Float, z: Float): Float {
-        val tiltPower = abs(x).coerceIn(0.4f, 1.2f) / 1.2f
-        val stabilityBonus = 1f - (abs(y) + abs(z)) / 2f
-        return (tiltPower * stabilityBonus.coerceIn(0.3f, 1f))
+        val tiltPower = abs(x).coerceIn(0.6f, 1.5f) / 1.5f  // 0.4f/1.2f -> 0.6f/1.5f
+        val stabilityBonus = 1f - (abs(y) + abs(z)) / 3f  // /2f -> /3f - Plus tolérant
+        return (tiltPower * stabilityBonus.coerceIn(0.4f, 1f))  // 0.3f -> 0.4f
     }
     
     private fun updateRhythm() {
         val currentTime = System.currentTimeMillis()
-        val idealInterval = 300L
+        val idealInterval = 500L  // 300L -> 500L - Rythme plus lent
         val actualInterval = currentTime - lastStroke
         
         val rhythmAccuracy = 1f - abs(actualInterval - idealInterval) / idealInterval.toFloat()
-        rhythm = (rhythm * 0.8f + rhythmAccuracy.coerceIn(0f, 1f) * 0.2f)
+        rhythm = (rhythm * 0.85f + rhythmAccuracy.coerceIn(0f, 1f) * 0.15f)  // Plus stable
         
-        // Bonus de vitesse pour bon rythme
-        if (rhythm > 0.7f) {
-            speed += 1f
+        // Bonus de vitesse pour bon rythme - PLUS GÉNÉREUX
+        if (rhythm > 0.6f) {  // 0.7f -> 0.6f
+            speed += 0.8f  // 1f -> 0.8f
         }
     }
     
     private fun updateRaceProgress() {
-        // Progression sur la piste ovale
-        val progressSpeed = speed * 0.008f
+        // Progression sur la piste ovale - PLUS LENTE
+        val progressSpeed = speed * 0.006f  // 0.008f -> 0.006f
         lapProgress += progressSpeed
         
         if (lapProgress >= 1f) {
@@ -277,8 +277,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             currentLap++
             
             if (currentLap <= totalLaps) {
-                // Récupération légère entre les tours
-                energy += 5f
+                // Récupération légère entre les tours - PLUS GÉNÉREUSE
+                energy += 8f  // 5f -> 8f
                 energy = energy.coerceIn(0f, 100f)
             }
         }
@@ -287,15 +287,15 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     }
     
     private fun updatePerformanceStats() {
-        // Récupération d'énergie progressive
-        energy += 0.1f
+        // Récupération d'énergie progressive - PLUS RAPIDE
+        energy += 0.15f  // 0.1f -> 0.15f
         energy = energy.coerceIn(0f, 100f)
         
-        // Amélioration technique avec coups parfaits
-        if (perfectStrokes > strokeCount * 0.6f) {
-            technique += 0.05f
+        // Amélioration technique avec coups parfaits - PLUS TOLÉRANT
+        if (perfectStrokes > strokeCount * 0.5f) {  // 0.6f -> 0.5f
+            technique += 0.08f  // 0.05f -> 0.08f
         } else {
-            technique -= 0.02f
+            technique -= 0.015f  // 0.02f -> 0.015f
         }
         technique = technique.coerceIn(70f, 110f)
     }
@@ -305,11 +305,11 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         handleSkatingMovement()
         updateRaceProgress()
         
-        // Bonus de vitesse pour sprint
-        speed += 0.5f
+        // Bonus de vitesse pour sprint - RÉDUIT
+        speed += 0.3f  // 0.5f -> 0.3f
         
-        // Consommation d'énergie accrue
-        energy -= 0.5f
+        // Consommation d'énergie accrue - MOINS SÉVÈRE
+        energy -= 0.3f  // 0.5f -> 0.3f
         
         if (currentLap > totalLaps) {
             calculateFinalScore()
@@ -334,33 +334,33 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     
     private fun calculateFinalScore() {
         if (!scoreCalculated) {
-            val timeBonus = maxOf(0, 120 - raceTime.toInt()) * 2
-            val speedBonus = (speed / maxSpeed * 60).toInt()
-            val rhythmBonus = (rhythm * 40).toInt()
-            val techniqueBonus = ((technique - 100f) * 2).toInt()
-            val perfectStrokeBonus = perfectStrokes * 3
+            val timeBonus = maxOf(0, 140 - raceTime.toInt()) * 2  // 120 -> 140 - Plus généreux
+            val speedBonus = (speed / maxSpeed * 70).toInt()  // 60 -> 70
+            val rhythmBonus = (rhythm * 50).toInt()  // 40 -> 50
+            val techniqueBonus = ((technique - 100f) * 2.5f).toInt()  // 2f -> 2.5f
+            val perfectStrokeBonus = perfectStrokes * 4  // 3 -> 4
             
-            finalScore = maxOf(50, timeBonus + speedBonus + rhythmBonus + techniqueBonus + perfectStrokeBonus)
+            finalScore = maxOf(60, timeBonus + speedBonus + rhythmBonus + techniqueBonus + perfectStrokeBonus)  // 50 -> 60
             scoreCalculated = true
         }
     }
     
     private fun addIceTrail() {
-        val trailX = kotlin.random.Random.nextFloat() * 800f + 100f
-        val trailY = kotlin.random.Random.nextFloat() * 600f + 100f
+        val trailX = kotlin.random.Random.nextFloat() * 600f + 200f  // Plus centré
+        val trailY = kotlin.random.Random.nextFloat() * 500f + 150f
         iceTrails.add(IceTrail(trailX, trailY, System.currentTimeMillis()))
         
-        if (iceTrails.size > 20) {
+        if (iceTrails.size > 15) {  // 20 -> 15 - Moins d'effets
             iceTrails.removeFirst()
         }
     }
     
     private fun generateSparkles() {
-        repeat(8) {
+        repeat(5) {  // 8 -> 5
             sparkles.add(IceSparkle(
-                x = kotlin.random.Random.nextFloat() * 800f + 100f,
-                y = kotlin.random.Random.nextFloat() * 600f + 100f,
-                life = 1f
+                x = kotlin.random.Random.nextFloat() * 600f + 200f,
+                y = kotlin.random.Random.nextFloat() * 500f + 150f,
+                life = 1.5f  // 1f -> 1.5f - Plus longue durée
             ))
         }
     }
@@ -368,16 +368,16 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     private fun updateEffects() {
         // Mise à jour des traces de glace
         val currentTime = System.currentTimeMillis()
-        iceTrails.removeAll { currentTime - it.timestamp > 2000 }
+        iceTrails.removeAll { currentTime - it.timestamp > 3000 }  // 2000 -> 3000 - Plus longue durée
         
-        // Mise à jour des étincelles
+        // Mise à jour des étincelles - PLUS LENTES
         sparkles.removeAll { sparkle ->
-            sparkle.life -= 0.02f
-            sparkle.y -= 2f
+            sparkle.life -= 0.015f  // 0.02f -> 0.015f
+            sparkle.y -= 1.5f  // 2f -> 1.5f
             sparkle.life <= 0f
         }
         
-        cameraShake = maxOf(0f, cameraShake - 0.02f)
+        cameraShake = maxOf(0f, cameraShake - 0.015f)  // 0.02f -> 0.015f
     }
 
     private fun proceedToNextPlayerOrEvent() {
@@ -449,12 +449,12 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             val w = canvas.width
             val h = canvas.height
             
-            // Appliquer camera shake
+            // Appliquer camera shake RÉDUIT
             if (cameraShake > 0f) {
                 canvas.save()
                 canvas.translate(
-                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 8f,
-                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 8f
+                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 5f,  // 8f -> 5f
+                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 5f
                 )
             }
             
@@ -478,43 +478,43 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#E6F3FF")
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
-            // Piste ovale vue de dessus
+            // Piste ovale vue de dessus - PLUS GRANDE
             paint.color = Color.parseColor("#FFFFFF")
             val centerX = w / 2f
             val centerY = h / 2f
-            val ovalWidth = w * 0.7f
-            val ovalHeight = h * 0.5f
+            val ovalWidth = w * 0.75f  // 0.7f -> 0.75f
+            val ovalHeight = h * 0.55f  // 0.5f -> 0.55f
             
             val oval = RectF(centerX - ovalWidth/2, centerY - ovalHeight/2, 
                              centerX + ovalWidth/2, centerY + ovalHeight/2)
             canvas.drawOval(oval, paint)
             
-            // Lignes de couloir
-            paint.color = Color.parseColor("#DDDDDD")
-            paint.strokeWidth = 3f
+            // Lignes de couloir - PLUS VISIBLES
+            paint.color = Color.parseColor("#BBBBBB")  // Plus foncé
+            paint.strokeWidth = 4f  // 3f -> 4f
             paint.style = Paint.Style.STROKE
             for (i in 1..3) {
-                val innerOval = RectF(oval.left + i * 30f, oval.top + i * 20f,
-                                     oval.right - i * 30f, oval.bottom - i * 20f)
+                val innerOval = RectF(oval.left + i * 35f, oval.top + i * 25f,  // Plus d'espace
+                                     oval.right - i * 35f, oval.bottom - i * 25f)
                 canvas.drawOval(innerOval, paint)
             }
             paint.style = Paint.Style.FILL
             
-            // Instructions
+            // Instructions - TEXTE PLUS GRAND ET VISIBLE
             paint.color = Color.parseColor("#001133")
-            paint.textSize = 32f
+            paint.textSize = 42f  // 32f -> 42f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("⛸️ PATINAGE VITESSE ⛸️", w/2f, h * 0.15f, paint)
             
-            paint.textSize = 20f
+            paint.textSize = 28f  // 20f -> 28f
             paint.color = Color.parseColor("#0066CC")
-            canvas.drawText("Préparez-vous pour la course...", w/2f, h * 0.25f, paint)
+            canvas.drawText("Préparez-vous pour la course...", w/2f, h * 0.22f, paint)
             
-            paint.textSize = 16f
-            paint.color = Color.parseColor("#666666")
-            canvas.drawText("📱 Inclinez gauche-droite alternativement pour patiner", w/2f, h * 0.8f, paint)
-            canvas.drawText("📱 Gardez un rythme régulier", w/2f, h * 0.85f, paint)
-            canvas.drawText("📱 Économisez votre énergie pour le sprint final", w/2f, h * 0.9f, paint)
+            paint.textSize = 22f  // 16f -> 22f
+            paint.color = Color.parseColor("#333333")  // Plus visible
+            canvas.drawText("📱 Inclinez FRANCHEMENT gauche-droite", w/2f, h * 0.78f, paint)
+            canvas.drawText("📱 Alternez LENTEMENT et régulièrement", w/2f, h * 0.84f, paint)
+            canvas.drawText("📱 Économisez énergie pour le sprint!", w/2f, h * 0.9f, paint)
         }
         
         private fun drawRace(canvas: Canvas, w: Int, h: Int) {
@@ -531,17 +531,17 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             // Indicateurs de performance
             drawPerformanceIndicators(canvas, w, h)
             
-            // Instructions de course
+            // Instructions de course - PLUS VISIBLES
             paint.color = Color.parseColor("#001133")
-            paint.textSize = 18f
+            paint.textSize = 26f  // 18f -> 26f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("📱 INCLINEZ GAUCHE ← DROITE → ALTERNATIVEMENT", w/2f, 40f, paint)
+            canvas.drawText("📱 INCLINEZ FRANCHEMENT ← GAUCHE ↔ DROITE →", w/2f, 50f, paint)
             
-            // Indication du prochain mouvement
+            // Indication du prochain mouvement - PLUS GRANDE
             val nextMove = if (leftStroke) "← GAUCHE" else "DROITE →"
             paint.color = Color.parseColor("#FF6600")
-            paint.textSize = 24f
-            canvas.drawText("PROCHAIN: $nextMove", w/2f, h - 30f, paint)
+            paint.textSize = 32f  // 24f -> 32f
+            canvas.drawText("PROCHAIN: $nextMove", w/2f, h - 40f, paint)
         }
         
         private fun drawSprint(canvas: Canvas, w: Int, h: Int) {
@@ -559,11 +559,11 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             // Indicateurs sprint
             drawSprintIndicators(canvas, w, h)
             
-            // Instructions sprint
+            // Instructions sprint - PLUS VISIBLES
             paint.color = Color.RED
-            paint.textSize = 28f
+            paint.textSize = 36f  // 28f -> 36f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("🔥 SPRINT FINAL! DONNEZ TOUT! 🔥", w/2f, 50f, paint)
+            canvas.drawText("🔥 SPRINT FINAL! DONNEZ TOUT! 🔥", w/2f, 60f, paint)
         }
         
         private fun drawResults(canvas: Canvas, w: Int, h: Int) {
@@ -575,18 +575,18 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#FFD700")
             canvas.drawRect(0f, 0f, w.toFloat(), h * 0.4f, paint)
             
-            // Score final
+            // Score final - PLUS GRAND
             paint.color = Color.parseColor("#001133")
-            paint.textSize = 64f
+            paint.textSize = 84f  // 64f -> 84f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("${finalScore}", w/2f, h * 0.2f, paint)
             
-            paint.textSize = 24f
+            paint.textSize = 32f  // 24f -> 32f
             canvas.drawText("POINTS", w/2f, h * 0.3f, paint)
             
-            // Détails performance
+            // Détails performance - PLUS LISIBLES
             paint.color = Color.parseColor("#333333")
-            paint.textSize = 18f
+            paint.textSize = 24f  // 18f -> 24f
             canvas.drawText("⏱️ Temps: ${raceTime.toInt()}s", w/2f, h * 0.5f, paint)
             canvas.drawText("⚡ Vitesse max: ${speed.toInt()} km/h", w/2f, h * 0.55f, paint)
             canvas.drawText("🎵 Rythme: ${(rhythm * 100).toInt()}%", w/2f, h * 0.6f, paint)
@@ -606,22 +606,22 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                                  centerX + ovalWidth/2, centerY + ovalHeight/2)
             canvas.drawOval(trackOval, paint)
             
-            // Lignes de couloir
-            paint.color = Color.parseColor("#CCCCCC")
-            paint.strokeWidth = 2f
+            // Lignes de couloir - PLUS VISIBLES
+            paint.color = Color.parseColor("#AAAAAA")  // Plus foncé
+            paint.strokeWidth = 3f  // 2f -> 3f
             paint.style = Paint.Style.STROKE
             for (i in 1..2) {
-                val laneOval = RectF(trackOval.left + i * 40f, trackOval.top + i * 25f,
-                                   trackOval.right - i * 40f, trackOval.bottom - i * 25f)
+                val laneOval = RectF(trackOval.left + i * 50f, trackOval.top + i * 30f,  // Plus d'espace
+                                   trackOval.right - i * 50f, trackOval.bottom - i * 30f)
                 canvas.drawOval(laneOval, paint)
             }
             paint.style = Paint.Style.FILL
             
-            // Ligne d'arrivée
+            // Ligne d'arrivée - PLUS VISIBLE
             paint.color = Color.parseColor("#FF0000")
-            paint.strokeWidth = 6f
+            paint.strokeWidth = 8f  // 6f -> 8f
             paint.style = Paint.Style.STROKE
-            canvas.drawLine(centerX, trackOval.top, centerX, trackOval.top + 50f, paint)
+            canvas.drawLine(centerX, trackOval.top, centerX, trackOval.top + 60f, paint)  // Plus longue
             paint.style = Paint.Style.FILL
         }
         
@@ -630,109 +630,111 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             val angle = lapProgress * 2 * PI
             val centerX = w / 2f
             val centerY = h / 2f
-            val radiusX = w * 0.3f
-            val radiusY = h * 0.2f
+            val radiusX = w * 0.32f  // 0.3f -> 0.32f
+            val radiusY = h * 0.22f  // 0.2f -> 0.22f
             
             val skaterX = centerX + cos(angle).toFloat() * radiusX
             val skaterY = centerY + sin(angle).toFloat() * radiusY
             
-            // Corps du patineur
+            // Corps du patineur - PLUS GRAND
             paint.color = Color.parseColor("#0066CC")
-            canvas.drawCircle(skaterX, skaterY, 15f, paint)
+            canvas.drawCircle(skaterX, skaterY, 20f, paint)  // 15f -> 20f
             
-            // Animation des bras selon le mouvement
-            paint.strokeWidth = 6f
+            // Animation des bras selon le mouvement - PLUS VISIBLES
+            paint.strokeWidth = 8f  // 6f -> 8f
             paint.style = Paint.Style.STROKE
             
             if (leftStroke) {
                 // Bras gauche en avant
-                canvas.drawLine(skaterX - 10f, skaterY, skaterX - 25f, skaterY - 10f, paint)
-                canvas.drawLine(skaterX + 10f, skaterY, skaterX + 20f, skaterY + 5f, paint)
+                canvas.drawLine(skaterX - 15f, skaterY, skaterX - 35f, skaterY - 15f, paint)  // Plus long
+                canvas.drawLine(skaterX + 15f, skaterY, skaterX + 25f, skaterY + 8f, paint)
             } else {
                 // Bras droit en avant
-                canvas.drawLine(skaterX + 10f, skaterY, skaterX + 25f, skaterY - 10f, paint)
-                canvas.drawLine(skaterX - 10f, skaterY, skaterX - 20f, skaterY + 5f, paint)
+                canvas.drawLine(skaterX + 15f, skaterY, skaterX + 35f, skaterY - 15f, paint)
+                canvas.drawLine(skaterX - 15f, skaterY, skaterX - 25f, skaterY + 8f, paint)
             }
             
             paint.style = Paint.Style.FILL
             
             // Effet de vitesse derrière le patineur
-            if (speed > 20f) {
+            if (speed > 15f) {  // 20f -> 15f - Plus tôt
                 paint.color = Color.parseColor("#66FFFFFF")
                 for (i in 1..3) {
-                    canvas.drawCircle(skaterX - cos(angle).toFloat() * i * 8f,
-                                    skaterY - sin(angle).toFloat() * i * 8f, 
-                                    12f - i * 2f, paint)
+                    canvas.drawCircle(skaterX - cos(angle).toFloat() * i * 10f,  // Plus visible
+                                    skaterY - sin(angle).toFloat() * i * 10f, 
+                                    15f - i * 3f, paint)  // Plus grand
                 }
             }
         }
         
         private fun drawPerformanceIndicators(canvas: Canvas, w: Int, h: Int) {
-            val baseY = h - 150f
+            val baseY = h - 180f  // 150f -> 180f - Plus d'espace
             
-            // Vitesse
-            drawMeter(canvas, 50f, baseY, 150f, speed / maxSpeed, "VITESSE", Color.GREEN)
+            // Vitesse - BARRES PLUS GRANDES
+            drawMeter(canvas, 50f, baseY, 160f, speed / maxSpeed, "VITESSE", Color.GREEN)  // 150f -> 160f
             
             // Énergie
-            drawMeter(canvas, 220f, baseY, 150f, energy / 100f, "ÉNERGIE", Color.YELLOW)
+            drawMeter(canvas, 240f, baseY, 160f, energy / 100f, "ÉNERGIE", Color.YELLOW)  // Plus espacé
             
             // Rythme
-            drawMeter(canvas, 390f, baseY, 150f, rhythm, "RYTHME", Color.CYAN)
+            drawMeter(canvas, 430f, baseY, 160f, rhythm, "RYTHME", Color.CYAN)
             
             // Technique
-            drawMeter(canvas, 560f, baseY, 150f, (technique - 70f) / 40f, "TECHNIQUE", Color.MAGENTA)
+            drawMeter(canvas, 620f, baseY, 160f, (technique - 70f) / 40f, "TECHNIQUE", Color.MAGENTA)
             
-            // Informations tour
+            // Informations tour - PLUS VISIBLES
             paint.color = Color.parseColor("#001133")
-            paint.textSize = 20f
+            paint.textSize = 24f  // 20f -> 24f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("Tour: $currentLap / $totalLaps", 50f, baseY - 20f, paint)
-            canvas.drawText("Coups parfaits: $perfectStrokes", 300f, baseY - 20f, paint)
+            canvas.drawText("Tour: $currentLap / $totalLaps", 50f, baseY - 25f, paint)
+            canvas.drawText("Coups parfaits: $perfectStrokes", 350f, baseY - 25f, paint)
         }
         
         private fun drawMeter(canvas: Canvas, x: Float, y: Float, width: Float, 
                              value: Float, label: String, color: Int) {
-            // Fond de la barre
+            // Fond de la barre - PLUS HAUTE
             paint.color = Color.parseColor("#333333")
-            canvas.drawRect(x, y, x + width, y + 25f, paint)
+            canvas.drawRect(x, y, x + width, y + 30f, paint)  // 25f -> 30f
             
             // Barre de valeur
             paint.color = color
             val filledWidth = value.coerceIn(0f, 1f) * width
-            canvas.drawRect(x, y, x + filledWidth, y + 25f, paint)
+            canvas.drawRect(x, y, x + filledWidth, y + 30f, paint)
             
-            // Label
+            // Label - PLUS GRAND
             paint.color = Color.WHITE
-            paint.textSize = 12f
+            paint.textSize = 16f  // 12f -> 16f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText(label, x, y - 5f, paint)
+            canvas.drawText(label, x, y - 8f, paint)
             
             // Valeur
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("${(value * 100).toInt()}%", x + width/2, y + 18f, paint)
+            paint.textSize = 14f  // Ajusté
+            canvas.drawText("${(value * 100).toInt()}%", x + width/2, y + 22f, paint)
         }
         
         private fun drawSprintIndicators(canvas: Canvas, w: Int, h: Int) {
-            // Indicateurs spéciaux pour le sprint
+            // Indicateurs spéciaux pour le sprint - PLUS VISIBLES
             paint.color = Color.RED
-            paint.textSize = 24f
+            paint.textSize = 32f  // 24f -> 32f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("ÉNERGIE: ${energy.toInt()}%", w/2f, h - 100f, paint)
+            canvas.drawText("ÉNERGIE: ${energy.toInt()}%", w/2f, h - 120f, paint)
             
             if (energy < 30f) {
                 paint.color = Color.parseColor("#FF0000")
-                canvas.drawText("⚠️ FATIGUE! ⚠️", w/2f, h - 70f, paint)
+                paint.textSize = 28f  // Plus grand
+                canvas.drawText("⚠️ FATIGUE! ⚠️", w/2f, h - 80f, paint)
             }
         }
         
         private fun drawSpeedEffect(canvas: Canvas, w: Int, h: Int) {
-            // Lignes de vitesse
+            // Lignes de vitesse - PLUS LENTES
             paint.color = Color.parseColor("#AACCCCCC")
-            paint.strokeWidth = 3f
+            paint.strokeWidth = 4f  // 3f -> 4f
             paint.style = Paint.Style.STROKE
             
-            for (i in 1..8) {
-                val lineX = (i * w / 8f) + (phaseTimer * speed * 2f) % (w / 8f)
+            for (i in 1..6) {  // 8 -> 6 - Moins de lignes
+                val lineX = (i * w / 6f) + (phaseTimer * speed * 1.5f) % (w / 6f)  // Plus lent
                 canvas.drawLine(lineX, 0f, lineX, h.toFloat(), paint)
             }
             
@@ -740,20 +742,20 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         }
         
         private fun drawEffects(canvas: Canvas, w: Int, h: Int) {
-            // Traces sur la glace
+            // Traces sur la glace - PLUS VISIBLES
             paint.color = Color.parseColor("#AAEEEEFF")
             for (trail in iceTrails) {
-                val alpha = ((2000 - (System.currentTimeMillis() - trail.timestamp)) / 2000f * 170).toInt()
+                val alpha = ((3000 - (System.currentTimeMillis() - trail.timestamp)) / 3000f * 200).toInt()  // Ajusté
                 paint.alpha = maxOf(0, alpha)
-                canvas.drawCircle(trail.x, trail.y, 8f, paint)
+                canvas.drawCircle(trail.x, trail.y, 12f, paint)  // 8f -> 12f
             }
             paint.alpha = 255
             
-            // Étincelles de performance
+            // Étincelles de performance - PLUS GRANDES
             paint.color = Color.parseColor("#FFFFDD")
             for (sparkle in sparkles) {
-                paint.alpha = (sparkle.life * 255).toInt()
-                canvas.drawCircle(sparkle.x, sparkle.y, sparkle.life * 6f, paint)
+                paint.alpha = (sparkle.life * 255 / 1.5f).toInt()  // Ajusté pour nouvelle durée
+                canvas.drawCircle(sparkle.x, sparkle.y, sparkle.life * 8f, paint)  // 6f -> 8f
             }
             paint.alpha = 255
         }
