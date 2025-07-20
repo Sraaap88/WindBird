@@ -29,7 +29,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var phaseTimer = 0f
     
     // Phases avec durées AJUSTÉES
-    private val preparationDuration = 6f
+    private val preparationDuration = 4f  // RÉDUIT de 6f à 4f
     private val approachDuration = 13f
     private val takeoffDuration = 8f
     private val flightDuration = 12f
@@ -168,10 +168,10 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var speedHoldTimer = 0f
     
     private fun handleApproach() {
-        // Incliner vers l'avant (téléphone penché vers soi)
-        if (tiltY > 0.1f) {
+        // Incliner vers l'avant (téléphone penché vers soi) - ANGLE RÉDUIT DE 30%
+        if (tiltY > 0.07f) { // RÉDUIT de 0.1f (30% moins sensible)
             speed += 1.0f
-        } else if (tiltY < -0.1f) {
+        } else if (tiltY < -0.07f) { // RÉDUIT de -0.1f
             speed -= 0.6f
         }
         
@@ -205,8 +205,8 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     
     private fun handleTakeoff() {
         // Système original restauré - Phase fusionnée: accumulation de puissance + animation de saut
-        // Redresser le téléphone pour puissance de saut
-        if (tiltY < -0.15f) {
+        // Redresser le téléphone pour puissance de saut - ANGLE RÉDUIT DE 30%
+        if (tiltY < -0.105f) { // RÉDUIT de -0.15f (30% moins sensible)
             takeoffPower += 3.0f
         }
         
@@ -255,8 +255,8 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     }
     
     private fun handleLanding() {
-        // Atterrissage - pencher légèrement vers l'avant pour un bon atterrissage
-        if (tiltY > 0.1f && tiltY < 0.5f && abs(tiltX) < 0.3f) {
+        // Atterrissage - pencher légèrement vers l'avant pour un bon atterrissage - ANGLE RÉDUIT DE 30%
+        if (tiltY > 0.07f && tiltY < 0.35f && abs(tiltX) < 0.21f) { // RÉDUIT de 0.1f/0.5f/0.3f (30% moins sensible)
             landingBonus += 1.0f
         } else {
             landingBonus -= 0.5f
@@ -683,10 +683,14 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 canvas.drawText("Encore ${(1f - speedHoldTimer).toInt() + 1} seconde", w/2f, 200f, paint)
             } else {
                 paint.textSize = 80f  // ÉNORME
-                canvas.drawText("📱 PENCHEZ VERS VOUS", w/2f, 120f, paint)
+                canvas.drawText("📱 PENCHEZ MODÉRÉMENT VERS VOUS", w/2f, 120f, paint)
                 paint.textSize = 60f  // AUGMENTÉ
                 paint.color = Color.CYAN
                 canvas.drawText("Atteignez 80 km/h et maintenez!", w/2f, 200f, paint)
+                
+                paint.textSize = 40f
+                paint.color = Color.WHITE
+                canvas.drawText("(Pas besoin de pencher fort!)", w/2f, 260f, paint)
             }
         }
         
@@ -730,13 +734,17 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 
                 // Instructions pour accumulation de puissance
                 paint.color = Color.YELLOW
-                paint.textSize = 100f  // ÉNORME
+                paint.textSize = 90f  // RÉDUIT pour être lisible
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("🚀 PENCHEZ VERS L'AVANT! 🚀", w/2f, h * 0.15f, paint)
+                canvas.drawText("🚀 PENCHEZ MODÉRÉMENT VERS L'AVANT! 🚀", w/2f, h * 0.15f, paint)
                 
                 paint.color = Color.WHITE
-                paint.textSize = 80f  // AUGMENTÉ
+                paint.textSize = 70f  // AUGMENTÉ
                 canvas.drawText("Puissance: ${takeoffPower.toInt()}%", w/2f, h * 0.25f, paint)
+                
+                paint.textSize = 40f
+                paint.color = Color.CYAN
+                canvas.drawText("(Pas besoin de pencher fort!)", w/2f, h * 0.32f, paint)
                 
             } else {
                 // Phase 2: SAUT avec plus de temps (3s)
@@ -969,10 +977,13 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             
             // Instructions d'atterrissage plus claires
             if (landingProgress >= 0.3f && landingProgress < 0.6f) {
-                paint.textSize = 45f  // AUGMENTÉ
+                paint.textSize = 50f  // AUGMENTÉ
                 paint.color = Color.CYAN
-                canvas.drawText("📱 Penchez téléphone vers VOUS (légèrement)", w/2f, h * 0.35f, paint)
+                canvas.drawText("📱 Penchez MODÉRÉMENT vers VOUS", w/2f, h * 0.35f, paint)
                 canvas.drawText("📱 Évitez de pencher sur les côtés", w/2f, h * 0.4f, paint)
+                paint.textSize = 35f
+                paint.color = Color.WHITE
+                canvas.drawText("(Mouvement doux, pas fort!)", w/2f, h * 0.44f, paint)
             }
             
             // Bonus atterrissage
