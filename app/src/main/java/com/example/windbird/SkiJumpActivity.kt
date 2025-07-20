@@ -44,6 +44,11 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var stability = 1f
     private var landingBonus = 0f
     
+    // NOUVEAU: Variables pour le vent
+    private var windDirection = 0f // -1 = gauche, +1 = droite, 0 = pas de vent
+    private var windStrength = 0f // Force du vent 0-1
+    private var windTimer = 0f
+    
     // Contrôles gyroscope - MOINS SENSIBLE
     private var tiltX = 0f
     private var tiltY = 0f
@@ -109,6 +114,9 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         finalScore = 0
         scoreCalculated = false
         cameraShake = 0f
+        windDirection = 0f
+        windStrength = 0f
+        windTimer = 0f
         particles.clear()
         generateSnowParticles()
     }
@@ -156,16 +164,16 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     }
     
     private fun handleApproach() {
-        // Incliner vers l'avant pour accélérer - MOINS SENSIBLE
-        if (tiltY < -0.4f) { // AUGMENTÉ de -0.2f
-            speed += 0.8f // RÉDUIT de 1.2f
-        } else if (tiltY > 0.4f) { // AUGMENTÉ de 0.2f
-            speed -= 0.5f // RÉDUIT de 0.8f
+        // Incliner vers l'avant (téléphone penché vers soi) pour accélérer - CORRIGÉ
+        if (tiltY > 0.2f) { // INVERSÉ - pencher vers soi = positif
+            speed += 1.0f // AUGMENTÉ pour progression plus rapide
+        } else if (tiltY < -0.2f) { // Pencher vers l'arrière = freinage
+            speed -= 0.6f
         }
         
         // Pénalité pour mouvement latéral - MOINS SENSIBLE
-        if (abs(tiltX) > 0.6f) { // AUGMENTÉ de 0.4f
-            speed -= 0.2f // RÉDUIT de 0.3f
+        if (abs(tiltX) > 0.6f) {
+            speed -= 0.2f
         }
         
         speed = speed.coerceIn(0f, maxSpeed)
@@ -178,9 +186,9 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     }
     
     private fun handleTakeoff() {
-        // Redresser le téléphone pour puissance de saut - MOINS SENSIBLE
-        if (tiltY > 0.7f) { // AUGMENTÉ de 0.5f
-            takeoffPower += 2f // RÉDUIT de 3f
+        // Redresser le téléphone pour puissance de saut - LOGIQUE INVERSÉE
+        if (tiltY < -0.3f) { // Pencher téléphone vers l'avant (loin de soi) = saut
+            takeoffPower += 2.5f // AUGMENTÉ pour meilleure réactivité
         }
         
         takeoffPower = takeoffPower.coerceIn(0f, 100f)
@@ -191,16 +199,31 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             gameState = GameState.FLIGHT
             phaseTimer = 0f
             generateMoreSnowParticles()
+            generateWind() // NOUVEAU: Générer le vent pour la phase de vol
         }
     }
     
     private fun handleFlight() {
-        // Stabilité critique - rester immobile - MOINS SENSIBLE
-        val currentStability = 1f - (abs(tiltX) + abs(tiltY) + abs(tiltZ)) / 3f
-        stability = (stability * 0.95f + currentStability.coerceIn(0f, 1f) * 0.05f) // PLUS STABLE
+        // Gestion du vent - change toutes les 2 secondes
+        windTimer += 0.025f
+        if (windTimer > 2f) {
+            generateWind()
+            windTimer = 0f
+        }
+        
+        // Calculer la position idéale pour compenser le vent
+        val idealTiltX = -windDirection * windStrength * 0.5f // Compenser dans le sens opposé
+        
+        // Stabilité critique - compenser le vent
+        val tiltXError = abs(tiltX - idealTiltX)
+        val tiltYError = abs(tiltY)
+        val tiltZError = abs(tiltZ)
+        
+        val currentStability = 1f - (tiltXError + tiltYError + tiltZError) / 3f
+        stability = (stability * 0.9f + currentStability.coerceIn(0f, 1f) * 0.1f)
         
         // Bonus distance pour stabilité
-        jumpDistance += stability * 0.2f // RÉDUIT de 0.4f
+        jumpDistance += stability * 0.3f
         
         if (phaseTimer >= flightDuration) {
             gameState = GameState.LANDING
@@ -210,14 +233,17 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     }
     
     private fun handleLanding() {
-        // Bonus atterrissage - MOINS SENSIBLE
-        if (tiltY < -0.05f && tiltY > -0.6f && abs(tiltX) < 0.3f) { // AJUSTÉ
-            landingBonus += 0.5f // RÉDUIT de 0.8f
+        // Atterrissage plus clair - pencher légèrement vers l'avant
+        if (tiltY > 0.1f && tiltY < 0.5f && abs(tiltX) < 0.3f) {
+            landingBonus += 1.0f // AUGMENTÉ pour récompenser
+        } else {
+            landingBonus -= 0.5f // Pénalité pour mauvais atterrissage
         }
         
-        jumpDistance += landingBonus
+        landingBonus = landingBonus.coerceIn(0f, 30f) // Limiter le bonus
         
         if (phaseTimer >= landingDuration) {
+            jumpDistance += landingBonus
             calculateFinalScore()
             gameState = GameState.RESULTS
             phaseTimer = 0f
@@ -259,6 +285,12 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 size = 2f + kotlin.random.Random.nextFloat() * 3f
             ))
         }
+    }
+    
+    private fun generateWind() {
+        // Générer vent aléatoire
+        windDirection = (kotlin.random.Random.nextFloat() - 0.5f) * 2f // -1 à +1
+        windStrength = 0.3f + kotlin.random.Random.nextFloat() * 0.7f // 0.3 à 1.0
     }
     
     private fun generateMoreSnowParticles() {
@@ -485,11 +517,11 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.color = Color.YELLOW
             canvas.drawText("Dans ${(preparationDuration - phaseTimer).toInt() + 1} secondes", w/2f, h * 0.5f, paint)
             
-            paint.textSize = 28f // AUGMENTÉ de 22f
+            paint.textSize = 32f // AUGMENTÉ de 28f
             paint.color = Color.CYAN
-            canvas.drawText("📱 Inclinez vers l'avant pour accélérer", w/2f, h * 0.7f, paint)
-            canvas.drawText("📱 Redressez au signal pour sauter", w/2f, h * 0.75f, paint)
-            canvas.drawText("📱 Restez stable en vol", w/2f, h * 0.8f, paint)
+            canvas.drawText("📱 Penchez vers VOUS pour accélérer", w/2f, h * 0.7f, paint)
+            canvas.drawText("📱 Penchez vers l'AVANT au signal", w/2f, h * 0.75f, paint)
+            canvas.drawText("📱 Compensez le vent en vol", w/2f, h * 0.8f, paint)
         }
         
         private fun drawTrees(canvas: Canvas, w: Int, h: Int) {
@@ -605,7 +637,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.color = Color.WHITE
             paint.textSize = 36f // AUGMENTÉ de 28f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("📱 INCLINEZ VERS L'AVANT POUR ACCÉLÉRER", w/2f, 70f, paint)
+            canvas.drawText("📱 PENCHEZ LE TÉLÉPHONE VERS VOUS", w/2f, 70f, paint)
         }
         
         private fun drawTakeoff(canvas: Canvas, w: Int, h: Int) {
@@ -662,11 +694,11 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.color = Color.YELLOW
             paint.textSize = 48f // AUGMENTÉ de 36f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("🚀 REDRESSEZ MAINTENANT! 🚀", w/2f, h * 0.2f, paint)
+            canvas.drawText("🚀 PENCHEZ VERS L'AVANT! 🚀", w/2f, h * 0.2f, paint)
             
             paint.color = Color.WHITE
             paint.textSize = 36f // AUGMENTÉ de 28f
-            canvas.drawText("📱 INCLINEZ VERS L'ARRIÈRE", w/2f, h * 0.25f, paint)
+            canvas.drawText("📱 TÉLÉPHONE LOIN DE VOUS", w/2f, h * 0.25f, paint)
         }
         
         private fun drawFlight(canvas: Canvas, w: Int, h: Int) {
@@ -713,6 +745,9 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             
             canvas.restore()
             
+            // Indicateurs de vent ÉNORMES et visibles
+            drawWindIndicator(canvas, w, h)
+            
             // Indicateurs de stabilité ÉNORMES
             drawStabilityIndicators(canvas, w, h)
             
@@ -720,7 +755,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.color = Color.WHITE
             paint.textSize = 40f // AUGMENTÉ de 32f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("⚖️ GARDEZ LE TÉLÉPHONE STABLE ⚖️", w/2f, 70f, paint)
+            canvas.drawText("⚖️ COMPENSEZ LE VENT! ⚖️", w/2f, 70f, paint)
         }
         
         private fun drawLanding(canvas: Canvas, w: Int, h: Int) {
@@ -751,18 +786,23 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 canvas.drawText("${i * 20}m", markX, h * 0.87f, paint)
             }
             
-            // Skieur qui atterrit
+            // Skieur qui atterrit avec mouvement visible
             val skierX = w * (0.2f + (jumpDistance / 120f) * 0.6f)
             val skierY = h * 0.75f
+            
+            // Animation d'atterrissage - le skieur "tombe" pendant la phase
+            val landingProgress = phaseTimer / landingDuration
+            val fallOffset = landingProgress * 30f // Tombe de 30 pixels
+            
             val scale = 2.5f
             
             paint.style = Paint.Style.FILL
             skierBitmap?.let { bmp ->
                 val dstRect = RectF(
                     skierX - bmp.width * scale / 2f,
-                    skierY - bmp.height * scale / 2f,
+                    skierY + fallOffset - bmp.height * scale / 2f,
                     skierX + bmp.width * scale / 2f,
-                    skierY + bmp.height * scale / 2f
+                    skierY + fallOffset + bmp.height * scale / 2f
                 )
                 canvas.drawBitmap(bmp, null, dstRect, paint)
             }
@@ -773,7 +813,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             for (i in 1..8) {
                 val angle = i * 45f
                 val particleX = skierX + cos(Math.toRadians(angle.toDouble())).toFloat() * 50f // PLUS GROS
-                val particleY = skierY + sin(Math.toRadians(angle.toDouble())).toFloat() * 25f
+                val particleY = skierY + fallOffset + sin(Math.toRadians(angle.toDouble())).toFloat() * 25f
                 canvas.drawCircle(particleX, particleY, 15f, paint) // PLUS GROS
             }
             paint.alpha = 255
@@ -782,11 +822,16 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.color = Color.YELLOW
             paint.textSize = 72f // AUGMENTÉ de 64f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("${jumpDistance.toInt()}m", w/2f, h * 0.3f, paint)
+            canvas.drawText("${jumpDistance.toInt()}m", w/2f, h * 0.25f, paint)
             
+            // Instructions d'atterrissage ÉNORMES et visibles
             paint.color = Color.WHITE
-            paint.textSize = 32f // AUGMENTÉ de 28f
-            canvas.drawText("📱 INCLINEZ LÉGÈREMENT VERS L'AVANT", w/2f, h * 0.4f, paint)
+            paint.textSize = 40f // ÉNORME
+            canvas.drawText("📱 PENCHEZ LÉGÈREMENT VERS VOUS", w/2f, h * 0.35f, paint)
+            
+            paint.textSize = 36f
+            paint.color = if (landingBonus > 5f) Color.GREEN else if (landingBonus > 0f) Color.YELLOW else Color.RED
+            canvas.drawText("Bonus atterrissage: +${landingBonus.toInt()}", w/2f, h * 0.4f, paint)
         }
         
         private fun drawResults(canvas: Canvas, w: Int, h: Int) {
@@ -859,8 +904,47 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             canvas.drawText("PUISSANCE DE DÉCOLLAGE: ${takeoffPower.toInt()}%", w/2f, h - 130f, paint)
         }
         
+        private fun drawWindIndicator(canvas: Canvas, w: Int, h: Int) {
+            // Indicateur de vent ÉNORME en haut à droite
+            val windX = w - 150f
+            val windY = 150f
+            
+            // Fond de l'indicateur
+            paint.color = Color.parseColor("#333333")
+            paint.style = Paint.Style.FILL
+            canvas.drawRect(windX - 80f, windY - 60f, windX + 80f, windY + 60f, paint)
+            
+            // Direction du vent avec flèche
+            paint.color = Color.YELLOW
+            paint.textSize = 48f
+            paint.textAlign = Paint.Align.CENTER
+            
+            val windText = if (windDirection < -0.1f) "⬅️" else if (windDirection > 0.1f) "➡️" else "⏸️"
+            canvas.drawText(windText, windX, windY - 10f, paint)
+            
+            // Force du vent
+            paint.textSize = 24f
+            paint.color = Color.WHITE
+            canvas.drawText("VENT", windX, windY - 35f, paint)
+            canvas.drawText("${(windStrength * 100).toInt()}%", windX, windY + 25f, paint)
+            
+            // Instructions de compensation
+            paint.textSize = 20f
+            paint.color = Color.CYAN
+            val instruction = when {
+                windDirection < -0.1f -> "Penchez à DROITE"
+                windDirection > 0.1f -> "Penchez à GAUCHE"
+                else -> "Restez stable"
+            }
+            canvas.drawText(instruction, windX, windY + 50f, paint)
+        }
+        
         private fun drawStabilityIndicators(canvas: Canvas, w: Int, h: Int) {
             val baseY = h - 220f // PLUS BAS
+            
+            // Calculer la position idéale selon le vent
+            val idealTiltX = -windDirection * windStrength * 0.5f
+            val tiltXError = abs(tiltX - idealTiltX)
             
             // Indicateur global de stabilité - ÉNORME
             paint.color = Color.parseColor("#333333")
@@ -875,11 +959,11 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.textAlign = Paint.Align.LEFT
             canvas.drawText("STABILITÉ: ${(stability * 100).toInt()}%", 80f, baseY - 20f, paint)
             
-            // Indicateurs détaillés - TEXTE PLUS GROS
+            // Indicateurs détaillés - TEXTE PLUS GROS avec compensation vent
             paint.textSize = 24f // AUGMENTÉ de 20f
-            canvas.drawText("Gauche/Droite: ${if (abs(tiltX) < 0.4f) "✅" else "❌"}", 80f, baseY + 90f, paint)
-            canvas.drawText("Avant/Arrière: ${if (abs(tiltY) < 0.4f) "✅" else "❌"}", 80f, baseY + 120f, paint)
-            canvas.drawText("Rotation: ${if (abs(tiltZ) < 0.4f) "✅" else "❌"}", 80f, baseY + 150f, paint)
+            canvas.drawText("Compensation vent: ${if (tiltXError < 0.3f) "✅" else "❌"}", 80f, baseY + 90f, paint)
+            canvas.drawText("Avant/Arrière: ${if (abs(tiltY) < 0.3f) "✅" else "❌"}", 80f, baseY + 120f, paint)
+            canvas.drawText("Rotation: ${if (abs(tiltZ) < 0.3f) "✅" else "❌"}", 80f, baseY + 150f, paint)
         }
         
         private fun drawSnowParticles(canvas: Canvas, w: Int, h: Int) {
