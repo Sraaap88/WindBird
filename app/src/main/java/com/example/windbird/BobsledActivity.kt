@@ -1,5 +1,5 @@
 package com.example.windbird
- 
+
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -486,6 +486,10 @@ class BobsledActivity : Activity(), SensorEventListener {
         
         init {
             // Structure prête pour vos futures images
+            // En attendant vos images, utiliser des substituts
+            createFallbackBobsledBitmaps()
+            
+            /* Quand vous aurez vos images, décommentez ceci :
             try {
                 bobsledPreparationBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobsled_preparation)
                 bobsledPushBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobsled_push)
@@ -493,9 +497,9 @@ class BobsledActivity : Activity(), SensorEventListener {
                 bobsledRaceFastBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobsled_race_fast)
                 bobsledFinishBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobsled_finish)
             } catch (e: Exception) {
-                // En attendant vos images, créer des substituts
                 createFallbackBobsledBitmaps()
             }
+            */
         }
         
         private fun createFallbackBobsledBitmaps() {
