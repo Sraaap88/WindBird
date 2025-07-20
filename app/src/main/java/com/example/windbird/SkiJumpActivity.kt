@@ -117,7 +117,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         cameraShake = 0f
         windDirection = 0f
         windStrength = 0f
-        windTimer = 0f
+        speedHoldTimer = 0f
         particles.clear()
         generateSnowParticles()
     }
@@ -164,29 +164,38 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         }
     }
     
+    private var speedHoldTimer = 0f // NOUVEAU: Timer pour maintenir 80 km/h
+    
     private fun handleApproach() {
-        // Incliner vers l'avant (téléphone penché vers soi) pour accélérer - CORRIGÉ
-        if (tiltY > 0.2f) { // INVERSÉ - pencher vers soi = positif
-            speed += 1.0f // AUGMENTÉ pour progression plus rapide
-        } else if (tiltY < -0.2f) { // Pencher vers l'arrière = freinage
+        // Incliner vers l'avant (téléphone penché vers soi) pour accélérer
+        if (tiltY > 0.2f) {
+            speed += 1.0f
+        } else if (tiltY < -0.2f) {
             speed -= 0.6f
         }
         
-        // Pénalité pour mouvement latéral - MOINS SENSIBLE
+        // Pénalité pour mouvement latéral
         if (abs(tiltX) > 0.6f) {
             speed -= 0.2f
         }
         
         speed = speed.coerceIn(0f, maxSpeed)
         
-        // NOUVEAU: Quand on atteint 80 km/h, on maintient 1 seconde puis saut automatique
+        // NOUVEAU: Logic pour maintenir 80 km/h pendant 1 seconde
         if (speed >= maxSpeed) {
-            if (phaseTimer >= approachDuration - 1f) { // Dernière seconde à vitesse max
+            speedHoldTimer += 0.025f
+            if (speedHoldTimer >= 1f) { // 1 seconde à vitesse max
                 gameState = GameState.TAKEOFF
                 phaseTimer = 0f
                 cameraShake = 0.5f
+                speedHoldTimer = 0f
             }
-        } else if (phaseTimer >= approachDuration) {
+        } else {
+            speedHoldTimer = 0f // Reset si on perd la vitesse
+        }
+        
+        // Fallback: si ça prend trop de temps
+        if (phaseTimer >= approachDuration + 5f) {
             gameState = GameState.TAKEOFF
             phaseTimer = 0f
             cameraShake = 0.5f
@@ -393,8 +402,14 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private fun updateStatus() {
         statusText.text = when (gameState) {
             GameState.PREPARATION -> "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | Préparation... ${(preparationDuration - phaseTimer).toInt() + 1}s"
-            GameState.APPROACH -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Élan: ${speed.toInt()} km/h | ${(approachDuration - phaseTimer).toInt() + 1}s"
-            GameState.TAKEOFF -> "🚀 ${tournamentData.playerNames[currentPlayerIndex]} | PENCHEZ VERS L'AVANT! Puissance: ${takeoffPower.toInt()}% | ${(4f - phaseTimer).toInt() + 1}s"
+            GameState.APPROACH -> {
+                if (speed >= maxSpeed) {
+                    "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | 80 KM/H ATTEINT! Maintenez ${(1f - speedHoldTimer).toInt() + 1}s"
+                } else {
+                    "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Élan: ${speed.toInt()} km/h | Atteignez 80 km/h!"
+                }
+            }
+            GameState.TAKEOFF -> "🚀 ${tournamentData.playerNames[currentPlayerIndex]} | SAUT À 80 KM/H! Puissance: ${takeoffPower.toInt()}%"
             GameState.FLIGHT -> "✈️ ${tournamentData.playerNames[currentPlayerIndex]} | Vol: ${jumpDistance.toInt()}m | Stabilité: ${(stability * 100).toInt()}% | ${(flightDuration - phaseTimer).toInt() + 1}s"
             GameState.LANDING -> "🎯 ${tournamentData.playerNames[currentPlayerIndex]} | Atterrissage! | ${(landingDuration - phaseTimer).toInt() + 1}s"
             GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | Distance finale: ${jumpDistance.toInt()}m | Score: ${finalScore}"
@@ -648,39 +663,42 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.style = Paint.Style.FILL
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
-            // Tremplin en perspective (vue de haut) - BEAUCOUP PLUS LARGE
+            // Tremplin en perspective (vue de haut) - RÉPARÉ ET LOGIQUE
             paint.color = Color.WHITE
             val jumpPath = Path()
-            jumpPath.moveTo(w * 0.3f, h * 0.9f)  // Bas (départ) - BEAUCOUP plus large
-            jumpPath.lineTo(w * 0.7f, h * 0.9f)
-            jumpPath.lineTo(w * 0.4f, h * 0.1f)  // Haut (arrivée) - plus large aussi
-            jumpPath.lineTo(w * 0.6f, h * 0.1f)
+            jumpPath.moveTo(w * 0.2f, h * 0.95f)  // Bas (départ) - très large
+            jumpPath.lineTo(w * 0.8f, h * 0.95f)
+            jumpPath.lineTo(w * 0.45f, h * 0.05f)  // Haut (bout du tremplin) - se rétrécit
+            jumpPath.lineTo(w * 0.55f, h * 0.05f)
             jumpPath.close()
             canvas.drawPath(jumpPath, paint)
             
-            // Lignes de vitesse sur les côtés - ADAPTÉES À LA NOUVELLE LARGEUR
+            // Lignes de vitesse sur les côtés - ADAPTÉES
             paint.color = Color.parseColor("#CCCCCC")
-            paint.strokeWidth = 3f
+            paint.strokeWidth = 4f
             paint.style = Paint.Style.STROKE
-            for (i in 1..10) {
-                val lineY = h * 0.9f - (i * h * 0.07f) + (phaseTimer * 15f) % (h * 0.07f)
-                canvas.drawLine(w * 0.3f, lineY, w * 0.7f, lineY, paint)
+            for (i in 1..12) {
+                val progress = i / 12f
+                val lineY = h * (0.95f - progress * 0.9f)
+                val leftX = w * (0.2f + progress * 0.25f)  // Se resserre progressivement
+                val rightX = w * (0.8f - progress * 0.25f)
+                canvas.drawLine(leftX, lineY, rightX, lineY, paint)
             }
             
             // Réinitialiser le style
             paint.style = Paint.Style.FILL
             
-            // Skieur BEAUCOUP plus petit et proportionnel au tremplin
+            // Skieur PETIT et proportionnel au tremplin
             val speedProgress = if (maxSpeed > 0) speed / maxSpeed else 0f
             val timeProgress = phaseTimer / approachDuration
             
-            val combinedProgress = (speedProgress * 0.7f + timeProgress * 0.3f).coerceIn(0f, 1f)
+            val combinedProgress = (speedProgress * 0.8f + timeProgress * 0.2f).coerceIn(0f, 1f)
             
-            val skierY = h * (0.85f - combinedProgress * 0.7f)
+            val skierY = h * (0.9f - combinedProgress * 0.85f)
             val skierX = w / 2f
             
-            // Taille BEAUCOUP plus petite - proportionnelle au tremplin
-            val scale = 0.15f - combinedProgress * 0.05f  // Commence à 0.15, finit à 0.1 (très petit)
+            // Taille TRÈS petite - proportionnelle au tremplin
+            val scale = 0.08f + combinedProgress * 0.02f  // De 0.08 à 0.1 (très petit)
             
             skierBitmap?.let { bmp ->
                 val dstRect = RectF(
@@ -692,41 +710,55 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 canvas.drawBitmap(bmp, null, dstRect, paint)
             }
             
-            // Barre de vitesse ÉNORME
+            // Barre de vitesse
             drawSpeedMeter(canvas, w, h)
             
-            // Instructions - TEXTE PLUS GROS
+            // Instructions ÉNORMES - avec indication de maintien de vitesse
             paint.color = Color.WHITE
-            paint.textSize = 50f // ÉNORME
+            paint.textSize = 60f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("📱 PENCHEZ LE TÉLÉPHONE VERS VOUS", w/2f, 70f, paint)
+            
+            if (speed >= maxSpeed) {
+                paint.color = Color.GREEN
+                canvas.drawText("✅ MAINTENEZ 80 KM/H!", w/2f, 80f, paint)
+                paint.textSize = 45f
+                paint.color = Color.YELLOW
+                canvas.drawText("Encore ${(1f - speedHoldTimer).toInt() + 1} seconde", w/2f, 140f, paint)
+            } else {
+                canvas.drawText("📱 PENCHEZ VERS VOUS", w/2f, 80f, paint)
+                paint.textSize = 45f
+                paint.color = Color.CYAN
+                canvas.drawText("Atteignez 80 km/h et maintenez!", w/2f, 140f, paint)
+            }
         }
         
         private fun drawTakeoffAndJump(canvas: Canvas, w: Int, h: Int) {
-            // VUE DE PROFIL - Phase fusionnée décollage + saut
+            // VUE DE PROFIL - Phase fusionnée décollage + saut RAPIDE
             paint.color = Color.parseColor("#87CEEB")
             paint.style = Paint.Style.FILL
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
-            // Tremplin courbé (vue de profil) - PROPORTIONNEL
+            // Tremplin courbé RÉALISTE (vue de profil)
             paint.color = Color.WHITE
             val rampPath = Path()
-            rampPath.moveTo(0f, h * 0.8f)
-            rampPath.quadTo(w * 0.7f, h * 0.6f, w * 0.9f, h * 0.4f)
-            rampPath.lineTo(w.toFloat(), h * 0.45f)
-            rampPath.lineTo(w.toFloat(), h.toFloat())
+            rampPath.moveTo(0f, h * 0.9f)
+            rampPath.quadTo(w * 0.6f, h * 0.7f, w * 0.8f, h * 0.5f) // Rampe qui monte
+            rampPath.lineTo(w * 0.85f, h * 0.52f)
+            rampPath.lineTo(w * 0.85f, h.toFloat())
             rampPath.lineTo(0f, h.toFloat())
             rampPath.close()
             canvas.drawPath(rampPath, paint)
             
-            // Animation progressive: accumulation de puissance puis envol
+            // Animation RAPIDE: le skieur arrive vite et saute vite
             val takeoffProgress = phaseTimer / 4f // Phase de 4 secondes
             
-            if (takeoffProgress < 0.6f) {
-                // Phase 1: Accumulation de puissance (2.4s)
-                val skierX = w * 0.85f
-                val skierY = h * 0.4f
-                val scale = 0.8f // Taille raisonnable
+            if (takeoffProgress < 0.3f) {
+                // Phase 1: Accumulation RAPIDE de puissance (1.2s)
+                val approachProgress = takeoffProgress / 0.3f
+                val skierX = w * (0.2f + approachProgress * 0.6f) // Arrive rapidement
+                val skierY = h * (0.9f - approachProgress * 0.4f) // Monte sur la rampe
+                
+                val scale = 0.3f // Taille visible mais pas énorme
                 
                 skierJumpBitmap?.let { bmp ->
                     val dstRect = RectF(
@@ -738,34 +770,35 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                     canvas.drawBitmap(bmp, null, dstRect, paint)
                 }
                 
-                // Instructions pour accumulation de puissance
+                // Instructions pour accumulation de puissance - ÉNORMES
                 paint.color = Color.YELLOW
-                paint.textSize = 60f // PLUS GROS
+                paint.textSize = 80f
                 paint.textAlign = Paint.Align.CENTER
                 canvas.drawText("🚀 PENCHEZ VERS L'AVANT! 🚀", w/2f, h * 0.15f, paint)
                 
                 paint.color = Color.WHITE
-                paint.textSize = 45f // PLUS GROS
-                canvas.drawText("Puissance: ${takeoffPower.toInt()}%", w/2f, h * 0.2f, paint)
+                paint.textSize = 60f
+                canvas.drawText("Puissance: ${takeoffPower.toInt()}%", w/2f, h * 0.25f, paint)
                 
             } else {
-                // Phase 2: Animation de saut (1.6s)
-                val jumpAnimProgress = (takeoffProgress - 0.6f) / 0.4f // 0 à 1
+                // Phase 2: SAUT RAPIDE dans les airs (2.8s)
+                val jumpAnimProgress = (takeoffProgress - 0.3f) / 0.7f // 0 à 1
                 
-                val startX = w * 0.85f
-                val startY = h * 0.4f
+                val startX = w * 0.8f
+                val startY = h * 0.5f
                 
-                val skierX = startX + jumpAnimProgress * w * 0.1f // Petit déplacement
-                val skierY = startY - jumpAnimProgress * h * 0.15f // S'élève
+                // Mouvement RAPIDE et visible - suit une trajectoire réaliste
+                val skierX = startX + jumpAnimProgress * w * 0.4f // Se déplace rapidement vers la droite
+                val skierY = startY - jumpAnimProgress * h * 0.3f + (jumpAnimProgress * jumpAnimProgress) * h * 0.2f // Arc parabolique
                 
                 // Rotation selon la puissance
-                val rotation = (takeoffPower / 100f) * 15f - 7.5f
+                val rotation = (takeoffPower / 100f) * 20f - 10f
                 
                 canvas.save()
                 canvas.translate(skierX, skierY)
                 canvas.rotate(rotation)
                 
-                val scale = 0.8f // Taille raisonnable
+                val scale = 0.3f // Taille visible
                 skierJumpBitmap?.let { bmp ->
                     val dstRect = RectF(
                         -bmp.width * scale / 2f,
@@ -778,11 +811,21 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 
                 canvas.restore()
                 
-                // Instructions pour le saut
+                // Trail pour montrer la vitesse
+                paint.color = Color.WHITE
+                paint.alpha = 150
+                for (i in 1..5) {
+                    val trailX = skierX - i * 25f
+                    val trailY = skierY + i * 5f
+                    canvas.drawCircle(trailX, trailY, 8f, paint)
+                }
+                paint.alpha = 255
+                
+                // Instructions pour le saut - ÉNORMES
                 paint.color = Color.YELLOW
-                paint.textSize = 60f // PLUS GROS
+                paint.textSize = 80f
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("🛫 ENVOL! 🛫", w/2f, h * 0.15f, paint)
+                canvas.drawText("🛫 ENVOL À 80 KM/H! 🛫", w/2f, h * 0.15f, paint)
             }
             
             // Barre de puissance
@@ -901,16 +944,16 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             }
             paint.style = Paint.Style.FILL
             
-            // Position du skieur selon la distance de saut
+            // Position du skieur selon la distance de saut - BEAUCOUP PLUS VISIBLE
             val landingProgress = phaseTimer / landingDuration
-            val baseSkierX = w * 0.1f + (jumpDistance / 150f) * (w * 0.8f) // Position selon distance
-            val skierY = h * 0.65f // PLUS HAUT pour être visible sur la piste
+            val baseSkierX = w * 0.1f + (jumpDistance / 150f) * (w * 0.8f)
+            val skierY = h * 0.55f // ENCORE PLUS HAUT pour être bien visible
             
             // Glissement après l'atterrissage
-            val slideDistance = if (landingProgress > 0.4f) (landingProgress - 0.4f) * 100f else 0f
+            val slideDistance = if (landingProgress > 0.4f) (landingProgress - 0.4f) * 120f else 0f
             val skierX = baseSkierX + slideDistance
             
-            val scale = 1.2f // BEAUCOUP plus gros pour être visible
+            val scale = 1.8f // ENCORE plus gros pour être très visible
             
             // Séquence d'atterrissage en 3 phases - TRÈS VISIBLE
             val currentBitmap = when {
@@ -929,50 +972,50 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 canvas.drawBitmap(bmp, null, dstRect, paint)
             }
             
-            // Explosion de neige à l'impact (seulement pendant la phase d'impact) - PLUS VISIBLE
+            // Explosion de neige à l'impact - ÉNORME ET VISIBLE
             if (landingProgress >= 0.4f && landingProgress < 0.7f) {
                 paint.color = Color.WHITE
-                paint.alpha = 200 // PLUS OPAQUE
-                for (i in 1..15) { // PLUS de particules
-                    val angle = i * 24f
-                    val particleX = skierX + cos(Math.toRadians(angle.toDouble())).toFloat() * 80f // PLUS GROS
-                    val particleY = skierY + sin(Math.toRadians(angle.toDouble())).toFloat() * 40f
-                    canvas.drawCircle(particleX, particleY, 25f, paint) // BEAUCOUP plus grosses
+                paint.alpha = 220
+                for (i in 1..20) { // ENCORE plus de particules
+                    val angle = i * 18f
+                    val particleX = skierX + cos(Math.toRadians(angle.toDouble())).toFloat() * 100f // ÉNORME
+                    val particleY = skierY + sin(Math.toRadians(angle.toDouble())).toFloat() * 50f
+                    canvas.drawCircle(particleX, particleY, 30f, paint) // ÉNORME
                 }
                 paint.alpha = 255
             }
             
-            // Distance atteinte ÉNORME - TEXTE PLUS GROS
+            // Distance atteinte ÉNORME
             paint.color = Color.YELLOW
-            paint.textSize = 120f // ÉNORME
+            paint.textSize = 150f // ÉNORME
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("${jumpDistance.toInt()}m", w/2f, h * 0.15f, paint)
+            canvas.drawText("${jumpDistance.toInt()}m", w/2f, h * 0.12f, paint)
             
-            // Instructions d'atterrissage ÉNORMES et visibles
+            // Instructions d'atterrissage ÉNORMES
             paint.color = Color.WHITE
-            paint.textSize = 60f // ÉNORME
+            paint.textSize = 70f // ÉNORME
             
             val instruction = when {
                 landingProgress < 0.4f -> "📱 PRÉPAREZ L'ATTERRISSAGE"
-                landingProgress < 0.6f -> "📱 PENCHEZ VERS VOUS"
+                landingProgress < 0.6f -> "📱 PENCHEZ VERS VOUS MAINTENANT!"
                 else -> "🎉 EXCELLENT SAUT!"
             }
-            canvas.drawText(instruction, w/2f, h * 0.25f, paint)
+            canvas.drawText(instruction, w/2f, h * 0.22f, paint)
             
-            // Bonus atterrissage en temps réel - PLUS GROS
-            paint.textSize = 48f // AUGMENTÉ
+            // Bonus atterrissage en temps réel - ÉNORME
+            paint.textSize = 55f
             paint.color = if (landingBonus > 10f) Color.GREEN else if (landingBonus > 5f) Color.YELLOW else Color.RED
-            canvas.drawText("Bonus: +${landingBonus.toInt()}", w/2f, h * 0.32f, paint)
+            canvas.drawText("Bonus: +${landingBonus.toInt()}", w/2f, h * 0.3f, paint)
             
-            // Indication de phase - PLUS GROS
-            paint.textSize = 40f // AUGMENTÉ
+            // Indication de phase - ÉNORME
+            paint.textSize = 45f
             paint.color = Color.CYAN
             val phaseText = when {
-                landingProgress < 0.4f -> "Phase: Approche"
-                landingProgress < 0.6f -> "Phase: Impact"
-                else -> "Phase: Célébration"
+                landingProgress < 0.4f -> "Phase: Approche de la piste"
+                landingProgress < 0.6f -> "Phase: Impact sur la neige"
+                else -> "Phase: Célébration du saut"
             }
-            canvas.drawText(phaseText, w/2f, h * 0.38f, paint)
+            canvas.drawText(phaseText, w/2f, h * 0.36f, paint)
         }
         
         private fun drawResults(canvas: Canvas, w: Int, h: Int) {
