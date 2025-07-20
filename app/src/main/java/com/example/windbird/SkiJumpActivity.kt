@@ -676,15 +676,17 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             
             if (speed >= maxSpeed) {
                 paint.color = Color.GREEN
-                canvas.drawText("✅ MAINTENEZ 80 KM/H!", w/2f, 80f, paint)
-                paint.textSize = 45f
+                paint.textSize = 80f  // ÉNORME
+                canvas.drawText("✅ MAINTENEZ 80 KM/H!", w/2f, 120f, paint)
+                paint.textSize = 60f  // AUGMENTÉ
                 paint.color = Color.YELLOW
-                canvas.drawText("Encore ${(1f - speedHoldTimer).toInt() + 1} seconde", w/2f, 140f, paint)
+                canvas.drawText("Encore ${(1f - speedHoldTimer).toInt() + 1} seconde", w/2f, 200f, paint)
             } else {
-                canvas.drawText("📱 PENCHEZ VERS VOUS", w/2f, 80f, paint)
-                paint.textSize = 45f
+                paint.textSize = 80f  // ÉNORME
+                canvas.drawText("📱 PENCHEZ VERS VOUS", w/2f, 120f, paint)
+                paint.textSize = 60f  // AUGMENTÉ
                 paint.color = Color.CYAN
-                canvas.drawText("Atteignez 80 km/h et maintenez!", w/2f, 140f, paint)
+                canvas.drawText("Atteignez 80 km/h et maintenez!", w/2f, 200f, paint)
             }
         }
         
@@ -728,12 +730,12 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 
                 // Instructions pour accumulation de puissance
                 paint.color = Color.YELLOW
-                paint.textSize = 80f
+                paint.textSize = 100f  // ÉNORME
                 paint.textAlign = Paint.Align.CENTER
                 canvas.drawText("🚀 PENCHEZ VERS L'AVANT! 🚀", w/2f, h * 0.15f, paint)
                 
                 paint.color = Color.WHITE
-                paint.textSize = 60f
+                paint.textSize = 80f  // AUGMENTÉ
                 canvas.drawText("Puissance: ${takeoffPower.toInt()}%", w/2f, h * 0.25f, paint)
                 
             } else {
@@ -778,7 +780,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 
                 // Instructions pour le saut
                 paint.color = Color.YELLOW
-                paint.textSize = 80f
+                paint.textSize = 100f  // ÉNORME
                 paint.textAlign = Paint.Align.CENTER
                 canvas.drawText("🛫 ENVOL À 80 KM/H! 🛫", w/2f, h * 0.15f, paint)
             }
@@ -960,10 +962,18 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             
             val instruction = when {
                 landingProgress < 0.3f -> "✈️ DESCEND VERS LA PISTE"
-                landingProgress < 0.6f -> "💥 ATTERRISSAGE!"
+                landingProgress < 0.6f -> "💥 ATTERRISSAGE! 📱 PENCHEZ LÉGÈREMENT VERS VOUS"
                 else -> "🎉 SE RELÈVE ET SALUE!"
             }
             canvas.drawText(instruction, w/2f, h * 0.25f, paint)
+            
+            // Instructions d'atterrissage plus claires
+            if (landingProgress >= 0.3f && landingProgress < 0.6f) {
+                paint.textSize = 45f  // AUGMENTÉ
+                paint.color = Color.CYAN
+                canvas.drawText("📱 Penchez téléphone vers VOUS (légèrement)", w/2f, h * 0.35f, paint)
+                canvas.drawText("📱 Évitez de pencher sur les côtés", w/2f, h * 0.4f, paint)
+            }
             
             // Bonus atterrissage
             paint.textSize = 45f  // AUGMENTÉ de 30f
