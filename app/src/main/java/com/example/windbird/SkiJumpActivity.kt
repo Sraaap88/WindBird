@@ -420,10 +420,13 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     inner class SkiJumpView(context: Context) : View(context) {
         private val paint = Paint()
         
-        // Variables pour l'image fixe du skieur
+        // Variables pour les images du skieur
         private var skierBitmap: Bitmap? = null
-        private var skierJumpBitmap: Bitmap? = null  // NOUVEAU: Image de saut
-        private var skierFlightBitmap: Bitmap? = null // NOUVEAU: Image de vol
+        private var skierJumpBitmap: Bitmap? = null
+        private var skierFlightBitmap: Bitmap? = null
+        private var skierLand1Bitmap: Bitmap? = null // NOUVEAU: Approche atterrissage
+        private var skierLand2Bitmap: Bitmap? = null // NOUVEAU: Impact atterrissage
+        private var skierLand3Bitmap: Bitmap? = null // NOUVEAU: Satisfaction
         
         init {
             // Charger les images du skieur
@@ -431,13 +434,16 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_approach)
                 skierJumpBitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_jump)
                 skierFlightBitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_flight)
+                skierLand1Bitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_land1)
+                skierLand2Bitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_land2)
+                skierLand3Bitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_land3)
             } catch (e: Exception) {
                 // Si le chargement échoue, créer un bitmap de substitution
-                createFallbackSkierBitmap()
+                createFallbackSkierBitmaps()
             }
         }
         
-        private fun createFallbackSkierBitmap() {
+        private fun createFallbackSkierBitmaps() {
             // Créer un bitmap de substitution 60x80 pixels pour l'approche
             skierBitmap = Bitmap.createBitmap(60, 80, Bitmap.Config.ARGB_8888)
             val canvas1 = Canvas(skierBitmap!!)
@@ -468,6 +474,26 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             tempPaint.color = Color.parseColor("#FF4444")
             canvas3.drawRect(30f, 15f, 90f, 35f, tempPaint) // Corps allongé
             canvas3.drawCircle(25f, 25f, 10f, tempPaint) // Tête
+            
+            // Créer bitmaps pour l'atterrissage
+            skierLand1Bitmap = Bitmap.createBitmap(80, 70, Bitmap.Config.ARGB_8888)
+            val canvas4 = Canvas(skierLand1Bitmap!!)
+            tempPaint.color = Color.parseColor("#FF4444")
+            canvas4.drawRect(20f, 30f, 60f, 50f, tempPaint) // Corps penché
+            canvas4.drawCircle(15f, 35f, 10f, tempPaint) // Tête
+            
+            skierLand2Bitmap = Bitmap.createBitmap(90, 80, Bitmap.Config.ARGB_8888)
+            val canvas5 = Canvas(skierLand2Bitmap!!)
+            canvas5.drawRect(25f, 40f, 65f, 70f, tempPaint) // Corps accroupi
+            canvas5.drawCircle(45f, 30f, 10f, tempPaint) // Tête
+            
+            skierLand3Bitmap = Bitmap.createBitmap(70, 90, Bitmap.Config.ARGB_8888)
+            val canvas6 = Canvas(skierLand3Bitmap!!)
+            canvas6.drawRect(25f, 30f, 45f, 70f, tempPaint) // Corps droit
+            canvas6.drawCircle(35f, 20f, 10f, tempPaint) // Tête
+            // Bras levés
+            canvas6.drawCircle(15f, 25f, 5f, tempPaint) // Bras gauche
+            canvas6.drawCircle(55f, 25f, 5f, tempPaint) // Bras droit
         }
 
         override fun onDraw(canvas: Canvas) {
@@ -884,79 +910,107 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         }
         
         private fun drawLanding(canvas: Canvas, w: Int, h: Int) {
-            // VUE DE FACE/LÉGÈREMENT EN BIAIS - Impact dramatique
+            // VUE DE PROFIL - Atterrissage cinématique
             paint.color = Color.parseColor("#87CEEB")
             paint.style = Paint.Style.FILL
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
-            // Piste d'atterrissage en perspective
+            // Piste d'atterrissage en vue de profil (pente descendante)
             paint.color = Color.WHITE
             val landingPath = Path()
-            landingPath.moveTo(w * 0.2f, h * 0.8f)
-            landingPath.lineTo(w * 0.8f, h * 0.8f)
-            landingPath.lineTo(w * 0.9f, h.toFloat())
-            landingPath.lineTo(w * 0.1f, h.toFloat())
+            landingPath.moveTo(0f, h * 0.7f)
+            landingPath.lineTo(w.toFloat(), h * 0.8f) // Pente légère
+            landingPath.lineTo(w.toFloat(), h.toFloat())
+            landingPath.lineTo(0f, h.toFloat())
             landingPath.close()
             canvas.drawPath(landingPath, paint)
             
-            // Marques de distance sur la piste - TEXTE PLUS GROS
+            // Marques de distance en vue de profil - TEXTE PLUS GROS
             paint.color = Color.parseColor("#666666")
-            paint.textSize = 24f // AUGMENTÉ de 20f
+            paint.textSize = 28f // AUGMENTÉ
             paint.textAlign = Paint.Align.CENTER
             paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 2f
+            paint.strokeWidth = 3f
             for (i in 1..5) {
-                val markX = w * 0.2f + i * (w * 0.6f / 5f)
-                canvas.drawLine(markX, h * 0.8f, markX, h * 0.85f, paint)
-                canvas.drawText("${i * 20}m", markX, h * 0.87f, paint)
+                val markX = w * 0.1f + i * (w * 0.8f / 5f)
+                val markY = h * 0.7f + (markX / w) * (h * 0.1f) // Suit la pente
+                canvas.drawLine(markX, markY, markX, markY + 15f, paint)
+                canvas.drawText("${i * 25}m", markX, markY + 35f, paint)
+            }
+            paint.style = Paint.Style.FILL
+            
+            // Position du skieur selon la distance de saut
+            val landingProgress = phaseTimer / landingDuration
+            val baseSkierX = w * 0.1f + (jumpDistance / 150f) * (w * 0.8f) // Position selon distance
+            val skierY = h * 0.7f + (baseSkierX / w) * (h * 0.1f) - 60f // Sur la pente, légèrement au-dessus
+            
+            // Glissement après l'atterrissage
+            val slideDistance = if (landingProgress > 0.4f) (landingProgress - 0.4f) * 100f else 0f
+            val skierX = baseSkierX + slideDistance
+            
+            val scale = 2.2f
+            
+            // Séquence d'atterrissage en 3 phases
+            val currentBitmap = when {
+                landingProgress < 0.4f -> skierLand1Bitmap // 0-2s: Approche
+                landingProgress < 0.6f -> skierLand2Bitmap // 2-3s: Impact
+                else -> skierLand3Bitmap // 3-5s: Satisfaction
             }
             
-            // Skieur qui atterrit avec mouvement visible
-            val skierX = w * (0.2f + (jumpDistance / 120f) * 0.6f)
-            val skierY = h * 0.75f
-            
-            // Animation d'atterrissage - le skieur "tombe" pendant la phase
-            val landingProgress = phaseTimer / landingDuration
-            val fallOffset = landingProgress * 30f // Tombe de 30 pixels
-            
-            val scale = 2.5f
-            
-            paint.style = Paint.Style.FILL
-            skierBitmap?.let { bmp ->
+            currentBitmap?.let { bmp ->
                 val dstRect = RectF(
                     skierX - bmp.width * scale / 2f,
-                    skierY + fallOffset - bmp.height * scale / 2f,
+                    skierY - bmp.height * scale / 2f,
                     skierX + bmp.width * scale / 2f,
-                    skierY + fallOffset + bmp.height * scale / 2f
+                    skierY + bmp.height * scale / 2f
                 )
                 canvas.drawBitmap(bmp, null, dstRect, paint)
             }
             
-            // Explosion de neige à l'impact - PLUS GROS
-            paint.color = Color.WHITE
-            paint.alpha = 150
-            for (i in 1..8) {
-                val angle = i * 45f
-                val particleX = skierX + cos(Math.toRadians(angle.toDouble())).toFloat() * 50f // PLUS GROS
-                val particleY = skierY + fallOffset + sin(Math.toRadians(angle.toDouble())).toFloat() * 25f
-                canvas.drawCircle(particleX, particleY, 15f, paint) // PLUS GROS
+            // Explosion de neige à l'impact (seulement pendant la phase d'impact)
+            if (landingProgress >= 0.4f && landingProgress < 0.7f) {
+                paint.color = Color.WHITE
+                paint.alpha = 150
+                for (i in 1..12) { // Plus de particules
+                    val angle = i * 30f
+                    val particleX = skierX + cos(Math.toRadians(angle.toDouble())).toFloat() * 60f
+                    val particleY = skierY + sin(Math.toRadians(angle.toDouble())).toFloat() * 30f
+                    canvas.drawCircle(particleX, particleY, 18f, paint) // Plus grosses
+                }
+                paint.alpha = 255
             }
-            paint.alpha = 255
             
             // Distance atteinte ÉNORME - TEXTE PLUS GROS
             paint.color = Color.YELLOW
-            paint.textSize = 72f // AUGMENTÉ de 64f
+            paint.textSize = 84f // ENCORE PLUS GROS
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("${jumpDistance.toInt()}m", w/2f, h * 0.25f, paint)
+            canvas.drawText("${jumpDistance.toInt()}m", w/2f, h * 0.2f, paint)
             
             // Instructions d'atterrissage ÉNORMES et visibles
             paint.color = Color.WHITE
-            paint.textSize = 40f // ÉNORME
-            canvas.drawText("📱 PENCHEZ LÉGÈREMENT VERS VOUS", w/2f, h * 0.35f, paint)
+            paint.textSize = 44f // ÉNORME
             
+            val instruction = when {
+                landingProgress < 0.4f -> "📱 PRÉPAREZ L'ATTERRISSAGE"
+                landingProgress < 0.6f -> "📱 PENCHEZ LÉGÈREMENT VERS VOUS"
+                else -> "🎉 EXCELLENT SAUT!"
+            }
+            canvas.drawText(instruction, w/2f, h * 0.3f, paint)
+            
+            // Bonus atterrissage en temps réel
             paint.textSize = 36f
-            paint.color = if (landingBonus > 5f) Color.GREEN else if (landingBonus > 0f) Color.YELLOW else Color.RED
-            canvas.drawText("Bonus atterrissage: +${landingBonus.toInt()}", w/2f, h * 0.4f, paint)
+            paint.color = if (landingBonus > 10f) Color.GREEN else if (landingBonus > 5f) Color.YELLOW else Color.RED
+            canvas.drawText("Bonus atterrissage: +${landingBonus.toInt()}", w/2f, h * 0.35f, paint)
+            
+            // Indication de phase
+            paint.textSize = 28f
+            paint.color = Color.CYAN
+            val phaseText = when {
+                landingProgress < 0.4f -> "Phase: Approche"
+                landingProgress < 0.6f -> "Phase: Impact"
+                else -> "Phase: Célébration"
+            }
+            canvas.drawText(phaseText, w/2f, h * 0.4f, paint)
         }
         
         private fun drawResults(canvas: Canvas, w: Int, h: Int) {
