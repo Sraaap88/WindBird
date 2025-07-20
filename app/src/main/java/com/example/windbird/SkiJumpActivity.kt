@@ -989,7 +989,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             
             paint.color = Color.WHITE
             paint.textSize = 60f
-            paint.textAlign = Color.CENTER
+            paint.textAlign = Paint.Align.CENTER
             canvas.drawText("🎿 Distance: ${jumpDistance.toInt()}m", w/2f, h * 0.5f, paint)
             canvas.drawText("⚡ Vitesse: ${speed.toInt()} km/h", w/2f, h * 0.55f, paint)
             canvas.drawText("⚖️ Stabilité: ${(stability * 100).toInt()}%", w/2f, h * 0.6f, paint)
