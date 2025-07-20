@@ -255,8 +255,8 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     }
     
     private fun handleLanding() {
-        // Atterrissage - pencher légèrement vers l'avant pour un bon atterrissage - ANGLE RÉDUIT DE 30%
-        if (tiltY > 0.07f && tiltY < 0.35f && abs(tiltX) < 0.21f) { // RÉDUIT de 0.1f/0.5f/0.3f (30% moins sensible)
+        // Atterrissage - pencher vers soi pour un bon atterrissage - LOGIQUE CORRIGÉE
+        if (tiltY < -0.07f && tiltY > -0.35f && abs(tiltX) < 0.21f) { // INVERSÉ: tiltY négatif = pencher vers soi
             landingBonus += 1.0f
         } else {
             landingBonus -= 0.5f
