@@ -493,17 +493,17 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             // Foule qui applaudit
             drawCrowd(canvas, w, h)
             
-            // Drapeau du pays du joueur actuel
+            // Drapeau du pays du joueur actuel - ÉNORME
             val playerCountry = tournamentData.playerCountries[currentPlayerIndex]
             val flag = getCountryFlag(playerCountry)
             
             paint.color = Color.WHITE
-            paint.textSize = 100f // Drapeau énorme
+            paint.textSize = 180f // ÉNORME - était 100f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText(flag, w/2f, h * 0.2f, paint)
+            canvas.drawText(flag, w/2f, h * 0.18f, paint)
             
-            // Nom du pays sous le drapeau
-            paint.textSize = 36f // TEXTE PLUS GROS
+            // Nom du pays sous le drapeau - PLUS GROS
+            paint.textSize = 48f // AUGMENTÉ de 36f
             canvas.drawText(playerCountry.uppercase(), w/2f, h * 0.25f, paint)
             
             // Instructions centrales - TEXTE PLUS GROS
@@ -527,32 +527,32 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         private fun drawTrees(canvas: Canvas, w: Int, h: Int) {
             paint.color = Color.parseColor("#228B22") // Vert sapin
             
-            // Arbres à gauche
+            // Arbres à gauche - PLUS GROS
             for (i in 1..3) {
                 val treeX = w * 0.1f
                 val treeY = h * (0.4f + i * 0.15f)
-                drawTree(canvas, treeX, treeY, 30f)
+                drawTree(canvas, treeX, treeY, 60f) // DOUBLÉ de 30f
             }
             
-            // Arbres à droite
+            // Arbres à droite - PLUS GROS
             for (i in 1..3) {
                 val treeX = w * 0.9f
                 val treeY = h * (0.4f + i * 0.15f)
-                drawTree(canvas, treeX, treeY, 30f)
+                drawTree(canvas, treeX, treeY, 60f) // DOUBLÉ de 30f
             }
         }
         
         private fun drawTree(canvas: Canvas, x: Float, y: Float, size: Float) {
-            // Tronc
+            // Tronc - PLUS GROS
             paint.color = Color.parseColor("#8B4513")
-            canvas.drawRect(x - size/6, y, x + size/6, y + size/2, paint)
+            canvas.drawRect(x - size/4, y, x + size/4, y + size/2, paint) // PLUS LARGE
             
-            // Feuillage (triangle)
+            // Feuillage (triangle) - PLUS GROS
             paint.color = Color.parseColor("#228B22")
             val path = Path()
             path.moveTo(x, y - size/2)
-            path.lineTo(x - size/2, y)
-            path.lineTo(x + size/2, y)
+            path.lineTo(x - size/1.5f, y) // PLUS LARGE
+            path.lineTo(x + size/1.5f, y)
             path.close()
             canvas.drawPath(path, paint)
         }
@@ -617,8 +617,8 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             val skierY = h * (0.85f - combinedProgress * 0.7f)
             val skierX = w / 2f
             
-            // Taille qui diminue en remontant (effet de perspective)
-            val scale = 1.5f - combinedProgress * 0.5f  // Commence gros, devient plus petit
+            // Taille qui diminue BEAUCOUP en remontant (effet de perspective fort)
+            val scale = 0.8f - combinedProgress * 0.6f  // Commence à 0.8, finit à 0.2 (très petit)
             
             skierBitmap?.let { bmp ->
                 val dstRect = RectF(
