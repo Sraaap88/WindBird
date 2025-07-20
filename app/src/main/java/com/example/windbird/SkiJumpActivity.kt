@@ -352,6 +352,48 @@ class SkiJumpActivity : Activity(), SensorEventListener {
 
     inner class SkiJumpView(context: Context) : View(context) {
         private val paint = Paint()
+        
+        // Variables pour le sprite sheet
+        private var skierBitmap: Bitmap? = null
+        private val spriteCols = 4  // 4 colonnes dans votre sprite sheet
+        private val spriteRows = 4  // 4 rangées dans votre sprite sheet
+        private val totalFrames = 16  // 4x4 = 16 frames
+        private var frameWidth = 0
+        private var frameHeight = 0
+        
+        init {
+            // Créer un bitmap générique avec du code puisqu'on n'a pas accès au sprite sheet
+            // En production, remplacez cette ligne par :
+            // skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_sprite_sheet)
+            skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_sprite_sheet)
+            skierBitmap?.let {
+            frameWidth = it.width / spriteCols
+            frameHeight = it.height / spriteRows
+}
+        }
+        
+        private fun createFallbackSkierBitmap() {
+            // Créer un bitmap de substitution 200x200 pixels (4x4 frames de 50x50)
+            skierBitmap = Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(skierBitmap!!)
+            val tempPaint = Paint().apply {
+                color = Color.parseColor("#FF4444")
+                style = Paint.Style.FILL
+            }
+            
+            // Dessiner 16 frames simples (cercles avec légères variations)
+            for (row in 0 until spriteRows) {
+                for (col in 0 until spriteCols) {
+                    val x = col * 50 + 25  // Centre de chaque frame 50x50
+                    val y = row * 50 + 25
+                    val radius = 15f + ((row * 4 + col) % 3) * 2f  // Variation de taille
+                    canvas.drawCircle(x.toFloat(), y.toFloat(), radius, tempPaint)
+                }
+            }
+            
+            frameWidth = 50
+            frameHeight = 50
+        }
 
         override fun onDraw(canvas: Canvas) {
             val w = canvas.width
@@ -423,6 +465,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         private fun drawApproach(canvas: Canvas, w: Int, h: Int) {
             // VUE DE HAUT - Tremplin en perspective
             paint.color = Color.parseColor("#87CEEB")
+            paint.style = Paint.Style.FILL
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
             // Tremplin en perspective (vue de haut)
@@ -437,18 +480,39 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             
             // Lignes de vitesse sur les côtés - PLUS LENTES
             paint.color = Color.parseColor("#CCCCCC")
+            paint.strokeWidth = 2f
+            paint.style = Paint.Style.STROKE
             for (i in 1..10) {
                 val lineY = h - (i * h * 0.08f) + (phaseTimer * 10f) % (h * 0.08f) // RÉDUIT de 20f
                 canvas.drawLine(w * 0.4f, lineY, w * 0.6f, lineY, paint)
             }
             
-            // Skieur qui descend (grossit en descendant)
+            // Réinitialiser le style pour le sprite
+            paint.style = Paint.Style.FILL
+            
+            // NOUVEAU: Skieur avec sprite sheet au lieu d'un simple cercle
             val skierProgress = phaseTimer / approachDuration
             val skierY = h * (1f - skierProgress * 0.8f)
-            val skierSize = 15f + skierProgress * 25f // PLUS GROS
+            val skierX = w / 2f
             
-            paint.color = Color.parseColor("#FF4444")
-            canvas.drawCircle(w/2f, skierY, skierSize, paint)
+            // Animation frame basée sur le temps
+            val frameIndex = ((phaseTimer * 8f) % totalFrames).toInt()  // 8 FPS d'animation
+            val srcX = (frameIndex % spriteCols) * frameWidth
+            val srcY = (frameIndex / spriteCols) * frameHeight
+            val srcRect = Rect(srcX, srcY, srcX + frameWidth, srcY + frameHeight)
+            
+            // Taille à l'écran (augmente en descendant pour effet de perspective)
+            val scale = 1.5f + skierProgress * 1.0f  // Commence petit, grandit
+            val dstRect = RectF(
+                skierX - frameWidth * scale / 2f,
+                skierY - frameHeight * scale / 2f,
+                skierX + frameWidth * scale / 2f,
+                skierY + frameHeight * scale / 2f
+            )
+            
+            skierBitmap?.let { bmp ->
+                canvas.drawBitmap(bmp, srcRect, dstRect, paint)
+            }
             
             // Barre de vitesse ÉNORME
             drawSpeedMeter(canvas, w, h)
@@ -463,6 +527,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         private fun drawTakeoff(canvas: Canvas, w: Int, h: Int) {
             // VUE DE PROFIL - Moment dramatique
             paint.color = Color.parseColor("#87CEEB")
+            paint.style = Paint.Style.FILL
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
             // Tremplin courbé (vue de profil)
@@ -476,18 +541,42 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             rampPath.close()
             canvas.drawPath(rampPath, paint)
             
-            // Skieur au bord du tremplin - PLUS GROS
+            // NOUVEAU: Skieur avec sprite au moment du décollage
             val skierX = w * 0.85f
             val skierY = h * 0.4f
             
-            paint.color = Color.parseColor("#FF4444")
-            canvas.drawRect(skierX - 20f, skierY - 40f, skierX + 20f, skierY, paint) // PLUS GROS
+            // Frame spécifique pour le décollage (peut être une frame différente)
+            val frameIndex = (totalFrames * 0.75f).toInt()  // Utilise une frame vers la fin
+            val srcX = (frameIndex % spriteCols) * frameWidth
+            val srcY = (frameIndex / spriteCols) * frameHeight
+            val srcRect = Rect(srcX, srcY, srcX + frameWidth, srcY + frameHeight)
             
-            // Effet de ralenti avec trails
-            paint.color = Color.parseColor("#66FF4444")
-            for (i in 1..5) {
-                canvas.drawRect(skierX - 20f - i * 12f, skierY - 40f, skierX + 20f - i * 12f, skierY, paint) // PLUS GROS
+            val scale = 2.0f
+            val dstRect = RectF(
+                skierX - frameWidth * scale / 2f,
+                skierY - frameHeight * scale / 2f,
+                skierX + frameWidth * scale / 2f,
+                skierY + frameHeight * scale / 2f
+            )
+            
+            skierBitmap?.let { bmp ->
+                canvas.drawBitmap(bmp, srcRect, dstRect, paint)
             }
+            
+            // Effet de ralenti avec trails du sprite
+            paint.alpha = 100
+            for (i in 1..5) {
+                val trailRect = RectF(
+                    skierX - frameWidth * scale / 2f - i * 12f,
+                    skierY - frameHeight * scale / 2f,
+                    skierX + frameWidth * scale / 2f - i * 12f,
+                    skierY + frameHeight * scale / 2f
+                )
+                skierBitmap?.let { bmp ->
+                    canvas.drawBitmap(bmp, srcRect, trailRect, paint)
+                }
+            }
+            paint.alpha = 255
             
             // Barre de puissance de décollage ÉNORME
             drawTakeoffPowerMeter(canvas, w, h)
@@ -506,6 +595,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         private fun drawFlight(canvas: Canvas, w: Int, h: Int) {
             // VUE DE BIAIS - Parfait pour voir déséquilibres
             paint.color = Color.parseColor("#87CEEB")
+            paint.style = Paint.Style.FILL
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
             // Montagnes qui défilent - PLUS LENT
@@ -522,7 +612,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             mountainPath.close()
             canvas.drawPath(mountainPath, paint)
             
-            // SKIEUR EN GRAND - Vue de biais pour voir déséquilibres - PLUS GROS
+            // NOUVEAU: Skieur en vol avec sprite qui montre les déséquilibres
             val centerX = w / 2f
             val centerY = h / 2f
             
@@ -532,29 +622,23 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             // Rotation selon gyroscope pour montrer déséquilibre - MOINS INTENSE
             canvas.rotate(tiltX * 10f + tiltZ * 5f) // RÉDUIT de 20f et 10f
             
-            // Corps du skieur - PLUS GROS et visible
-            paint.color = Color.parseColor("#FF4444")
-            canvas.drawRect(-35f, -80f, 35f, 80f, paint) // PLUS GROS
+            // Frame d'animation pour le vol
+            val frameIndex = ((phaseTimer * 6f) % totalFrames).toInt()  // Animation plus lente en vol
+            val srcX = (frameIndex % spriteCols) * frameWidth
+            val srcY = (frameIndex / spriteCols) * frameHeight
+            val srcRect = Rect(srcX, srcY, srcX + frameWidth, srcY + frameHeight)
             
-            // Tête
-            paint.color = Color.parseColor("#FFAA88")
-            canvas.drawCircle(0f, -100f, 25f, paint) // PLUS GROSSE
+            val scale = 3.0f  // Plus gros pour mieux voir en vol
+            val dstRect = RectF(
+                -frameWidth * scale / 2f,
+                -frameHeight * scale / 2f,
+                frameWidth * scale / 2f,
+                frameHeight * scale / 2f
+            )
             
-            // Skis - montrent le tangage - PLUS GROS
-            paint.color = Color.YELLOW
-            paint.strokeWidth = 15f // AUGMENTÉ de 12f
-            paint.style = Paint.Style.STROKE
-            canvas.save()
-            canvas.rotate(tiltY * 20f) // RÉDUIT de 30f - Tangage moins intense sur les skis
-            canvas.drawLine(-20f, 60f, -20f, 140f, paint) // PLUS LONG
-            canvas.drawLine(20f, 60f, 20f, 140f, paint)
-            canvas.restore()
-            
-            // Bras qui montrent l'équilibre - PLUS GROS
-            paint.color = Color.parseColor("#FF4444")
-            paint.strokeWidth = 10f // AUGMENTÉ de 8f
-            canvas.drawLine(-35f, -40f, -50f - tiltZ * 15f, -15f, paint) // MOINS SENSIBLE
-            canvas.drawLine(35f, -40f, 50f + tiltZ * 15f, -15f, paint)
+            skierBitmap?.let { bmp ->
+                canvas.drawBitmap(bmp, srcRect, dstRect, paint)
+            }
             
             canvas.restore()
             
@@ -571,6 +655,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         private fun drawLanding(canvas: Canvas, w: Int, h: Int) {
             // VUE DE FACE/LÉGÈREMENT EN BIAIS - Impact dramatique
             paint.color = Color.parseColor("#87CEEB")
+            paint.style = Paint.Style.FILL
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
             // Piste d'atterrissage en perspective
@@ -587,18 +672,36 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#666666")
             paint.textSize = 20f // AUGMENTÉ de 16f
             paint.textAlign = Paint.Align.CENTER
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 2f
             for (i in 1..5) {
                 val markX = w * 0.2f + i * (w * 0.6f / 5f)
                 canvas.drawLine(markX, h * 0.8f, markX, h * 0.85f, paint)
                 canvas.drawText("${i * 20}m", markX, h * 0.87f, paint)
             }
             
-            // Skieur qui atterrit - PLUS GROS
+            // NOUVEAU: Skieur qui atterrit avec sprite
             val skierX = w * (0.2f + (jumpDistance / 120f) * 0.6f)
             val skierY = h * 0.75f
             
-            paint.color = Color.parseColor("#FF4444")
-            canvas.drawRect(skierX - 25f, skierY - 50f, skierX + 25f, skierY, paint) // PLUS GROS
+            // Frame d'atterrissage
+            val frameIndex = (totalFrames * 0.9f).toInt()  // Frame vers la fin pour l'atterrissage
+            val srcX = (frameIndex % spriteCols) * frameWidth
+            val srcY = (frameIndex / spriteCols) * frameHeight
+            val srcRect = Rect(srcX, srcY, srcX + frameWidth, srcY + frameHeight)
+            
+            val scale = 2.5f
+            val dstRect = RectF(
+                skierX - frameWidth * scale / 2f,
+                skierY - frameHeight * scale / 2f,
+                skierX + frameWidth * scale / 2f,
+                skierY + frameHeight * scale / 2f
+            )
+            
+            paint.style = Paint.Style.FILL
+            skierBitmap?.let { bmp ->
+                canvas.drawBitmap(bmp, srcRect, dstRect, paint)
+            }
             
             // Explosion de neige à l'impact - PLUS GROS
             paint.color = Color.WHITE
@@ -625,6 +728,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         private fun drawResults(canvas: Canvas, w: Int, h: Int) {
             // VUE PANORAMIQUE - Belle vue d'ensemble
             paint.color = Color.parseColor("#87CEEB")
+            paint.style = Paint.Style.FILL
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
             // Fond doré pour les résultats
@@ -660,6 +764,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         private fun drawSpeedMeter(canvas: Canvas, w: Int, h: Int) {
             // Barre de vitesse énorme sur le côté droit - PLUS GROSSE
             paint.color = Color.parseColor("#333333")
+            paint.style = Paint.Style.FILL
             canvas.drawRect(w - 100f, 120f, w - 30f, h - 120f, paint) // PLUS LARGE
             
             paint.color = Color.GREEN
@@ -677,6 +782,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         private fun drawTakeoffPowerMeter(canvas: Canvas, w: Int, h: Int) {
             // Barre de puissance de décollage énorme - PLUS GROSSE
             paint.color = Color.parseColor("#333333")
+            paint.style = Paint.Style.FILL
             canvas.drawRect(120f, h - 100f, w - 120f, h - 30f, paint) // PLUS HAUTE
             
             paint.color = if (takeoffPower > 70f) Color.GREEN else if (takeoffPower > 40f) Color.YELLOW else Color.RED
@@ -694,6 +800,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             
             // Indicateur global de stabilité - ÉNORME
             paint.color = Color.parseColor("#333333")
+            paint.style = Paint.Style.FILL
             canvas.drawRect(60f, baseY, 300f, baseY + 50f, paint) // PLUS GROS
             
             paint.color = if (stability > 0.8f) Color.GREEN else if (stability > 0.5f) Color.YELLOW else Color.RED
@@ -714,6 +821,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         private fun drawSnowParticles(canvas: Canvas, w: Int, h: Int) {
             paint.color = Color.WHITE
             paint.alpha = 180
+            paint.style = Paint.Style.FILL
             for (particle in particles) {
                 canvas.drawCircle(particle.x, particle.y, particle.size, paint)
             }
