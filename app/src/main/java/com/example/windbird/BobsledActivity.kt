@@ -419,6 +419,13 @@ class BobsledActivity : Activity(), SensorEventListener {
         private var bobFinishLineBitmap: Bitmap? = null
         private var bobCelebrationBitmap: Bitmap? = null
         
+        // Images des drapeaux
+        private var flagCanadaBitmap: Bitmap? = null
+        private var flagUsaBitmap: Bitmap? = null
+        private var flagFranceBitmap: Bitmap? = null
+        private var flagNorvegeBitmap: Bitmap? = null
+        private var flagJapanBitmap: Bitmap? = null
+        
         init {
             try {
                 bobsledPreparationBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobsled_preparation)
@@ -428,6 +435,13 @@ class BobsledActivity : Activity(), SensorEventListener {
                 bobRightBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobnv_right)
                 bobFinishLineBitmap = BitmapFactory.decodeResource(resources, R.drawable.bob_finish_line)
                 bobCelebrationBitmap = BitmapFactory.decodeResource(resources, R.drawable.bob_celebration)
+                
+                // Charger les drapeaux
+                flagCanadaBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_canada)
+                flagUsaBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_usa)
+                flagFranceBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_france)
+                flagNorvegeBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_norvege)
+                flagJapanBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_japan)
             } catch (e: Exception) {
                 createFallbackBobsledBitmaps()
             }
@@ -531,6 +545,7 @@ class BobsledActivity : Activity(), SensorEventListener {
                 canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             }
             
+            // Rectangle blanc pour le drapeau
             paint.color = Color.WHITE
             val flagRect = RectF(50f, 50f, 300f, 200f)
             canvas.drawRect(flagRect, paint)
@@ -541,15 +556,44 @@ class BobsledActivity : Activity(), SensorEventListener {
             canvas.drawRect(flagRect, paint)
             paint.style = Paint.Style.FILL
             
-            val playerCountry = tournamentData.playerCountries[currentPlayerIndex]
-            val flag = getCountryFlag(playerCountry)
+            // Chargement et affichage du drapeau selon le pays ou mode pratique
+            val playerCountry = if (practiceMode) {
+                "CANADA" // Toujours Canada en mode pratique
+            } else {
+                tournamentData.playerCountries[currentPlayerIndex]
+            }
             
+            val flagBitmap = when (playerCountry.uppercase()) {
+                "CANADA" -> flagCanadaBitmap
+                "USA", "ÉTATS-UNIS", "ETATS-UNIS" -> flagUsaBitmap
+                "FRANCE" -> flagFranceBitmap
+                "NORVÈGE", "NORWAY" -> flagNorvegeBitmap
+                "JAPON", "JAPAN" -> flagJapanBitmap
+                else -> flagCanadaBitmap // Fallback vers Canada
+            }
+            
+            // Afficher l'image du drapeau dans le rectangle
+            flagBitmap?.let { flag ->
+                val flagImageRect = RectF(
+                    flagRect.left + 10f,
+                    flagRect.top + 10f,
+                    flagRect.right - 10f,
+                    flagRect.bottom - 10f
+                )
+                canvas.drawBitmap(flag, null, flagImageRect, paint)
+            } ?: run {
+                // Fallback si l'image ne charge pas - afficher emoji au centre
+                val flag = getCountryFlag(playerCountry)
+                paint.color = Color.BLACK
+                paint.textSize = 120f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText(flag, flagRect.centerX(), flagRect.centerY() + 40f, paint)
+            }
+            
+            // Nom du pays sous le rectangle (plus d'emoji ici)
             paint.color = Color.BLACK
-            paint.textSize = 120f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText(flag, flagRect.centerX(), flagRect.centerY() + 40f, paint)
-            
             paint.textSize = 28f
+            paint.textAlign = Paint.Align.CENTER
             canvas.drawText(playerCountry.uppercase(), flagRect.centerX(), flagRect.bottom + 40f, paint)
             
             paint.textSize = 56f
