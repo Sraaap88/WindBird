@@ -634,7 +634,7 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
         
         private fun drawFullScreenTunnel(canvas: Canvas, w: Int, h: Int) {
-            // TUNNEL PLEIN ÉCRAN avec l'effet starfield !
+            // TUNNEL PLEIN ÉCRAN avec VRAIE sensation de vitesse !
             val centerX = w/2f + (tiltZ * w * 0.15f)
             val centerY = h/2f
             
@@ -642,12 +642,66 @@ class BobsledActivity : Activity(), SensorEventListener {
             paint.color = Color.rgb(10, 20, 40)
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
-            // EFFET TUNNEL AVEC 60 LIGNES RADIALES
+            // DÉCOR QUI DÉFILE EN ARRIÈRE-PLAN (arbres/montagnes)
+            val scenerySpeed = speed * 0.8f
+            val sceneryOffset = (phaseTimer * scenerySpeed) % (w * 2f)
+            
+            // Montagnes qui défilent
+            paint.color = Color.rgb(40, 60, 80)
+            for (i in -2..4) {
+                val mountainX = i * (w * 0.4f) - sceneryOffset
+                val mountainHeight = h * (0.3f + (i % 3) * 0.1f)
+                
+                val mountainPath = Path().apply {
+                    moveTo(mountainX - w * 0.3f, h * 0.4f)
+                    lineTo(mountainX, h * 0.4f - mountainHeight)
+                    lineTo(mountainX + w * 0.3f, h * 0.4f)
+                    close()
+                }
+                canvas.drawPath(mountainPath, paint)
+            }
+            
+            // Arbres qui défilent plus vite (plus proches)
+            paint.color = Color.rgb(20, 40, 20)
+            for (i in -3..6) {
+                val treeX = i * (w * 0.2f) - sceneryOffset * 1.5f
+                val treeHeight = h * 0.15f
+                
+                canvas.drawRect(treeX - 10f, h * 0.4f - treeHeight, treeX + 10f, h * 0.4f, paint)
+                
+                // Feuillage
+                paint.color = Color.rgb(30, 60, 30)
+                canvas.drawCircle(treeX, h * 0.4f - treeHeight, 25f, paint)
+                paint.color = Color.rgb(20, 40, 20)
+            }
+            
+            // LIGNES DE VITESSE QUI DÉFILENT (comme dans Star Wars)
+            val speedLineOffset = (phaseTimer * speed * 3f) % 100f
+            
+            for (i in 0..30) {
+                val lineY = (i * 30f - speedLineOffset) % h
+                if (lineY > h * 0.4f) {  // Seulement en dessous du décor
+                    val lineLength = 20f + (speed / maxSpeed) * 40f
+                    paint.color = Color.argb(150, 255, 255, 255)
+                    paint.strokeWidth = 2f
+                    canvas.drawLine(
+                        centerX - lineLength/2f,
+                        lineY,
+                        centerX + lineLength/2f,
+                        lineY,
+                        paint
+                    )
+                }
+            }
+            
+            // EFFET TUNNEL AVEC LIGNES RADIALES QUI BOUGENT
             val lineCount = 60
             val maxLength = h * 1.2f
+            val rotationSpeed = speed * 0.02f
+            val tunnelRotation = phaseTimer * rotationSpeed
             
             for (i in 0 until lineCount) {
-                val angle = (2.0 * PI / lineCount * i).toFloat()
+                val angle = (2.0 * PI / lineCount * i + tunnelRotation).toFloat()
                 val speedFactor = (speed / maxSpeed).coerceIn(0.3f, 1f)
                 val length = maxLength * speedFactor
                 
@@ -662,6 +716,20 @@ class BobsledActivity : Activity(), SensorEventListener {
                 canvas.drawLine(centerX, centerY, endX, endY, paint)
             }
             
+            // PARTICULES QUI FONCENT VERS NOUS (remplace les flocons)
+            val particleSpeed = speed * 4f
+            for (i in 0..20) {
+                val particleLife = (phaseTimer * particleSpeed + i * 50f) % (h + 200f)
+                val particleX = centerX + (i - 10) * 30f + sin(particleLife * 0.01f) * 20f
+                val particleY = h - particleLife
+                
+                if (particleY > h * 0.4f && particleY < h) {  // Visible area
+                    val particleSize = 2f + (h - particleY) / h * 6f  // Plus gros en s'approchant
+                    paint.color = Color.argb(200, 220, 220, 255)
+                    canvas.drawCircle(particleX, particleY, particleSize, paint)
+                }
+            }
+            
             // Effet de vibration quand ça va vite
             if (cameraShake > 0f) {
                 canvas.save()
@@ -671,10 +739,10 @@ class BobsledActivity : Activity(), SensorEventListener {
                 )
             }
             
-            // Flèches directionnelles ÉNORMES (si le tunnel est pas assez clair)
+            // Flèches directionnelles ÉNORMES
             if (abs(idealDirection) > 0.3f) {
                 paint.color = Color.YELLOW
-                paint.textSize = 120f  // ENCORE PLUS GROS !
+                paint.textSize = 120f
                 paint.textAlign = Paint.Align.CENTER
                 
                 val directionArrow = if (idealDirection < 0f) "⬅️" else "➡️"
@@ -709,7 +777,7 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
         
         private fun drawBeautifulFinishLine(canvas: Canvas, w: Int, h: Int) {
-            // BELLE TRAVERSÉE DE LIGNE D'ARRIVÉE
+            // VRAIE TRAVERSÉE DE LIGNE D'ARRIVÉE avec sensation de vitesse
             
             // Même fond tunnel mais plus clair
             paint.color = Color.rgb(20, 30, 60)
@@ -718,54 +786,91 @@ class BobsledActivity : Activity(), SensorEventListener {
             val centerX = w/2f
             val centerY = h/2f
             
-            // Effet tunnel atténué en arrière-plan
+            // LIGNE D'ARRIVÉE AVEC BANDES QUADRILLÉES QUI ARRIVENT VERS NOUS
+            val lineProgress = phaseTimer / finishLineDuration
+            val approachSpeed = speed * 8f  // Plus rapide pour l'effet
+            
+            // Bandes quadrillées qui foncent vers nous
+            for (i in 0..8) {
+                val bandDistance = (i * 150f - lineProgress * approachSpeed) % (h + 300f)
+                val bandY = h - bandDistance
+                
+                if (bandY > -50f && bandY < h + 50f) {
+                    // Perspective : plus c'est proche, plus c'est large
+                    val perspective = (h - bandDistance) / h.toFloat()
+                    val bandWidth = w * (0.1f + perspective * 0.9f)
+                    val bandHeight = 20f + perspective * 60f
+                    
+                    // Damier noir et blanc
+                    val segments = 8
+                    val segmentWidth = bandWidth / segments
+                    
+                    for (j in 0 until segments) {
+                        val color = if ((i + j) % 2 == 0) Color.WHITE else Color.BLACK
+                        paint.color = color
+                        paint.alpha = (255 * perspective.coerceAtMost(1f)).toInt()
+                        
+                        canvas.drawRect(
+                            centerX - bandWidth/2f + j * segmentWidth,
+                            bandY - bandHeight/2f,
+                            centerX - bandWidth/2f + (j + 1) * segmentWidth,
+                            bandY + bandHeight/2f,
+                            paint
+                        )
+                    }
+                    paint.alpha = 255
+                }
+            }
+            
+            // Effet tunnel en arrière-plan (plus subtil)
             val lineCount = 30
-            val maxLength = h * 0.8f
+            val maxLength = h * 0.6f
             
             for (i in 0 until lineCount) {
                 val angle = (2.0 * PI / lineCount * i).toFloat()
-                val length = maxLength * 0.6f  // Plus court pour l'arrière-plan
+                val length = maxLength * 0.4f
                 
                 val endX = centerX + cos(angle) * length
                 val endY = centerY + sin(angle) * length
                 
-                paint.color = Color.argb(60, 200, 200, 255)  // Très transparent
-                paint.strokeWidth = 2f
+                paint.color = Color.argb(40, 200, 200, 255)  // Très transparent
+                paint.strokeWidth = 1f
                 canvas.drawLine(centerX, centerY, endX, endY, paint)
             }
             
-            // LIGNE D'ARRIVÉE qui grandit depuis le centre
-            val lineProgress = phaseTimer / finishLineDuration
-            val lineSize = lineProgress * w * 1.5f
-            
-            // Cercles concentriques damier (effet de ligne qui arrive vers nous)
-            for (radius in 50..lineSize.toInt() step 60) {
-                val ringIndex = (radius / 60) % 2
-                val color = if (ringIndex == 0) Color.WHITE else Color.BLACK
-                
-                paint.color = color
-                paint.alpha = (255 * (1f - radius / lineSize)).toInt().coerceIn(0, 255)
-                paint.strokeWidth = 30f
-                paint.style = Paint.Style.STROKE
-                canvas.drawCircle(centerX, centerY, radius.toFloat(), paint)
-            }
-            paint.alpha = 255
-            paint.style = Paint.Style.FILL
-            
-            // GROS TEXTE FINISH
+            // GROS TEXTE FINISH qui grossit
+            val textScale = 1f + lineProgress * 0.5f
             paint.color = Color.YELLOW
-            paint.textSize = 100f
+            paint.textSize = 80f * textScale
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("🏁", centerX, centerY - 50f, paint)
+            canvas.drawText("🏁", centerX, centerY - 30f, paint)
             
             paint.color = Color.WHITE
-            paint.textSize = 60f
-            canvas.drawText("FINISH!", centerX, centerY + 80f, paint)
+            paint.textSize = 40f * textScale
+            canvas.drawText("FINISH LINE!", centerX, centerY + 60f, paint)
             
-            // Vitesse finale
-            paint.textSize = 80f
-            paint.color = Color.GREEN
-            canvas.drawText("${speed.toInt()} KM/H", centerX, h - 100f, paint)
+            // Vitesse finale qui clignote
+            val blinkIntensity = (sin(phaseTimer * 8f) * 0.5f + 0.5f)
+            paint.textSize = 60f
+            paint.color = Color.argb((255 * blinkIntensity).toInt(), 0, 255, 0)
+            canvas.drawText("${speed.toInt()} KM/H", centerX, h - 80f, paint)
+            
+            // Effet de particules qui explosent
+            if (lineProgress > 0.7f) {
+                val explosionProgress = (lineProgress - 0.7f) / 0.3f
+                
+                for (i in 0..15) {
+                    val angle = (2.0 * PI / 15 * i).toFloat()
+                    val radius = explosionProgress * 200f
+                    val particleX = centerX + cos(angle) * radius
+                    val particleY = centerY + sin(angle) * radius
+                    
+                    paint.color = Color.YELLOW
+                    paint.alpha = ((1f - explosionProgress) * 255).toInt()
+                    canvas.drawCircle(particleX, particleY, 6f, paint)
+                }
+                paint.alpha = 255
+            }
         }
         
         private fun drawBeautifulCelebration(canvas: Canvas, w: Int, h: Int) {
@@ -933,12 +1038,16 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
         
         private fun drawIceParticles(canvas: Canvas, w: Int, h: Int) {
-            paint.color = Color.parseColor("#CCEEEE")
-            paint.alpha = 200
-            for (particle in iceParticles) {
-                canvas.drawCircle(particle.x, particle.y, particle.size, paint)
+            // ON N'AFFICHE LES FLOCONS QUE PENDANT LA PRÉPARATION ET LA POUSSÉE
+            // Pas pendant la descente pour éviter de ruiner l'effet de vitesse
+            if (gameState == GameState.PREPARATION || gameState == GameState.PUSH_START) {
+                paint.color = Color.parseColor("#CCEEEE")
+                paint.alpha = 200
+                for (particle in iceParticles) {
+                    canvas.drawCircle(particle.x, particle.y, particle.size, paint)
+                }
+                paint.alpha = 255
             }
-            paint.alpha = 255
         }
     }
 
