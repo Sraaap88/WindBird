@@ -408,22 +408,11 @@ class BobsledActivity : Activity(), SensorEventListener {
 
     private fun getCountryFlag(country: String): String {
         return when (country.uppercase()) {
-            "FRANCE" -> "🇫🇷"
             "CANADA" -> "🇨🇦"
-            "USA", "ÉTATS-UNIS", "ETATS-UNIS" -> "🇺🇸"
-            "ALLEMAGNE", "GERMANY" -> "🇩🇪"
-            "ITALIE", "ITALY" -> "🇮🇹"
-            "SUISSE", "SWITZERLAND" -> "🇨🇭"
-            "AUTRICHE", "AUSTRIA" -> "🇦🇹"
-            "NORVÈGE", "NORWAY" -> "🇳🇴"
-            "SUÈDE", "SWEDEN" -> "🇸🇪"
-            "FINLANDE", "FINLAND" -> "🇫🇮"
-            "JAPON", "JAPAN" -> "🇯🇵"
-            "CORÉE", "KOREA" -> "🇰🇷"
-            "RUSSIE", "RUSSIA" -> "🇷🇺"
-            "POLOGNE", "POLAND" -> "🇵🇱"
-            "SLOVÉNIE", "SLOVENIA" -> "🇸🇮"
-            "RÉPUBLIQUE TCHÈQUE", "CZECH REPUBLIC" -> "🇨🇿"
+            "FRANCE" -> "🇫🇷"
+            "USA" -> "🇺🇸"
+            "NORVÈGE" -> "🇳🇴"
+            "JAPON" -> "🇯🇵"
             else -> "🏴"
         }
     }
@@ -586,10 +575,10 @@ class BobsledActivity : Activity(), SensorEventListener {
             
             val flagBitmap = when (playerCountry.uppercase()) {
                 "CANADA" -> flagCanadaBitmap
-                "USA", "ÉTATS-UNIS", "ETATS-UNIS" -> flagUsaBitmap
+                "USA" -> flagUsaBitmap
                 "FRANCE" -> flagFranceBitmap
-                "NORVÈGE", "NORWAY" -> flagNorvegeBitmap
-                "JAPON", "JAPAN" -> flagJapanBitmap
+                "NORVÈGE" -> flagNorvegeBitmap
+                "JAPON" -> flagJapanBitmap
                 else -> flagCanadaBitmap // Fallback vers Canada
             }
             
