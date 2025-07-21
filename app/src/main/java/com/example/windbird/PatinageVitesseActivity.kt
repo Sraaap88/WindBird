@@ -14,7 +14,6 @@ import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.view.ViewGroup
-import android.os.SystemClock
 import kotlin.math.*
 
 class PatinageVitesseActivity : Activity(), SensorEventListener {
@@ -25,48 +24,46 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     private var sensorManager: SensorManager? = null
     private var gyroscope: Sensor? = null
 
-    // Variables de gameplay PATINAGE - RALENTI
+    // Variables de gameplay EXACTEMENT comme Winter Games 1985
     private var gameState = GameState.PREPARATION
     private var phaseTimer = 0f
     
-    // Phases avec durées PLUS LONGUES et accessibles
-    private val preparationDuration = 8f
-    private val raceDuration = 35f
-    private val sprintDuration = 15f
-    private val resultsDuration = 8f
+    // Phases comme Winter Games
+    private val preparationDuration = 5f
+    private val countdownDuration = 3f
+    private val raceDuration = 30f // Course de 250m
+    private val resultsDuration = 6f
     
-    // Variables de course
-    private var speed = 0f
-    private var maxSpeed = 45f
-    private var distance = 0f
-    private var totalDistance = 1000f
-    private var rhythm = 0f
-    private var energy = 100f
-    private var technique = 100f
+    // Variables de course - Style Winter Games
+    private var playerDistance = 0f
+    private var aiDistance = 0f
+    private val totalDistance = 250f // 250 mètres exactement comme Winter Games
+    private var playerSpeed = 0f
+    private var aiSpeed = 0f
     
-    // Position sur la piste ovale
-    private var lapProgress = 0f
-    private var currentLap = 1
-    private val totalLaps = 4
-    
-    // Contrôles gyroscope pour patinage alterné - SENSIBILITÉ RÉDUITE
-    private var tiltX = 0f
-    private var tiltY = 0f
-    private var tiltZ = 0f
-    private var lastStroke = 0L
+    // Animation et rythme - CLÉ DE L'EXPÉRIENCE WINTER GAMES
+    private var playerAnimFrame = 0
+    private var aiAnimFrame = 0
+    private var lastStrokeTime = 0L
+    private var playerRhythm = 0f
     private var strokeCount = 0
-    private var leftStroke = true
     private var perfectStrokes = 0
+    
+    // Contrôles gyroscope - rythme gauche/droite
+    private var tiltX = 0f
+    private var lastTiltDirection = 0 // -1 = gauche, 1 = droite, 0 = neutre
+    private var expectingLeft = true // alternance obligatoire
     
     // Performance et résultats
     private var raceTime = 0f
+    private var playerFinished = false
+    private var aiFinished = false
     private var finalScore = 0
     private var scoreCalculated = false
     
-    // Effets visuels
-    private var cameraShake = 0f
-    private val iceTrails = mutableListOf<IceTrail>()
-    private val sparkles = mutableListOf<IceSparkle>()
+    // IA du patineur adverse
+    private var aiStrokeTimer = 0f
+    private val aiStrokeInterval = 0.4f // Rythme IA
 
     private lateinit var tournamentData: TournamentData
     private var eventIndex: Int = 0
@@ -90,10 +87,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         statusText = TextView(this).apply {
-            text = "⛸️ PATINAGE VITESSE - ${tournamentData.playerNames[currentPlayerIndex]}"
+            text = "⛸️ PATINAGE VITESSE 250M - ${tournamentData.playerNames[currentPlayerIndex]}"
             setTextColor(Color.WHITE)
-            textSize = 22f
-            setBackgroundColor(Color.parseColor("#001133"))
+            textSize = 24f
+            setBackgroundColor(Color.parseColor("#000066"))
             setPadding(25, 20, 25, 20)
         }
 
@@ -109,26 +106,25 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     private fun initializeGame() {
         gameState = GameState.PREPARATION
         phaseTimer = 0f
-        speed = 0f
-        distance = 0f
-        rhythm = 0f
-        energy = 100f
-        technique = 100f
-        tiltX = 0f
-        tiltY = 0f
-        tiltZ = 0f
-        lastStroke = 0L
+        playerDistance = 0f
+        aiDistance = 0f
+        playerSpeed = 0f
+        aiSpeed = 0f
+        playerAnimFrame = 0
+        aiAnimFrame = 0
+        lastStrokeTime = 0L
+        playerRhythm = 0f
         strokeCount = 0
-        leftStroke = true
         perfectStrokes = 0
-        lapProgress = 0f
-        currentLap = 1
+        tiltX = 0f
+        lastTiltDirection = 0
+        expectingLeft = true
         raceTime = 0f
+        playerFinished = false
+        aiFinished = false
         finalScore = 0
         scoreCalculated = false
-        cameraShake = 0f
-        iceTrails.clear()
-        sparkles.clear()
+        aiStrokeTimer = 0f
     }
 
     override fun onResume() {
@@ -145,177 +141,161 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         if (event.sensor.type != Sensor.TYPE_GYROSCOPE) return
 
         tiltX = event.values[0]
-        tiltY = event.values[1]
-        tiltZ = event.values[2]
 
-        // Progression du jeu PLUS LENTE
+        // Progression du jeu
         phaseTimer += 0.025f
-        if (gameState == GameState.RACE || gameState == GameState.SPRINT) {
+        if (gameState == GameState.RACE) {
             raceTime += 0.025f
         }
 
         when (gameState) {
             GameState.PREPARATION -> handlePreparation()
+            GameState.COUNTDOWN -> handleCountdown() 
             GameState.RACE -> handleRace()
-            GameState.SPRINT -> handleSprint()
             GameState.RESULTS -> handleResults()
             GameState.FINISHED -> {}
         }
 
-        updateEffects()
         updateStatus()
         gameView.invalidate()
     }
     
     private fun handlePreparation() {
         if (phaseTimer >= preparationDuration) {
+            gameState = GameState.COUNTDOWN
+            phaseTimer = 0f
+        }
+    }
+    
+    private fun handleCountdown() {
+        if (phaseTimer >= countdownDuration) {
             gameState = GameState.RACE
             phaseTimer = 0f
+            raceTime = 0f
         }
     }
     
     private fun handleRace() {
-        // PATINAGE ALTERNÉ - Le cœur du gameplay !
-        handleSkatingMovement()
-        
-        // Progression sur la piste
-        updateRaceProgress()
-        
-        // Gestion de l'énergie et technique
-        updatePerformanceStats()
-        
-        // Transition vers sprint final - PLUS TARD
-        if (currentLap >= totalLaps - 1 && lapProgress > 0.8f) {
-            gameState = GameState.SPRINT
-            phaseTimer = 0f
-            cameraShake = 0.3f
-        }
-    }
-    
-    private fun handleSkatingMovement() {
-        val currentTime = System.currentTimeMillis()
-        val minStrokeInterval = 400L
-        
-        // Détection des mouvements de patinage alternés - SENSIBILITÉ RÉDUITE
-        if (currentTime - lastStroke > minStrokeInterval) {
-            var strokeDetected = false
-            var strokePower = 0f
-            
-            if (leftStroke && tiltX < -0.6f && abs(tiltY) < 0.4f) {
-                // Poussée pied gauche
-                strokeDetected = true
-                strokePower = calculateStrokePower(tiltX, tiltY, tiltZ)
-                leftStroke = false
-                
-            } else if (!leftStroke && tiltX > 0.6f && abs(tiltY) < 0.4f) {
-                // Poussée pied droit
-                strokeDetected = true
-                strokePower = calculateStrokePower(tiltX, tiltY, tiltZ)
-                leftStroke = true
-            }
-            
-            if (strokeDetected) {
-                lastStroke = currentTime
-                strokeCount++
-                
-                // Augmentation de vitesse basée sur la technique - PLUS MODÉRÉE
-                speed += strokePower * (technique / 100f) * 2f
-                
-                // Bonus pour rythme régulier
-                updateRhythm()
-                
-                // Évaluation de la technique - SEUIL PLUS BAS
-                if (strokePower > 0.7f) {
-                    perfectStrokes++
-                    generateSparkles()
-                }
-                
-                // Traces sur la glace
-                addIceTrail()
-                
-                // Coût en énergie - RÉDUIT
-                energy -= 1f
-            }
-        }
-        
-        // Décélération naturelle PLUS LENTE
-        speed *= 0.985f
-        speed = speed.coerceIn(0f, maxSpeed)
-        
-        // Pénalité pour manque d'énergie MOINS SÉVÈRE
-        if (energy < 20f) {
-            speed *= 0.97f
-        }
-    }
-    
-    private fun calculateStrokePower(x: Float, y: Float, z: Float): Float {
-        val tiltPower = abs(x).coerceIn(0.6f, 1.5f) / 1.5f
-        val stabilityBonus = 1f - (abs(y) + abs(z)) / 3f
-        return (tiltPower * stabilityBonus.coerceIn(0.4f, 1f))
-    }
-    
-    private fun updateRhythm() {
-        val currentTime = System.currentTimeMillis()
-        val idealInterval = 500L
-        val actualInterval = currentTime - lastStroke
-        
-        val rhythmAccuracy = 1f - abs(actualInterval - idealInterval) / idealInterval.toFloat()
-        rhythm = (rhythm * 0.85f + rhythmAccuracy.coerceIn(0f, 1f) * 0.15f)
-        
-        // Bonus de vitesse pour bon rythme - PLUS GÉNÉREUX
-        if (rhythm > 0.6f) {
-            speed += 0.8f
-        }
-    }
-    
-    private fun updateRaceProgress() {
-        // Progression sur la piste ovale - PLUS LENTE
-        val progressSpeed = speed * 0.006f
-        lapProgress += progressSpeed
-        
-        if (lapProgress >= 1f) {
-            lapProgress = 0f
-            currentLap++
-            
-            if (currentLap <= totalLaps) {
-                // Récupération légère entre les tours - PLUS GÉNÉREUSE
-                energy += 8f
-                energy = energy.coerceIn(0f, 100f)
-            }
-        }
-        
-        distance = ((currentLap - 1) + lapProgress) * 250f // 250m par tour
-    }
-    
-    private fun updatePerformanceStats() {
-        // Récupération d'énergie progressive - PLUS RAPIDE
-        energy += 0.15f
-        energy = energy.coerceIn(0f, 100f)
-        
-        // Amélioration technique avec coups parfaits - PLUS TOLÉRANT
-        if (perfectStrokes > strokeCount * 0.5f) {
-            technique += 0.08f
-        } else {
-            technique -= 0.015f
-        }
-        technique = technique.coerceIn(70f, 110f)
-    }
-    
-    private fun handleSprint() {
-        // Sprint final - plus intense !
-        handleSkatingMovement()
-        updateRaceProgress()
-        
-        // Bonus de vitesse pour sprint - RÉDUIT
-        speed += 0.3f
-        
-        // Consommation d'énergie accrue - MOINS SÉVÈRE
-        energy -= 0.3f
-        
-        if (currentLap > totalLaps) {
+        if (playerFinished && aiFinished) {
             calculateFinalScore()
             gameState = GameState.RESULTS
             phaseTimer = 0f
+            return
+        }
+        
+        // Système de patinage rythmé - EXACTEMENT comme Winter Games
+        handleRhythmicSkating()
+        
+        // IA de l'adversaire
+        updateAI()
+        
+        // Mise à jour des positions
+        updatePositions()
+        
+        // Vérifier les arrivées
+        checkFinishLine()
+    }
+    
+    private fun handleRhythmicSkating() {
+        val currentTime = System.currentTimeMillis()
+        val minInterval = 300L // Minimum entre coups
+        
+        // Détection du mouvement rythmé gauche-droite
+        if (currentTime - lastStrokeTime > minInterval) {
+            var strokeDetected = false
+            var strokeQuality = 0f
+            
+            // Gauche attendu
+            if (expectingLeft && tiltX < -0.8f) {
+                strokeDetected = true
+                strokeQuality = calculateStrokeQuality(tiltX)
+                expectingLeft = false
+                lastTiltDirection = -1
+                
+            // Droite attendu  
+            } else if (!expectingLeft && tiltX > 0.8f) {
+                strokeDetected = true
+                strokeQuality = calculateStrokeQuality(tiltX)
+                expectingLeft = true
+                lastTiltDirection = 1
+            }
+            
+            if (strokeDetected) {
+                lastStrokeTime = currentTime
+                strokeCount++
+                
+                // Animation
+                playerAnimFrame = (playerAnimFrame + 1) % 8
+                
+                // Calcul de la vitesse selon le rythme - CRITIQUE
+                val rhythmBonus = updateRhythm(currentTime)
+                val speedGain = strokeQuality * rhythmBonus * 1.2f
+                
+                playerSpeed += speedGain
+                playerSpeed = playerSpeed.coerceAtMost(8f) // Vitesse max réaliste
+                
+                // Bonus pour coups parfaits
+                if (strokeQuality > 0.8f && rhythmBonus > 0.8f) {
+                    perfectStrokes++
+                }
+            }
+        }
+        
+        // Décélération naturelle
+        playerSpeed *= 0.95f
+    }
+    
+    private fun calculateStrokeQuality(tilt: Float): Float {
+        // Qualité basée sur l'amplitude du mouvement
+        val amplitude = abs(tilt)
+        return (amplitude - 0.8f).coerceIn(0f, 0.7f) / 0.7f
+    }
+    
+    private fun updateRhythm(currentTime: Long): Float {
+        val idealInterval = 450L // Rythme idéal Winter Games
+        val actualInterval = currentTime - lastStrokeTime
+        
+        val rhythmAccuracy = 1f - abs(actualInterval - idealInterval) / idealInterval.toFloat()
+        playerRhythm = (playerRhythm * 0.7f + rhythmAccuracy.coerceIn(0f, 1f) * 0.3f)
+        
+        return playerRhythm.coerceIn(0.3f, 1f)
+    }
+    
+    private fun updateAI() {
+        // IA qui patine avec un rythme constant (comme dans Winter Games)
+        aiStrokeTimer += 0.025f
+        
+        if (aiStrokeTimer >= aiStrokeInterval) {
+            aiStrokeTimer = 0f
+            aiAnimFrame = (aiAnimFrame + 1) % 8
+            
+            // IA avec performance légèrement variable
+            val aiPerformance = 0.7f + kotlin.random.Random.nextFloat() * 0.3f
+            aiSpeed += aiPerformance * 1.1f
+            aiSpeed = aiSpeed.coerceAtMost(7.5f)
+        }
+        
+        // Décélération IA
+        aiSpeed *= 0.95f
+    }
+    
+    private fun updatePositions() {
+        if (!playerFinished) {
+            playerDistance += playerSpeed * 0.025f * 60f // 60fps reference
+        }
+        
+        if (!aiFinished) {
+            aiDistance += aiSpeed * 0.025f * 60f
+        }
+    }
+    
+    private fun checkFinishLine() {
+        if (playerDistance >= totalDistance && !playerFinished) {
+            playerFinished = true
+        }
+        
+        if (aiDistance >= totalDistance && !aiFinished) {
+            aiFinished = true
         }
     }
     
@@ -335,50 +315,14 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     
     private fun calculateFinalScore() {
         if (!scoreCalculated) {
-            val timeBonus = maxOf(0, 140 - raceTime.toInt()) * 2
-            val speedBonus = (speed / maxSpeed * 70).toInt()
-            val rhythmBonus = (rhythm * 50).toInt()
-            val techniqueBonus = ((technique - 100f) * 2.5f).toInt()
-            val perfectStrokeBonus = perfectStrokes * 4
+            val timeBonus = maxOf(0, 200 - raceTime.toInt()) * 2
+            val rhythmBonus = (playerRhythm * 80).toInt()
+            val perfectStrokeBonus = perfectStrokes * 8
+            val positionBonus = if (playerDistance >= aiDistance) 50 else 20
             
-            finalScore = maxOf(60, timeBonus + speedBonus + rhythmBonus + techniqueBonus + perfectStrokeBonus)
+            finalScore = maxOf(80, timeBonus + rhythmBonus + perfectStrokeBonus + positionBonus)
             scoreCalculated = true
         }
-    }
-    
-    private fun addIceTrail() {
-        val trailX = kotlin.random.Random.nextFloat() * 400f + 300f
-        val trailY = kotlin.random.Random.nextFloat() * 50f + 450f
-        iceTrails.add(IceTrail(trailX, trailY, System.currentTimeMillis()))
-        
-        if (iceTrails.size > 15) {
-            iceTrails.removeFirst()
-        }
-    }
-    
-    private fun generateSparkles() {
-        repeat(5) {
-            sparkles.add(IceSparkle(
-                x = kotlin.random.Random.nextFloat() * 100f + 350f,
-                y = kotlin.random.Random.nextFloat() * 100f + 300f,
-                life = 1.5f
-            ))
-        }
-    }
-    
-    private fun updateEffects() {
-        // Mise à jour des traces de glace
-        val currentTime = System.currentTimeMillis()
-        iceTrails.removeAll { currentTime - it.timestamp > 3000 }
-        
-        // Mise à jour des étincelles - PLUS LENTES
-        sparkles.removeAll { sparkle ->
-            sparkle.life -= 0.015f
-            sparkle.y -= 1.5f
-            sparkle.life <= 0f
-        }
-        
-        cameraShake = maxOf(0f, cameraShake - 0.015f)
     }
 
     private fun proceedToNextPlayerOrEvent() {
@@ -408,7 +352,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 startActivity(intent)
                 finish()
             } else {
-                val aiScore = (85..175).random()
+                val aiScore = (90..160).random()
                 tournamentData.addScore(nextPlayer, eventIndex, aiScore)
                 proceedToNextPlayerOrEvent()
             }
@@ -436,8 +380,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     private fun updateStatus() {
         statusText.text = when (gameState) {
             GameState.PREPARATION -> "⛸️ ${tournamentData.playerNames[currentPlayerIndex]} | Préparation... ${(preparationDuration - phaseTimer).toInt() + 1}s"
-            GameState.RACE -> "⛸️ ${tournamentData.playerNames[currentPlayerIndex]} | Tour $currentLap/$totalLaps | ${speed.toInt()} km/h | Rythme: ${(rhythm * 100).toInt()}%"
-            GameState.SPRINT -> "🏃 ${tournamentData.playerNames[currentPlayerIndex]} | SPRINT FINAL! | ${speed.toInt()} km/h | Énergie: ${energy.toInt()}%"
+            GameState.COUNTDOWN -> "🚨 ${tournamentData.playerNames[currentPlayerIndex]} | Décompte... ${(countdownDuration - phaseTimer).toInt() + 1}"
+            GameState.RACE -> "⛸️ ${tournamentData.playerNames[currentPlayerIndex]} | ${playerDistance.toInt()}m/${totalDistance.toInt()}m | Rythme: ${(playerRhythm * 100).toInt()}%"
             GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | Temps: ${raceTime.toInt()}s | Score: ${finalScore}"
             GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Course terminée!"
         }
@@ -445,333 +389,297 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
 
     inner class PatinageVitesseView(context: Context) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private var currentFrame = 0
-        private var lastFrameTime = SystemClock.uptimeMillis()
-        private val frameDuration = 100L
-        private var backgroundOffset = 0f
+        
+        // Images exactement comme Winter Games
+        private var skaterSpriteSheet: Bitmap? = null
+        
+        init {
+            try {
+                // Essayer de charger speed_go.png
+                skaterSpriteSheet = BitmapFactory.decodeResource(resources, R.drawable.speed_go)
+            } catch (e: Exception) {
+                // Créer des sprites de fallback
+                createFallbackSprites()
+            }
+        }
+        
+        private fun createFallbackSprites() {
+            // Créer une spritesheet de fallback simple
+            skaterSpriteSheet = Bitmap.createBitmap(320, 80, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(skaterSpriteSheet!!)
+            val tempPaint = Paint().apply {
+                color = Color.BLUE
+                style = Paint.Style.FILL
+            }
+            
+            // 8 frames d'animation simple
+            for (frame in 0..7) {
+                val x = frame * 40f
+                // Corps
+                canvas.drawRect(x + 15f, 20f, x + 25f, 50f, tempPaint)
+                // Tête
+                canvas.drawCircle(x + 20f, 15f, 8f, tempPaint)
+                // Jambes selon la frame
+                val legOffset = if (frame % 2 == 0) -8f else 8f
+                canvas.drawLine(x + 20f, 50f, x + 20f + legOffset, 70f, tempPaint)
+            }
+        }
 
         override fun onDraw(canvas: Canvas) {
             val w = width
             val h = height
             
-            // Appliquer camera shake
-            if (cameraShake > 0f) {
-                canvas.save()
-                canvas.translate(
-                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 8f,
-                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 8f
-                )
-            }
-            
             when (gameState) {
                 GameState.PREPARATION -> drawPreparation(canvas, w, h)
+                GameState.COUNTDOWN -> drawCountdown(canvas, w, h)
                 GameState.RACE -> drawRace(canvas, w, h)
-                GameState.SPRINT -> drawSprint(canvas, w, h)
                 GameState.RESULTS -> drawResults(canvas, w, h)
                 GameState.FINISHED -> drawResults(canvas, w, h)
-            }
-            
-            if (cameraShake > 0f) {
-                canvas.restore()
             }
         }
         
         private fun drawPreparation(canvas: Canvas, w: Int, h: Int) {
-            // Fond ciel
-            val gradient = LinearGradient(0f, 0f, 0f, h.toFloat(),
-                Color.parseColor("#87CEEB"), Color.parseColor("#E0F6FF"), Shader.TileMode.CLAMP)
-            paint.shader = gradient
+            // Arrière-plan bleu ciel
+            paint.color = Color.parseColor("#87CEEB")
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
-            paint.shader = null
             
-            // Sol/piste de glace
+            // Piste de glace
             paint.color = Color.WHITE
-            canvas.drawRect(0f, h * 0.7f, w.toFloat(), h.toFloat(), paint)
+            canvas.drawRect(0f, h * 0.3f, w.toFloat(), h.toFloat(), paint)
             
-            // Bordures de piste
-            paint.color = Color.parseColor("#CCCCCC")
-            paint.strokeWidth = 6f
-            canvas.drawLine(0f, h * 0.7f, w.toFloat(), h * 0.7f, paint)
+            // Séparation des couloirs (ligne du milieu)
+            paint.color = Color.BLACK
+            paint.strokeWidth = 4f
+            canvas.drawLine(0f, h * 0.65f, w.toFloat(), h * 0.65f, paint)
             
-            // Marques sur la glace
-            paint.color = Color.parseColor("#EEEEEE")
-            for (i in 0 until w step 80) {
-                canvas.drawLine(i.toFloat(), h * 0.7f, i.toFloat(), h.toFloat(), paint)
+            // Marques de distance
+            paint.textSize = 16f
+            paint.textAlign = Paint.Align.CENTER
+            for (i in 0..5) {
+                val x = w * 0.1f + i * (w * 0.8f / 5f)
+                canvas.drawLine(x, h * 0.3f, x, h * 0.35f, paint)
+                canvas.drawText("${i * 50}m", x, h * 0.28f, paint)
             }
             
             // Instructions
-            paint.color = Color.parseColor("#003366")
-            paint.textSize = 32f
+            paint.color = Color.parseColor("#000066")
+            paint.textSize = 28f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("⛸️ PATINAGE VITESSE ⛸️", w/2f, h * 0.2f, paint)
+            canvas.drawText("⛸️ PATINAGE VITESSE 250M ⛸️", w/2f, h * 0.1f, paint)
             
             paint.textSize = 20f
-            paint.color = Color.parseColor("#0066CC")
-            canvas.drawText("Inclinez le téléphone gauche-droite", w/2f, h * 0.3f, paint)
-            canvas.drawText("Alternez régulièrement pour garder le rythme", w/2f, h * 0.35f, paint)
+            paint.color = Color.parseColor("#003399")
+            canvas.drawText("Inclinez gauche-droite en RYTHME avec les jambes", w/2f, h * 0.15f, paint)
+            canvas.drawText("Suivez l'animation du patineur!", w/2f, h * 0.19f, paint)
             
+            // Décompte
             val countdown = (preparationDuration - phaseTimer).toInt() + 1
             paint.textSize = 48f
             paint.color = Color.RED
-            canvas.drawText("${countdown}", w/2f, h * 0.5f, paint)
+            canvas.drawText("Prêt dans ${countdown}", w/2f, h * 0.25f, paint)
+        }
+        
+        private fun drawCountdown(canvas: Canvas, w: Int, h: Int) {
+            // Même fond que la course
+            drawRaceBackground(canvas, w, h)
+            
+            // Décompte géant
+            val count = (countdownDuration - phaseTimer).toInt() + 1
+            paint.textSize = 120f
+            paint.color = Color.RED
+            paint.textAlign = Paint.Align.CENTER
+            
+            val countText = if (count > 0) count.toString() else "GO!"
+            canvas.drawText(countText, w/2f, h/2f, paint)
         }
         
         private fun drawRace(canvas: Canvas, w: Int, h: Int) {
             drawRaceBackground(canvas, w, h)
-            drawSkaterProfile(canvas, w, h)
-            drawPerformanceHUD(canvas, w, h)
-            updateAnimation()
+            drawSkaters(canvas, w, h)
+            drawHUD(canvas, w, h)
         }
         
-        private fun drawSprint(canvas: Canvas, w: Int, h: Int) {
-            drawRaceBackground(canvas, w, h)
-            drawSprintEffects(canvas, w, h)
-            drawSkaterProfile(canvas, w, h)
-            drawPerformanceHUD(canvas, w, h)
-            updateAnimation()
+        private fun drawRaceBackground(canvas: Canvas, w: Int, h: Int) {
+            // Ciel
+            paint.color = Color.parseColor("#87CEEB")
+            canvas.drawRect(0f, 0f, w.toFloat(), h * 0.3f, paint)
+            
+            // Piste de glace blanche avec effet brillant
+            val iceGradient = LinearGradient(0f, h * 0.3f, 0f, h.toFloat(),
+                Color.WHITE, Color.parseColor("#F0F8FF"), Shader.TileMode.CLAMP)
+            paint.shader = iceGradient
+            canvas.drawRect(0f, h * 0.3f, w.toFloat(), h.toFloat(), paint)
+            paint.shader = null
+            
+            // Ligne de séparation des couloirs (EXACTEMENT comme Winter Games)
+            paint.color = Color.parseColor("#CCCCCC")
+            paint.strokeWidth = 3f
+            canvas.drawLine(0f, h * 0.65f, w.toFloat(), h * 0.65f, paint)
+            
+            // Marques de progression qui défilent
+            val scrollOffset = ((playerDistance + aiDistance) / 2f) % 50f
+            paint.color = Color.parseColor("#DDDDDD")
+            paint.strokeWidth = 2f
+            
+            for (i in -2..12) {
+                val x = w * 0.1f + i * (w * 0.8f / 10f) - scrollOffset * (w * 0.8f / 50f)
+                if (x > -20f && x < w + 20f) {
+                    canvas.drawLine(x, h * 0.3f, x, h.toFloat(), paint)
+                    
+                    // Numéro de distance
+                    val distance = ((playerDistance + aiDistance) / 2f + i * 25f).toInt()
+                    if (distance >= 0 && distance <= 300) {
+                        paint.textSize = 12f
+                        paint.color = Color.BLACK
+                        paint.textAlign = Paint.Align.CENTER
+                        canvas.drawText("${distance}m", x, h * 0.28f, paint)
+                    }
+                }
+            }
+        }
+        
+        private fun drawSkaters(canvas: Canvas, w: Int, h: Int) {
+            // Position selon la distance parcourue
+            val playerX = w * 0.1f + (playerDistance / totalDistance) * (w * 0.8f)
+            val aiX = w * 0.1f + (aiDistance / totalDistance) * (w * 0.8f)
+            
+            // IA en haut (comme Winter Games)
+            drawSkater(canvas, aiX, h * 0.48f, aiAnimFrame, Color.parseColor("#FF6600"), false)
+            
+            // Joueur en bas
+            drawSkater(canvas, playerX, h * 0.82f, playerAnimFrame, Color.parseColor("#0066FF"), true)
+            
+            // Indicateur de rythme pour le joueur
+            if (gameState == GameState.RACE) {
+                drawRhythmIndicator(canvas, w, h)
+            }
+        }
+        
+        private fun drawSkater(canvas: Canvas, x: Float, y: Float, frame: Int, color: Int, isPlayer: Boolean) {
+            skaterSpriteSheet?.let { sprite ->
+                // Extraire la frame d'animation de la spritesheet
+                val frameWidth = sprite.width / 8
+                val srcRect = Rect(frame * frameWidth, 0, (frame + 1) * frameWidth, sprite.height)
+                val dstRect = RectF(x - 30f, y - 25f, x + 30f, y + 25f)
+                canvas.drawBitmap(sprite, srcRect, dstRect, paint)
+            } ?: run {
+                // Fallback : patineur simplifié avec animation
+                val legPhase = sin(frame * PI / 4).toFloat()
+                
+                // Corps
+                paint.color = color
+                paint.style = Paint.Style.FILL
+                canvas.drawOval(x - 12f, y - 20f, x + 12f, y + 5f, paint)
+                
+                // Tête
+                paint.color = Color.parseColor("#FFDBAC")
+                canvas.drawCircle(x, y - 22f, 8f, paint)
+                
+                // Jambes en mouvement
+                paint.color = Color.BLACK
+                paint.strokeWidth = 6f
+                
+                // Jambe qui pousse (alternance)
+                val pushLegX = x + legPhase * 25f
+                canvas.drawLine(x, y + 5f, pushLegX, y + 30f, paint)
+                
+                // Jambe de glisse
+                val glideLegX = x - legPhase * 10f
+                canvas.drawLine(x, y + 5f, glideLegX, y + 25f, paint)
+                
+                // Bras en équilibre
+                paint.strokeWidth = 4f
+                canvas.drawLine(x - 15f, y - 10f, x - 25f + legPhase * 8f, y - 5f, paint)
+                canvas.drawLine(x + 15f, y - 10f, x + 25f - legPhase * 8f, y - 5f, paint)
+                
+                // Patins
+                paint.color = Color.BLACK
+                paint.strokeWidth = 3f
+                canvas.drawLine(pushLegX - 8f, y + 30f, pushLegX + 8f, y + 30f, paint)
+                canvas.drawLine(glideLegX - 8f, y + 25f, glideLegX + 8f, y + 25f, paint)
+            }
+            
+            // Ombre sur la glace
+            paint.color = Color.parseColor("#40000000")
+            paint.style = Paint.Style.FILL
+            canvas.drawOval(x - 15f, y + 25f, x + 15f, y + 30f, paint)
+        }
+        
+        private fun drawRhythmIndicator(canvas: Canvas, w: Int, h: Int) {
+            // Indicateur de rythme comme Winter Games
+            val indicatorX = 50f
+            val indicatorY = h - 100f
+            
+            // Fond
+            paint.color = Color.parseColor("#333333")
+            paint.style = Paint.Style.FILL
+            canvas.drawRect(indicatorX - 30f, indicatorY - 30f, indicatorX + 30f, indicatorY + 30f, paint)
+            
+            // Barre de rythme
+            paint.color = if (playerRhythm > 0.7f) Color.GREEN else if (playerRhythm > 0.4f) Color.YELLOW else Color.RED
+            val rhythmHeight = playerRhythm * 50f
+            canvas.drawRect(indicatorX - 25f, indicatorY + 25f - rhythmHeight, indicatorX + 25f, indicatorY + 25f, paint)
+            
+            // Label
+            paint.color = Color.WHITE
+            paint.textSize = 12f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("RYTHME", indicatorX, indicatorY - 35f, paint)
+            canvas.drawText("${(playerRhythm * 100).toInt()}%", indicatorX, indicatorY + 45f, paint)
+            
+            // Indication du prochain mouvement attendu
+            val nextMove = if (expectingLeft) "⬅️" else "➡️"
+            paint.textSize = 20f
+            paint.color = Color.YELLOW
+            canvas.drawText(nextMove, indicatorX, indicatorY, paint)
+        }
+        
+        private fun drawHUD(canvas: Canvas, w: Int, h: Int) {
+            // Distance restante
+            paint.color = Color.WHITE
+            paint.textSize = 18f
+            paint.textAlign = Paint.Align.RIGHT
+            canvas.drawText("Distance: ${(totalDistance - playerDistance).toInt()}m", w - 20f, 30f, paint)
+            
+            // Temps
+            canvas.drawText("Temps: ${raceTime.toInt()}s", w - 20f, 55f, paint)
+            
+            // Coups parfaits
+            canvas.drawText("Parfaits: $perfectStrokes", w - 20f, 80f, paint)
         }
         
         private fun drawResults(canvas: Canvas, w: Int, h: Int) {
-            // Fond victoire
+            // Fond doré
             val gradient = LinearGradient(0f, 0f, 0f, h.toFloat(),
                 Color.parseColor("#FFD700"), Color.parseColor("#FFF8DC"), Shader.TileMode.CLAMP)
             paint.shader = gradient
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             paint.shader = null
             
-            // Patineur en célébration au centre
-            drawCelebrationSkater(canvas, w/2f, h * 0.6f)
-            
-            // Score
+            // Résultat de la course
             paint.color = Color.parseColor("#8B0000")
-            paint.textSize = 64f
+            paint.textSize = 48f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("${finalScore} POINTS", w/2f, h * 0.3f, paint)
+            
+            val won = playerDistance >= aiDistance
+            val resultText = if (won) "🥇 VICTOIRE!" else "🥈 2ème place"
+            canvas.drawText(resultText, w/2f, h * 0.2f, paint)
+            
+            // Score final
+            paint.textSize = 64f
+            canvas.drawText("${finalScore} POINTS", w/2f, h * 0.35f, paint)
             
             // Détails
-            paint.textSize = 18f
+            paint.textSize = 20f
             paint.color = Color.parseColor("#333333")
-            canvas.drawText("Temps: ${raceTime.toInt()}s | Vitesse max: ${speed.toInt()} km/h", w/2f, h * 0.8f, paint)
-            canvas.drawText("Coups parfaits: $perfectStrokes | Technique: ${technique.toInt()}%", w/2f, h * 0.85f, paint)
-        }
-        
-        private fun drawRaceBackground(canvas: Canvas, w: Int, h: Int) {
-            // Ciel avec dégradé
-            val gradient = LinearGradient(0f, 0f, 0f, h * 0.7f,
-                Color.parseColor("#87CEEB"), Color.parseColor("#B0E0E6"), Shader.TileMode.CLAMP)
-            paint.shader = gradient
-            canvas.drawRect(0f, 0f, w.toFloat(), h * 0.7f, paint)
-            paint.shader = null
-            
-            // Piste de glace
-            paint.color = Color.WHITE
-            canvas.drawRect(0f, h * 0.7f, w.toFloat(), h.toFloat(), paint)
-            
-            // Défilement du décor arrière (arbres, bâtiments)
-            backgroundOffset = (backgroundOffset + speed * 0.5f) % 120f
-            paint.color = Color.parseColor("#228B22")
-            for (i in 0 until w + 120 step 120) {
-                val x = i - backgroundOffset
-                // Arbres stylisés
-                canvas.drawRect(x, h * 0.4f, x + 20f, h * 0.7f, paint)
-                paint.color = Color.parseColor("#32CD32")
-                canvas.drawCircle(x + 10f, h * 0.4f, 25f, paint)
-                paint.color = Color.parseColor("#228B22")
-            }
-            
-            // Bordures et marques de piste
-            paint.color = Color.parseColor("#DDDDDD")
-            paint.strokeWidth = 4f
-            canvas.drawLine(0f, h * 0.7f, w.toFloat(), h * 0.7f, paint)
-            
-            // Traces sur la glace
-            drawIceEffects(canvas, w, h)
-        }
-        
-        private fun drawSkaterProfile(canvas: Canvas, w: Int, h: Int) {
-            val skaterX = w * 0.4f
-            val skaterY = h * 0.7f
-            
-            // Corps principal (ovale vertical)
-            paint.color = Color.parseColor("#0066CC")
-            canvas.drawOval(skaterX - 15f, skaterY - 50f, skaterX + 15f, skaterY - 10f, paint)
-            
-            // Tête
-            paint.color = Color.parseColor("#FFDBAC")
-            canvas.drawCircle(skaterX, skaterY - 50f, 12f, paint)
-            
-            // Casque
-            paint.color = Color.parseColor("#FF0000")
-            canvas.drawCircle(skaterX, skaterY - 50f, 14f, paint)
-            paint.color = Color.parseColor("#FFDBAC")
-            canvas.drawCircle(skaterX, skaterY - 45f, 10f, paint)
-            
-            // Animation des membres selon la frame
-            val frameInCycle = currentFrame % 8
-            val isLeftStroke = frameInCycle < 4
-            
-            paint.strokeWidth = 6f
-            paint.color = Color.parseColor("#003366")
-            
-            if (isLeftStroke) {
-                // Poussée jambe gauche
-                canvas.drawLine(skaterX - 8f, skaterY - 15f, skaterX - 30f, skaterY + 20f, paint)
-                canvas.drawLine(skaterX + 8f, skaterY - 15f, skaterX + 15f, skaterY + 10f, paint)
-                // Bras équilibrent
-                canvas.drawLine(skaterX - 12f, skaterY - 35f, skaterX - 35f, skaterY - 45f, paint)
-                canvas.drawLine(skaterX + 12f, skaterY - 35f, skaterX + 25f, skaterY - 25f, paint)
-                
-                // Patins
-                paint.color = Color.BLACK
-                canvas.drawRect(skaterX - 35f, skaterY + 18f, skaterX - 25f, skaterY + 25f, paint)
-                canvas.drawRect(skaterX + 10f, skaterY + 8f, skaterX + 20f, skaterY + 15f, paint)
-            } else {
-                // Poussée jambe droite
-                canvas.drawLine(skaterX + 8f, skaterY - 15f, skaterX + 30f, skaterY + 20f, paint)
-                canvas.drawLine(skaterX - 8f, skaterY - 15f, skaterX - 15f, skaterY + 10f, paint)
-                // Bras équilibrent
-                canvas.drawLine(skaterX + 12f, skaterY - 35f, skaterX + 35f, skaterY - 45f, paint)
-                canvas.drawLine(skaterX - 12f, skaterY - 35f, skaterX - 25f, skaterY - 25f, paint)
-                
-                // Patins
-                paint.color = Color.BLACK
-                canvas.drawRect(skaterX + 25f, skaterY + 18f, skaterX + 35f, skaterY + 25f, paint)
-                canvas.drawRect(skaterX - 20f, skaterY + 8f, skaterX - 10f, skaterY + 15f, paint)
-            }
-            
-            // Effet de vitesse
-            if (speed > 10f) {
-                paint.color = Color.parseColor("#80FFFFFF")
-                for (i in 1..3) {
-                    canvas.drawOval(skaterX - i * 20f - 10f, skaterY - 45f, 
-                                   skaterX - i * 20f + 10f, skaterY - 15f, paint)
-                }
-            }
-        }
-        
-        private fun drawCelebrationSkater(canvas: Canvas, x: Float, y: Float) {
-            // Corps en or pour la victoire
-            paint.color = Color.parseColor("#FFD700")
-            canvas.drawOval(x - 18f, y - 60f, x + 18f, y - 15f, paint)
-            
-            // Tête
-            paint.color = Color.parseColor("#FFDBAC")
-            canvas.drawCircle(x, y - 60f, 15f, paint)
-            
-            // Bras levés en victoire
-            paint.strokeWidth = 8f
-            paint.color = Color.parseColor("#B8860B")
-            canvas.drawLine(x - 15f, y - 45f, x - 40f, y - 80f, paint)
-            canvas.drawLine(x + 15f, y - 45f, x + 40f, y - 80f, paint)
-            
-            // Jambes stables
-            canvas.drawLine(x - 10f, y - 20f, x - 15f, y + 10f, paint)
-            canvas.drawLine(x + 10f, y - 20f, x + 15f, y + 10f, paint)
-            
-            // Patins
-            paint.color = Color.BLACK
-            canvas.drawRect(x - 25f, y + 8f, x - 5f, y + 15f, paint)
-            canvas.drawRect(x + 5f, y + 8f, x + 25f, y + 15f, paint)
-            
-            // Effet d'étoiles autour
-            paint.color = Color.parseColor("#FFD700")
-            for (i in 0..7) {
-                val angle = i * PI / 4
-                val starX = x + cos(angle).toFloat() * 50f
-                val starY = y - 40f + sin(angle).toFloat() * 30f
-                canvas.drawCircle(starX, starY, 6f, paint)
-            }
-        }
-        
-        private fun drawPerformanceHUD(canvas: Canvas, w: Int, h: Int) {
-            val hudY = 80f
-            val barWidth = 120f
-            val barHeight = 20f
-            
-            // Vitesse
-            drawHUDBar(canvas, 20f, hudY, barWidth, barHeight, speed / maxSpeed, "VITESSE", Color.GREEN)
-            
-            // Énergie
-            drawHUDBar(canvas, 160f, hudY, barWidth, barHeight, energy / 100f, "ÉNERGIE", Color.YELLOW)
-            
-            // Rythme
-            drawHUDBar(canvas, 300f, hudY, barWidth, barHeight, rhythm, "RYTHME", Color.CYAN)
-            
-            // Tour actuel
-            paint.color = Color.WHITE
-            paint.textSize = 16f
-            paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("Tour: $currentLap/$totalLaps", 450f, hudY + 15f, paint)
-        }
-        
-        private fun drawHUDBar(canvas: Canvas, x: Float, y: Float, width: Float, height: Float, 
-                               value: Float, label: String, color: Int) {
-            // Fond
-            paint.color = Color.parseColor("#333333")
-            canvas.drawRect(x, y, x + width, y + height, paint)
-            
-            // Barre de valeur
-            paint.color = color
-            canvas.drawRect(x, y, x + width * value.coerceIn(0f, 1f), y + height, paint)
-            
-            // Label
-            paint.color = Color.WHITE
-            paint.textSize = 12f
-            paint.textAlign = Paint.Align.LEFT
-            canvas.drawText(label, x, y - 5f, paint)
-        }
-        
-        private fun drawSprintEffects(canvas: Canvas, w: Int, h: Int) {
-            // Lignes de vitesse
-            paint.color = Color.parseColor("#FFFF00")
-            paint.strokeWidth = 3f
-            for (i in 0..5) {
-                val lineY = h * 0.1f + i * h * 0.1f
-                canvas.drawLine(0f, lineY, w.toFloat(), lineY, paint)
-            }
-        }
-        
-        private fun drawIceEffects(canvas: Canvas, w: Int, h: Int) {
-            // Traces sur la glace
-            paint.color = Color.parseColor("#E0F6FF")
-            for (trail in iceTrails) {
-                val alpha = ((3000 - (System.currentTimeMillis() - trail.timestamp)) / 3000f * 100).toInt()
-                paint.alpha = maxOf(0, alpha)
-                canvas.drawCircle(trail.x, trail.y, 8f, paint)
-            }
-            paint.alpha = 255
-            
-            // Étincelles de performance
-            paint.color = Color.parseColor("#FFFFFF")
-            for (sparkle in sparkles) {
-                paint.alpha = (sparkle.life * 200 / 1.5f).toInt()
-                canvas.drawCircle(sparkle.x, sparkle.y, sparkle.life * 5f, paint)
-            }
-            paint.alpha = 255
-        }
-        
-        private fun updateAnimation() {
-            val now = SystemClock.uptimeMillis()
-            if (speed > 3f && now - lastFrameTime > frameDuration) {
-                currentFrame++
-                lastFrameTime = now
-            }
+            canvas.drawText("Temps final: ${raceTime.toInt()}s", w/2f, h * 0.6f, paint)
+            canvas.drawText("Distance: ${playerDistance.toInt()}m vs ${aiDistance.toInt()}m", w/2f, h * 0.65f, paint)
+            canvas.drawText("Rythme moyen: ${(playerRhythm * 100).toInt()}%", w/2f, h * 0.7f, paint)
+            canvas.drawText("Coups parfaits: $perfectStrokes", w/2f, h * 0.75f, paint)
         }
     }
 
-    data class IceTrail(
-        val x: Float,
-        val y: Float,
-        val timestamp: Long
-    )
-    
-    data class IceSparkle(
-        val x: Float,
-        var y: Float,
-        var life: Float
-    )
-
     enum class GameState {
-        PREPARATION, RACE, SPRINT, RESULTS, FINISHED
+        PREPARATION, COUNTDOWN, RACE, RESULTS, FINISHED
     }
 }
