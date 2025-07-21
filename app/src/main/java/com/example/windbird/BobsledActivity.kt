@@ -1,18 +1,3 @@
-
-// ✅ VERSION ENRICHIE DU SCRIPT DE BOBSLED COMPLÈTE : IMMERSION VISUELLE PARFAITE 🎿🛷
-// Toutes les sections ont été conservées selon la structure d'origine, mais avec des VISUELS AMÉLIORÉS
-// Étapes : Préparation ➜ Poussée ➜ Descente 1 ➜ Cockpit 1 ➜ Descente 2 ➜ Cockpit 2 ➜ Descente finale ➜ Ligne d'arrivée ➜ Résultats
- 
-// ⚠️ Cette version modifie UNIQUEMENT les fonctions visuelles (drawPreparation, drawPushStart, drawDescent, drawCockpit, drawFinish, drawResults)
-// ➕ Ajouts : textures, perspective, échelle réaliste, effet de vitesse, drapeau agrandi, ambiance neige et tunnel lumineux.
-
-// ➡️ Le code logique reste inchangé pour garantir le bon déroulement de l’épreuve.
-
-// LE CONTENU DU FICHIER A ÉTÉ RÉÉCRIT DANS SON ENTIÈRETÉ, AVEC TOUS LES VISUELS MODIFIÉS SELON LA DEMANDE DU MAÎTRE.
-
-// 🧠 Voir le document source : 'Bobsled Activity Enhanced' dans le panneau latéral pour le code complet.
-
-
 package com.example.windbird
 
 import android.app.Activity
@@ -624,20 +609,32 @@ class BobsledActivity : Activity(), SensorEventListener {
                 canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             }
             
-            // Drapeau géant en haut à gauche (comme dans le ski)
+            // Rectangle blanc pour le drapeau (comme dans l'image de référence)
+            paint.color = Color.WHITE
+            val flagRect = RectF(50f, 50f, 300f, 200f)
+            canvas.drawRect(flagRect, paint)
+            
+            // Bordure noire du rectangle
+            paint.color = Color.BLACK
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 4f
+            canvas.drawRect(flagRect, paint)
+            paint.style = Paint.Style.FILL
+            
+            // Gros drapeau emoji dans le rectangle blanc
             val playerCountry = tournamentData.playerCountries[currentPlayerIndex]
             val flag = getCountryFlag(playerCountry)
             
-            paint.color = Color.WHITE
+            paint.color = Color.BLACK
             paint.textSize = 120f
-            paint.textAlign = Paint.Align.LEFT
-            canvas.drawText(flag, 50f, 150f, paint)
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText(flag, flagRect.centerX(), flagRect.centerY() + 40f, paint)
             
-            paint.textSize = 32f
-            canvas.drawText(playerCountry.uppercase(), 50f, 190f, paint)
+            // Nom du pays sous le rectangle
+            paint.textSize = 28f
+            canvas.drawText(playerCountry.uppercase(), flagRect.centerX(), flagRect.bottom + 40f, paint)
             
             // Instructions au centre
-            paint.color = Color.BLACK
             paint.textSize = 56f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("🛷 BOBSLEIGH 🛷", w/2f, h * 0.4f, paint)
@@ -690,9 +687,16 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
         
         private fun drawDescent(canvas: Canvas, w: Int, h: Int, title: String) {
-            // Fond montagne
-            paint.color = Color.parseColor("#334455")
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            // Interface comme dans l'image de référence
+            // Piste à gauche utilisant bobsled_preparation comme fond
+            val trackRect = RectF(0f, 0f, w * 0.65f, h.toFloat())
+            
+            bobsledPreparationBitmap?.let { bmp ->
+                canvas.drawBitmap(bmp, null, trackRect, paint)
+            } ?: run {
+                paint.color = Color.parseColor("#334455")
+                canvas.drawRect(trackRect, paint)
+            }
             
             // Piste qui défile selon la vitesse
             val speedMultiplier = (speed / maxSpeed).coerceIn(0.3f, 2f)
@@ -700,24 +704,19 @@ class BobsledActivity : Activity(), SensorEventListener {
             
             // Piste améliorée avec perspective
             paint.color = Color.parseColor("#E0F6FF")
+            paint.alpha = 200
             for (i in -2..15) {
                 val segmentY = i * 50f - scrollOffset
-                val segmentWidth = 200f + sin((segmentY + scrollOffset) * 0.02f) * currentTurn * 60f
-                canvas.drawRect(w/2f - segmentWidth/2f, segmentY, w/2f + segmentWidth/2f, segmentY + 40f, paint)
+                val segmentWidth = 150f + sin((segmentY + scrollOffset) * 0.02f) * currentTurn * 40f
+                val segmentX = trackRect.width()/2f
+                canvas.drawRect(segmentX - segmentWidth/2f, segmentY, segmentX + segmentWidth/2f, segmentY + 40f, paint)
             }
+            paint.alpha = 255
             
-            // Murs qui défilent
-            paint.color = Color.parseColor("#AAAAAA")
-            for (i in -2..20) {
-                val wallY = i * 40f - scrollOffset
-                canvas.drawRect(0f, wallY, w/2f - 100f, wallY + 30f, paint)
-                canvas.drawRect(w/2f + 100f, wallY, w.toFloat(), wallY + 30f, paint)
-            }
-            
-            // Bobsleigh selon le virage (TAILLE RÉDUITE)
-            val bobX = w/2f
+            // Bobsleigh sur la piste (petit)
+            val bobX = trackRect.width()/2f
             val bobY = h * 0.6f
-            val scale = 0.12f  // RÉDUIT
+            val scale = 0.08f
             
             val currentBitmap = when {
                 currentTurn < -0.3f -> bobLeftBitmap
@@ -735,87 +734,149 @@ class BobsledActivity : Activity(), SensorEventListener {
                 canvas.drawBitmap(bmp, null, dstRect, paint)
             }
             
-            // Titre et vitesse
-            paint.color = Color.WHITE
-            paint.textSize = 50f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText(title, w/2f, 70f, paint)
-            
-            paint.textSize = 80f
-            paint.color = Color.YELLOW
-            canvas.drawText("${speed.toInt()} KM/H", w/2f, h - 60f, paint)
-        }
-        
-        private fun drawCockpit(canvas: Canvas, w: Int, h: Int, title: String) {
-            // Fond sombre
+            // Panneau de contrôle à droite
+            val controlRect = RectF(w * 0.65f, 0f, w.toFloat(), h * 0.6f)
             paint.color = Color.parseColor("#001122")
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            canvas.drawRect(controlRect, paint)
             
-            // Cockpit à gauche (TAILLE RÉDUITE)
-            val cockpitScale = 0.25f  // RÉDUIT
+            // Image cockpit en haut à droite
             bobCockpitBitmap?.let { bmp ->
                 val cockpitRect = RectF(
-                    0f,
-                    h * 0.3f,
-                    bmp.width * cockpitScale,
-                    h * 0.3f + bmp.height * cockpitScale
+                    w * 0.67f,
+                    20f,
+                    w * 0.98f,
+                    h * 0.35f
                 )
                 canvas.drawBitmap(bmp, null, cockpitRect, paint)
             }
             
-            // Piste qui défile à côté du cockpit (AMÉLIORÉE)
+            // Indicateur de direction sous le cockpit
+            val directionY = h * 0.4f
+            val directionX = w * 0.825f
+            
+            // Flèche indiquant la direction à prendre
+            paint.color = Color.YELLOW
+            paint.textSize = 60f
+            paint.textAlign = Paint.Align.CENTER
+            val directionArrow = when {
+                currentTurn < -0.3f -> "⬅️"
+                currentTurn > 0.3f -> "➡️"
+                else -> "⬆️"
+            }
+            canvas.drawText(directionArrow, directionX, directionY, paint)
+            
+            // Titre en bas
+            paint.color = Color.WHITE
+            paint.textSize = 40f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText(title, w/2f, h - 100f, paint)
+            
+            // Vitesse en gros en bas
+            paint.textSize = 60f
+            paint.color = Color.YELLOW
+            canvas.drawText("${speed.toInt()} KM/H", w/2f, h - 40f, paint)
+        }
+        
+        private fun drawCockpit(canvas: Canvas, w: Int, h: Int, title: String) {
+            // Interface similaire à la descente mais avec plus de contrôles
+            // Piste à gauche utilisant bobsled_preparation comme fond
+            val trackRect = RectF(0f, 0f, w * 0.65f, h.toFloat())
+            
+            bobsledPreparationBitmap?.let { bmp ->
+                canvas.drawBitmap(bmp, null, trackRect, paint)
+            } ?: run {
+                paint.color = Color.parseColor("#334455")
+                canvas.drawRect(trackRect, paint)
+            }
+            
+            // Piste qui défile avec contrôle plus précis
             val pipeScrollSpeed = (1f + steeringAccuracy) * 8f
             val pipeOffset = (phaseTimer * pipeScrollSpeed) % 80f
             
             paint.color = Color.parseColor("#E0F6FF")
-            paint.strokeWidth = 12f
-            paint.style = Paint.Style.STROKE
-            
+            paint.alpha = 180
             for (i in -3..12) {
                 val pipeY = i * 60f - pipeOffset
-                val pipeX = w * 0.35f + sin((pipeY + pipeOffset) * 0.03f) * idealDirection * 80f
-                canvas.drawRect(pipeX - 40f, pipeY, pipeX + 40f, pipeY + 50f, paint)
+                val pipeX = trackRect.width()/2f + sin((pipeY + pipeOffset) * 0.03f) * idealDirection * 60f
+                canvas.drawRect(pipeX - 30f, pipeY, pipeX + 30f, pipeY + 50f, paint)
             }
-            paint.style = Paint.Style.FILL
+            paint.alpha = 255
             
-            // Cercles directionnels à droite
-            val circleX = w * 0.8f
-            val circleY = h * 0.5f
+            // Bobsleigh sur la piste
+            val bobX = trackRect.width()/2f
+            val bobY = h * 0.6f
+            val scale = 0.08f
             
-            // Cercle vert (fixe) - TAILLE RÉDUITE
+            bobCockpitBitmap?.let { bmp ->
+                val dstRect = RectF(
+                    bobX - bmp.width * scale / 2f,
+                    bobY - bmp.height * scale / 2f,
+                    bobX + bmp.width * scale / 2f,
+                    bobY + bmp.height * scale / 2f
+                )
+                canvas.drawBitmap(bmp, null, dstRect, paint)
+            }
+            
+            // Panneau de contrôle à droite
+            val controlRect = RectF(w * 0.65f, 0f, w.toFloat(), h.toFloat())
+            paint.color = Color.parseColor("#001122")
+            canvas.drawRect(controlRect, paint)
+            
+            // Image cockpit en haut à droite
+            bobCockpitBitmap?.let { bmp ->
+                val cockpitRect = RectF(
+                    w * 0.67f,
+                    20f,
+                    w * 0.98f,
+                    h * 0.35f
+                )
+                canvas.drawBitmap(bmp, null, cockpitRect, paint)
+            }
+            
+            // Contrôles directionnels sous le cockpit
+            val circleX = w * 0.825f
+            val circleY = h * 0.45f
+            
+            // Cercle vert (cible)
             paint.color = Color.parseColor("#44AA44")
             paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 8f
-            canvas.drawCircle(circleX, circleY, 60f, paint)
+            paint.strokeWidth = 6f
+            canvas.drawCircle(circleX, circleY, 40f, paint)
             
-            // Cercle rouge (mobile selon rotation téléphone) - TAILLE RÉDUITE
-            val redCircleOffset = tiltZ * 40f
+            // Cercle rouge (position actuelle selon tilt)
+            val redCircleOffset = tiltZ * 30f
             paint.color = Color.parseColor("#AA4444")
             paint.style = Paint.Style.FILL
-            canvas.drawCircle(circleX + redCircleOffset, circleY, 15f, paint)
+            canvas.drawCircle(circleX + redCircleOffset, circleY, 12f, paint)
             
-            // Cercle idéal (jaune) - TAILLE RÉDUITE
-            val idealOffset = idealDirection * 40f
+            // Cercle jaune (position idéale)
+            val idealOffset = idealDirection * 30f
             paint.color = Color.parseColor("#AAAA44")
-            canvas.drawCircle(circleX + idealOffset, circleY, 8f, paint)
+            canvas.drawCircle(circleX + idealOffset, circleY, 6f, paint)
             
             paint.style = Paint.Style.FILL
             
             // Instructions
             paint.color = Color.WHITE
-            paint.textSize = 45f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText(title, w/2f, 70f, paint)
-            
             paint.textSize = 35f
-            paint.color = Color.CYAN
-            canvas.drawText("🎮 TENEZ COMME UN VOLANT", w/2f, h * 0.15f, paint)
-            canvas.drawText("🔴 ➤ 🟢 POUR OPTIMISER", w/2f, h * 0.2f, paint)
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("🎮 TENEZ COMME UN VOLANT", w * 0.825f, h * 0.55f, paint)
+            canvas.drawText("🔴 ➤ 🟡", w * 0.825f, h * 0.6f, paint)
             
             // Performance actuelle
             paint.textSize = 40f
             paint.color = if (steeringAccuracy > 0.8f) Color.GREEN else if (steeringAccuracy > 0.5f) Color.YELLOW else Color.RED
-            canvas.drawText("Précision: ${(steeringAccuracy * 100).toInt()}%", w/2f, h - 80f, paint)
+            canvas.drawText("${(steeringAccuracy * 100).toInt()}%", w * 0.825f, h * 0.7f, paint)
+            
+            // Titre et vitesse en bas
+            paint.color = Color.WHITE
+            paint.textSize = 40f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText(title, w/2f, h - 100f, paint)
+            
+            paint.textSize = 60f
+            paint.color = Color.YELLOW
+            canvas.drawText("${speed.toInt()} KM/H", w/2f, h - 40f, paint)
         }
         
         private fun drawFinish(canvas: Canvas, w: Int, h: Int) {
