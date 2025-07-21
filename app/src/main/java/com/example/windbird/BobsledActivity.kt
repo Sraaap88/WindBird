@@ -154,7 +154,7 @@ class BobsledActivity : Activity(), SensorEventListener {
     }
     
     private fun generateRandomTrack(random: kotlin.random.Random) {
-        // Circuit 3X plus long avec virages aléatoires MAIS PAS TROP FOUS
+        // Circuit 3X plus long avec virages MOYENS et FORTS bien définis
         val trackLength = 75 // 3X plus long (était 25 segments)
         
         trackCurves.add(0f) // Départ toujours droit
@@ -165,17 +165,22 @@ class BobsledActivity : Activity(), SensorEventListener {
         
         for (i in 3 until trackLength - 3) {
             val newCurve = when (random.nextInt(10)) {
-                0, 1 -> -0.7f + random.nextFloat() * 0.2f // Virage gauche (moins extrême)
-                2, 3 -> 0.5f + random.nextFloat() * 0.2f  // Virage droite (moins extrême)
-                4 -> -0.4f + random.nextFloat() * 0.1f      // Virage gauche moyen
-                5 -> 0.3f + random.nextFloat() * 0.1f       // Virage droite moyen
-                6, 7 -> lastCurve * 0.5f                    // Transition douce (50% de l'ancien)
-                else -> 0f                                  // Ligne droite
+                // Virages FORTS (90 degrés requis) - Valeurs entre -0.8 et -1.0 ou 0.8 et 1.0
+                0 -> -0.9f + random.nextFloat() * 0.1f // Virage FORT gauche
+                1 -> 0.8f + random.nextFloat() * 0.2f  // Virage FORT droite
+                
+                // Virages MOYENS (45 degrés requis) - Valeurs entre -0.5 et -0.7 ou 0.5 et 0.7
+                2, 3 -> -0.6f + random.nextFloat() * 0.1f // Virage MOYEN gauche
+                4, 5 -> 0.5f + random.nextFloat() * 0.2f  // Virage MOYEN droite
+                
+                // Transitions douces et lignes droites
+                6, 7 -> lastCurve * 0.6f // Transition douce (60% de l'ancien)
+                else -> 0f               // Ligne droite
             }
             
-            // Éviter les changements trop brusques
-            val smoothedCurve = if (abs(newCurve - lastCurve) > 0.6f) {
-                lastCurve + (newCurve - lastCurve) * 0.5f // Transition progressive
+            // Éviter les changements trop brusques entre FORT et MOYEN
+            val smoothedCurve = if (abs(newCurve - lastCurve) > 0.7f) {
+                lastCurve + (newCurve - lastCurve) * 0.6f // Transition plus progressive
             } else {
                 newCurve
             }
@@ -286,20 +291,40 @@ class BobsledActivity : Activity(), SensorEventListener {
     }
     
     private fun updatePlayerReaction() {
-        // Calcul de la réaction idéale selon le virage
-        val idealReaction = when {
-            currentCurveIntensity < -0.3f -> -0.8f // Incliner à gauche
-            currentCurveIntensity > 0.3f -> 0.8f   // Incliner à droite
-            else -> 0f                             // Rester droit
+        // Calcul de la réaction idéale selon le TYPE de virage
+        val curveType = getCurveType(currentCurveIntensity)
+        val idealReaction = when (curveType) {
+            CurveType.STRONG_LEFT -> -1.5f  // 90 degrés gauche
+            CurveType.MEDIUM_LEFT -> -0.8f  // 45 degrés gauche
+            CurveType.STRAIGHT -> 0f        // Rester droit
+            CurveType.MEDIUM_RIGHT -> 0.8f  // 45 degrés droite
+            CurveType.STRONG_RIGHT -> 1.5f  // 90 degrés droite
         }
         
         // Comparaison avec la réaction du joueur
         val reactionError = abs(tiltZ - idealReaction)
-        playerReactionAccuracy = (1f - reactionError / 2f).coerceIn(0.3f, 1f)
+        playerReactionAccuracy = (1f - reactionError / 3f).coerceIn(0.2f, 1f) // Ajusté pour les nouveaux angles
         
-        // Bonus pour les virages parfaits
-        if (reactionError < 0.2f && abs(currentCurveIntensity) > 0.3f) {
+        // Bonus pour les virages parfaits (tolérance selon le type de virage)
+        val perfectThreshold = when (curveType) {
+            CurveType.STRONG_LEFT, CurveType.STRONG_RIGHT -> 0.4f // Plus de tolérance pour virages forts
+            CurveType.MEDIUM_LEFT, CurveType.MEDIUM_RIGHT -> 0.3f // Tolérance normale pour virages moyens
+            CurveType.STRAIGHT -> 0.2f // Peu de tolérance pour ligne droite
+        }
+        
+        if (reactionError < perfectThreshold && curveType != CurveType.STRAIGHT) {
             perfectTurns++
+        }
+    }
+    
+    // Nouvelle fonction pour déterminer le type de virage
+    private fun getCurveType(intensity: Float): CurveType {
+        return when {
+            intensity <= -0.75f -> CurveType.STRONG_LEFT
+            intensity <= -0.4f -> CurveType.MEDIUM_LEFT
+            intensity >= 0.75f -> CurveType.STRONG_RIGHT
+            intensity >= 0.4f -> CurveType.MEDIUM_RIGHT
+            else -> CurveType.STRAIGHT
         }
     }
     
@@ -426,6 +451,11 @@ class BobsledActivity : Activity(), SensorEventListener {
             "JAPON" -> "🇯🇵"
             else -> "🏴"
         }
+    }
+
+    // Enum pour les types de virages
+    enum class CurveType {
+        STRONG_LEFT, MEDIUM_LEFT, STRAIGHT, MEDIUM_RIGHT, STRONG_RIGHT
     }
 
     inner class BobsledView(context: Context) : View(context) {
@@ -850,7 +880,7 @@ class BobsledActivity : Activity(), SensorEventListener {
                 canvas.drawRect(roadCenterX + roadWidth/4f, screenY.toFloat(), roadCenterX + roadWidth/2f, screenY + 2f, paint)
             }
             
-            // 6. BOBSLEIGH AVEC PHYSIQUE DE VIRAGES
+            // 6. BOBSLEIGH AVEC PHYSIQUE DE VIRAGES AMÉLIORÉE
             val bobBaseX = w / 2f
             val baseBobY = h * 0.82f
             val bobScale = 0.16f
@@ -859,28 +889,37 @@ class BobsledActivity : Activity(), SensorEventListener {
             var bobVerticalOffset = 0f
             var bobRotation = 0f
             
-            if (abs(currentCurveIntensity) > 0.2f) { // Changé aussi ici pour cohérence
+            val curveType = getCurveType(currentCurveIntensity)
+            
+            if (curveType != CurveType.STRAIGHT) {
                 val centrifugalForce = abs(currentCurveIntensity)
                 val speedFactor = (speed / maxSpeed).coerceIn(0.3f, 1f)
                 
-                bobHorizontalOffset = currentCurveIntensity * speedFactor * 80f // Réduit un peu
+                bobHorizontalOffset = currentCurveIntensity * speedFactor * 80f
                 
-                val climbAngle = (45f + (centrifugalForce * speedFactor * 30f)).coerceAtMost(75f)
+                // Angles de rotation selon le type de virage
+                val targetAngle = when (curveType) {
+                    CurveType.STRONG_LEFT, CurveType.STRONG_RIGHT -> 75f // Virage fort = 75° max
+                    CurveType.MEDIUM_LEFT, CurveType.MEDIUM_RIGHT -> 45f // Virage moyen = 45° max
+                    else -> 0f
+                }
+                
+                val climbAngle = (targetAngle + (centrifugalForce * speedFactor * 15f)).coerceAtMost(targetAngle + 15f)
                 val climbRadians = Math.toRadians(climbAngle.toDouble()).toFloat()
-                val climbDistance = centrifugalForce * speedFactor * 50f // Réduit un peu
+                val climbDistance = centrifugalForce * speedFactor * 50f
                 
                 bobVerticalOffset = -sin(climbRadians) * climbDistance
                 
-                val additionalRotation = climbAngle - 45f
+                val additionalRotation = climbAngle - targetAngle
                 bobRotation = if (currentCurveIntensity < 0f) -additionalRotation else additionalRotation
             }
             
             val bobX = bobBaseX + bobHorizontalOffset
             val bobY = baseBobY + bobVerticalOffset
             
-            val bobSprite = when {
-                currentCurveIntensity < -0.3f -> bobLeftBitmap
-                currentCurveIntensity > 0.3f -> bobRightBitmap
+            val bobSprite = when (curveType) {
+                CurveType.STRONG_LEFT, CurveType.MEDIUM_LEFT -> bobLeftBitmap
+                CurveType.STRONG_RIGHT, CurveType.MEDIUM_RIGHT -> bobRightBitmap
                 else -> bobStraightBitmap
             }
             
@@ -901,9 +940,9 @@ class BobsledActivity : Activity(), SensorEventListener {
                     canvas.drawBitmap(bmp, null, dstRect, paint)
                 }
             } ?: run {
-                paint.color = when {
-                    currentCurveIntensity < -0.3f -> Color.GREEN
-                    currentCurveIntensity > 0.3f -> Color.BLUE
+                paint.color = when (curveType) {
+                    CurveType.STRONG_LEFT, CurveType.MEDIUM_LEFT -> Color.GREEN
+                    CurveType.STRONG_RIGHT, CurveType.MEDIUM_RIGHT -> Color.BLUE
                     else -> Color.YELLOW
                 }
                 
@@ -919,33 +958,60 @@ class BobsledActivity : Activity(), SensorEventListener {
                 }
             }
             
-            // 7. INTERFACE ÉNORME
+            // 7. INTERFACE ÉNORME AVEC SYMBOLES COLORÉS
             paint.color = Color.BLACK
             paint.textSize = 120f
             paint.textAlign = Paint.Align.LEFT
             canvas.drawText("${speed.toInt()} KM/H", 30f, 150f, paint)
             
-            if (abs(currentCurveIntensity) > 0.2f) { // Cohérent avec le reste
-                paint.color = Color.argb(180, 0, 0, 0)
-                canvas.drawRoundRect(w/4f, 200f, w*3f/4f, 450f, 20f, 20f, paint) // Plus haute pour plus de temps
+            // NOUVEAU SYSTÈME D'INTERFACE AVEC SYMBOLES COLORÉS
+            if (curveType != CurveType.STRAIGHT) {
+                // Fond plus grand et plus visible
+                paint.color = Color.argb(220, 0, 0, 0)
+                canvas.drawRoundRect(w/8f, 200f, w*7f/8f, 500f, 25f, 25f, paint)
                 
-                paint.color = Color.YELLOW
-                paint.textSize = 150f
+                // Couleur du symbole selon l'intensité du virage
+                val symbolColor = when (curveType) {
+                    CurveType.STRONG_LEFT, CurveType.STRONG_RIGHT -> Color.RED
+                    CurveType.MEDIUM_LEFT, CurveType.MEDIUM_RIGHT -> Color.rgb(255, 165, 0) // Orange
+                    else -> Color.WHITE
+                }
+                
+                // Symbole ÉNORME avec flèche et intensité
+                paint.color = symbolColor
+                paint.textSize = 200f // BEAUCOUP PLUS GROS
                 paint.textAlign = Paint.Align.CENTER
-                val instruction = if (currentCurveIntensity < 0f) "⬅️ PENCHEZ GAUCHE" else "PENCHEZ DROITE ➡️"
-                canvas.drawText(instruction, w/2f, 280f, paint)
                 
+                val directionSymbol = when (curveType) {
+                    CurveType.STRONG_LEFT -> "⬅️🔴"     // Rouge pour FORT
+                    CurveType.MEDIUM_LEFT -> "⬅️🟠"     // Orange pour MOYEN
+                    CurveType.STRONG_RIGHT -> "🔴➡️"    // Rouge pour FORT
+                    CurveType.MEDIUM_RIGHT -> "🟠➡️"    // Orange pour MOYEN
+                    else -> ""
+                }
+                
+                canvas.drawText(directionSymbol, w/2f, 320f, paint)
+                
+                // Instructions selon le type de virage
+                paint.color = Color.WHITE
+                paint.textSize = 90f // PLUS GROS
+                val instruction = when (curveType) {
+                    CurveType.STRONG_LEFT -> "PENCHEZ FORT GAUCHE (90°)"
+                    CurveType.MEDIUM_LEFT -> "PENCHEZ MOYEN GAUCHE (45°)"
+                    CurveType.STRONG_RIGHT -> "PENCHEZ FORT DROITE (90°)"
+                    CurveType.MEDIUM_RIGHT -> "PENCHEZ MOYEN DROITE (45°)"
+                    else -> ""
+                }
+                canvas.drawText(instruction, w/2f, 400f, paint)
+                
+                // Performance avec couleur selon la qualité
                 paint.textSize = 100f
                 paint.color = when {
                     playerReactionAccuracy > 0.8f -> Color.GREEN
                     playerReactionAccuracy > 0.6f -> Color.YELLOW
                     else -> Color.RED
                 }
-                canvas.drawText("${(playerReactionAccuracy * 100).toInt()}%", w/2f, 360f, paint)
-                
-                paint.color = Color.WHITE
-                paint.textSize = 60f
-                canvas.drawText("INCLINEZ VOTRE TÉLÉPHONE!", w/2f, 420f, paint)
+                canvas.drawText("${(playerReactionAccuracy * 100).toInt()}%", w/2f, 470f, paint)
             }
         }
         
