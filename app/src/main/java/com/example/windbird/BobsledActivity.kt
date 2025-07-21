@@ -24,7 +24,7 @@ class BobsledActivity : Activity(), SensorEventListener {
     private var sensorManager: SensorManager? = null
     private var gyroscope: Sensor? = null
 
-    // Nouvelle structure de jeu SIMPLIFIÉE
+    // Structure de jeu SIMPLIFIÉE
     private var gameState = GameState.PREPARATION
     private var phaseTimer = 0f
     
@@ -80,7 +80,6 @@ class BobsledActivity : Activity(), SensorEventListener {
     
     // Effets visuels
     private var cameraShake = 0f
-    private val speedLines = mutableListOf<SpeedLine>()
     private val iceParticles = mutableListOf<IceParticle>()
 
     private lateinit var tournamentData: TournamentData
@@ -149,7 +148,6 @@ class BobsledActivity : Activity(), SensorEventListener {
         scoreCalculated = false
         cameraShake = 0f
         lastPushTime = 0L
-        speedLines.clear()
         iceParticles.clear()
         generateIceParticles()
         generateNewTurn()
@@ -234,27 +232,6 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
     }
     
-    private fun updateControlPhase() {
-        // Génération de direction idéale qui change
-        turnTimer += 0.025f
-        if (turnTimer > 2.5f) {
-            idealDirection = -1f + kotlin.random.Random.nextFloat() * 2f
-            turnTimer = 0f
-        }
-        
-        // Calcul de précision du steering
-        val directionError = abs(tiltZ - idealDirection)
-        steeringAccuracy = 1f - (directionError / 2f).coerceIn(0f, 1f)
-        
-        // Accumulation de performance
-        controlPerformance = (controlPerformance * 0.98f + steeringAccuracy * 0.02f)
-        
-        // Ajustement de vitesse selon performance
-        if (steeringAccuracy < 0.5f) {
-            speed = maxOf(speed * 0.995f, 40f)  // Ralentissement si mauvais contrôle
-        }
-    }
-    
     private fun handleControlDescent() {
         // Phase de contrôle avec gyroscope - ACCÉLÉRATION PROGRESSIVE
         updateControlPhase()
@@ -336,18 +313,6 @@ class BobsledActivity : Activity(), SensorEventListener {
         turnIntensity = 0.4f + kotlin.random.Random.nextFloat() * 0.6f
     }
     
-    private fun generateSpeedLines() {
-        speedLines.add(SpeedLine(
-            x = kotlin.random.Random.nextFloat() * 1000f,
-            y = kotlin.random.Random.nextFloat() * 800f,
-            speed = 8f + kotlin.random.Random.nextFloat() * 4f
-        ))
-        
-        if (speedLines.size > 25) {
-            speedLines.removeFirst()
-        }
-    }
-    
     private fun generateIceParticles() {
         repeat(15) {
             iceParticles.add(IceParticle(
@@ -360,11 +325,6 @@ class BobsledActivity : Activity(), SensorEventListener {
     }
     
     private fun updateEffects() {
-        speedLines.removeAll { line ->
-            line.x -= line.speed
-            line.x < -50f
-        }
-        
         iceParticles.removeAll { particle ->
             particle.y += particle.speed
             particle.x += sin(particle.y * 0.01f) * 0.3f
@@ -671,242 +631,6 @@ class BobsledActivity : Activity(), SensorEventListener {
             
             // Barre de puissance améliorée
             drawImprovedPushPowerMeter(canvas, w, h)
-        }
-        
-        private fun drawFirstDescent(canvas: Canvas, w: Int, h: Int) {
-            // Fond montagne/ciel
-            paint.color = Color.parseColor("#87CEEB")
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
-            
-            // PISTE INCLINÉE haut-gauche vers bas-droite
-            val progress = phaseTimer / firstDescentDuration
-            
-            // Points de la piste inclinée
-            val trackStartX = -100f
-            val trackStartY = h * 0.1f
-            val trackEndX = w + 100f
-            val trackEndY = h * 0.9f
-            val trackWidth = 150f
-            
-            // Dessiner la piste inclinée
-            paint.color = Color.parseColor("#FFFFFF")
-            val trackPath = Path().apply {
-                // Côté haut de la piste
-                moveTo(trackStartX - trackWidth/2f, trackStartY - trackWidth/4f)
-                lineTo(trackEndX - trackWidth/2f, trackEndY - trackWidth/4f)
-                // Côté bas de la piste
-                lineTo(trackEndX + trackWidth/2f, trackEndY + trackWidth/4f)
-                lineTo(trackStartX + trackWidth/2f, trackStartY + trackWidth/4f)
-                close()
-            }
-            canvas.drawPath(trackPath, paint)
-            
-            // Bordures de la piste
-            paint.color = Color.parseColor("#CCCCCC")
-            paint.strokeWidth = 6f
-            paint.style = Paint.Style.STROKE
-            canvas.drawLine(trackStartX - trackWidth/2f, trackStartY - trackWidth/4f, trackEndX - trackWidth/2f, trackEndY - trackWidth/4f, paint)
-            canvas.drawLine(trackStartX + trackWidth/2f, trackStartY + trackWidth/4f, trackEndX + trackWidth/2f, trackEndY + trackWidth/4f, paint)
-            paint.style = Paint.Style.FILL
-            
-            // Bobsleigh SUR la piste inclinée
-            val bobX = trackStartX + (trackEndX - trackStartX) * progress
-            val bobY = trackStartY + (trackEndY - trackStartY) * progress
-            
-            // Angle du bobsleigh selon la pente
-            val angle = atan2(trackEndY - trackStartY, trackEndX - trackStartX) * 180f / PI.toFloat()
-            val scale = 0.2f
-            
-            canvas.save()
-            canvas.rotate(angle, bobX, bobY)
-            
-            bobFinishLineBitmap?.let { bmp ->
-                val dstRect = RectF(
-                    bobX - bmp.width * scale / 2f,
-                    bobY - bmp.height * scale / 2f,
-                    bobX + bmp.width * scale / 2f,
-                    bobY + bmp.height * scale / 2f
-                )
-                canvas.drawBitmap(bmp, null, dstRect, paint)
-            }
-            
-            canvas.restore()
-            
-            // Effet de traînée SUR LA PISTE
-            for (i in 1..5) {
-                val trailProgress = progress - (i * 0.08f)
-                if (trailProgress > 0f) {
-                    val trailX = trackStartX + (trackEndX - trackStartX) * trailProgress
-                    val trailY = trackStartY + (trackEndY - trackStartY) * trailProgress
-                    
-                    paint.color = Color.WHITE
-                    paint.alpha = (255 * (1f - i * 0.2f)).toInt()
-                    canvas.drawCircle(trailX, trailY, 8f - i * 1f, paint)
-                    paint.alpha = 255
-                }
-            }
-            
-            // Vitesse et titre
-            paint.color = Color.BLACK
-            paint.textSize = 50f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("⛷️ PREMIÈRE DESCENTE", w/2f, 80f, paint)
-            
-            paint.textSize = 60f
-            paint.color = Color.YELLOW
-            canvas.drawText("${speed.toInt()} KM/H", w/2f, h - 60f, paint)
-        }
-        
-        private fun drawSecondDescent(canvas: Canvas, w: Int, h: Int) {
-            // Fond plus sombre (plus rapide)
-            paint.color = Color.parseColor("#6495ED")
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
-            
-            // MÊME PISTE INCLINÉE mais plus rapide
-            val progress = phaseTimer / secondDescentDuration
-            
-            val trackStartX = -100f
-            val trackStartY = h * 0.1f
-            val trackEndX = w + 100f
-            val trackEndY = h * 0.9f
-            val trackWidth = 160f  // Légèrement plus large
-            
-            // Piste inclinée
-            paint.color = Color.parseColor("#FFFFFF")
-            val trackPath = Path().apply {
-                moveTo(trackStartX - trackWidth/2f, trackStartY - trackWidth/4f)
-                lineTo(trackEndX - trackWidth/2f, trackEndY - trackWidth/4f)
-                lineTo(trackEndX + trackWidth/2f, trackEndY + trackWidth/4f)
-                lineTo(trackStartX + trackWidth/2f, trackStartY + trackWidth/4f)
-                close()
-            }
-            canvas.drawPath(trackPath, paint)
-            
-            // Bordures renforcées
-            paint.color = Color.parseColor("#AAAAAA")
-            paint.strokeWidth = 8f
-            paint.style = Paint.Style.STROKE
-            canvas.drawLine(trackStartX - trackWidth/2f, trackStartY - trackWidth/4f, trackEndX - trackWidth/2f, trackEndY - trackWidth/4f, paint)
-            canvas.drawLine(trackStartX + trackWidth/2f, trackStartY + trackWidth/4f, trackEndX + trackWidth/2f, trackEndY + trackWidth/4f, paint)
-            paint.style = Paint.Style.FILL
-            
-            // Bobsleigh SUR la piste avec angle
-            val bobX = trackStartX + (trackEndX - trackStartX) * progress
-            val bobY = trackStartY + (trackEndY - trackStartY) * progress
-            val angle = atan2(trackEndY - trackStartY, trackEndX - trackStartX) * 180f / PI.toFloat()
-            val scale = 0.22f
-            
-            canvas.save()
-            canvas.rotate(angle, bobX, bobY)
-            
-            bobFinishLineBitmap?.let { bmp ->
-                val dstRect = RectF(
-                    bobX - bmp.width * scale / 2f,
-                    bobY - bmp.height * scale / 2f,
-                    bobX + bmp.width * scale / 2f,
-                    bobY + bmp.height * scale / 2f
-                )
-                canvas.drawBitmap(bmp, null, dstRect, paint)
-            }
-            
-            canvas.restore()
-            
-            // Effet de vitesse plus intense SUR LA PISTE
-            for (i in 1..8) {
-                val trailProgress = progress - (i * 0.04f)
-                if (trailProgress > 0f) {
-                    val trailX = trackStartX + (trackEndX - trackStartX) * trailProgress
-                    val trailY = trackStartY + (trackEndY - trackStartY) * trailProgress
-                    
-                    paint.color = Color.CYAN
-                    paint.alpha = (255 * (1f - i * 0.125f)).toInt()
-                    canvas.drawCircle(trailX, trailY, 12f - i * 1f, paint)
-                    paint.alpha = 255
-                }
-            }
-            
-            // Lignes de vitesse parallèles à la piste
-            for (i in 0..8) {
-                paint.color = Color.WHITE
-                paint.alpha = 120
-                paint.strokeWidth = 2f
-                
-                val lineProgress = (i * 0.15f + phaseTimer * 3f) % 1.2f
-                if (lineProgress <= 1f) {
-                    val lineX = trackStartX + (trackEndX - trackStartX) * lineProgress
-                    val lineY = trackStartY + (trackEndY - trackStartY) * lineProgress
-                    
-                    // Lignes perpendiculaires à la direction de la piste
-                    val perpX = -(trackEndY - trackStartY) / 10f
-                    val perpY = (trackEndX - trackStartX) / 10f
-                    
-                    canvas.drawLine(lineX - perpX, lineY - perpY, lineX + perpX, lineY + perpY, paint)
-                }
-                paint.alpha = 255
-            }
-            
-            paint.color = Color.BLACK
-            paint.textSize = 50f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("⚡ ACCÉLÉRATION MAXIMALE", w/2f, 80f, paint)
-            
-            paint.textSize = 70f
-            paint.color = Color.RED
-            canvas.drawText("${speed.toInt()} KM/H", w/2f, h - 60f, paint)
-        }
-        
-        private fun drawControlDescent(canvas: Canvas, w: Int, h: Int) {
-            // CARTE À GAUCHE (65% de l'écran)
-            val mapRect = RectF(0f, 0f, w * 0.65f, h.toFloat())
-            
-            // Fond de carte
-            paint.color = Color.parseColor("#E0F6FF")
-            canvas.drawRect(mapRect, paint)
-            
-            // Dessiner la piste de bobsleigh (serpentine)
-            paint.color = Color.parseColor("#CCCCCC")
-            paint.strokeWidth = 8f
-            paint.style = Paint.Style.STROKE
-            
-            val trackPath = Path()
-            val startX = mapRect.width() * 0.5f
-            val startY = 50f
-            trackPath.moveTo(startX, startY)
-            
-            // Piste serpentine avec courbes
-            for (i in 1..20) {
-                val y = startY + i * (mapRect.height() - 100f) / 20f
-                val wiggle = sin(i * 0.8f) * mapRect.width() * 0.2f
-                val x = startX + wiggle
-                trackPath.lineTo(x, y)
-            }
-            canvas.drawPath(trackPath, paint)
-            paint.style = Paint.Style.FILL
-            
-            // Point rouge montrant la position actuelle
-            val currentY = 50f + trackProgress * (mapRect.height() - 100f)
-            val currentWiggle = sin(trackProgress * 16f) * mapRect.width() * 0.2f
-            val currentX = startX + currentWiggle
-            
-            paint.color = Color.RED
-            canvas.drawCircle(currentX, currentY, 12f, paint)
-            
-            // Ligne d'arrivée
-            paint.color = Color.parseColor("#FFD700")
-            paint.strokeWidth = 6f
-            paint.style = Paint.Style.STROKE
-            canvas.drawLine(mapRect.left + 50f, mapRect.bottom - 50f, mapRect.right - 50f, mapRect.bottom - 50f, paint)
-            paint.style = Paint.Style.FILL
-            
-            // Titre de la carte
-            paint.color = Color.BLACK
-            paint.textSize = 25f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("CARTE DU PARCOURS", mapRect.centerX(), 30f, paint)
-            
-            // TUNNEL IMMERSIF À DROITE (35% de l'écran)
-            val tunnelRect = RectF(w * 0.65f, 0f, w.toFloat(), h.toFloat())
-            drawImmersiveTunnel(canvas, tunnelRect)
         }
         
         private fun drawFullScreenTunnel(canvas: Canvas, w: Int, h: Int) {
@@ -1218,12 +942,6 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
     }
 
-    data class SpeedLine(
-        var x: Float,
-        var y: Float,
-        val speed: Float
-    )
-    
     data class IceParticle(
         var x: Float,
         var y: Float,
