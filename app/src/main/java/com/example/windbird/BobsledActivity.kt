@@ -86,7 +86,7 @@ class BobsledActivity : Activity(), SensorEventListener {
 
         tournamentData = intent.getSerializableExtra("tournament_data") as TournamentData
         eventIndex = intent.getIntExtra("event_index", 0)
-        numberOfPlayers = intent.getIntInteger("number_of_players", 1)
+        numberOfPlayers = intent.getIntExtra("number_of_players", 1)
         practiceMode = intent.getBooleanExtra("practice_mode", false)
         currentPlayerIndex = intent.getIntExtra("current_player_index", tournamentData.getNextPlayer(eventIndex))
 
@@ -416,9 +416,10 @@ class BobsledActivity : Activity(), SensorEventListener {
             try {
                 bobsledPreparationBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobsled_preparation)
                 bobPushBitmap = BitmapFactory.decodeResource(resources, R.drawable.bob_push)
-                bobStraightBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobnv_straight)
-                bobLeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobnv_left)
-                bobRightBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobnv_right)
+                // Temporairement commenté jusqu'à ce que vous ajoutiez les images
+                // bobStraightBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobnv_straight)
+                // bobLeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobnv_left)
+                // bobRightBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobnv_right)
                 bobFinishLineBitmap = BitmapFactory.decodeResource(resources, R.drawable.bob_finish_line)
                 bobCelebrationBitmap = BitmapFactory.decodeResource(resources, R.drawable.bob_celebration)
             } catch (e: Exception) {
