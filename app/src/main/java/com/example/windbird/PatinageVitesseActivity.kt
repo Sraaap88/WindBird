@@ -394,13 +394,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         private var skaterSpriteSheet: Bitmap? = null
         
         init {
-            try {
-                // Essayer de charger speed_go.png
-                skaterSpriteSheet = BitmapFactory.decodeResource(resources, R.drawable.speed_go)
-            } catch (e: Exception) {
-                // Créer des sprites de fallback
-                createFallbackSprites()
-            }
+            // Utiliser directement les sprites créés en code pour voir le jeu de jambes
+            createFallbackSprites()
         }
         
         private fun createFallbackSprites() {
