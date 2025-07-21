@@ -778,7 +778,7 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
         
         private fun drawCockpit(canvas: Canvas, w: Int, h: Int, title: String) {
-            // Interface similaire à la descente mais avec plus de contrôles
+            // Interface similaire à la descente : piste à gauche, cockpit à droite
             // Piste à gauche utilisant bobsled_preparation comme fond
             val trackRect = RectF(0f, 0f, w * 0.65f, h.toFloat())
             
@@ -817,58 +817,126 @@ class BobsledActivity : Activity(), SensorEventListener {
                 canvas.drawBitmap(bmp, null, dstRect, paint)
             }
             
-            // Panneau de contrôle à droite
-            val controlRect = RectF(w * 0.65f, 0f, w.toFloat(), h.toFloat())
-            paint.color = Color.parseColor("#001122")
-            canvas.drawRect(controlRect, paint)
+            // ZONE COCKPIT À DROITE
+            val cockpitRect = RectF(w * 0.65f, 0f, w.toFloat(), h.toFloat())
             
-            // Image cockpit en haut à droite
+            // D'abord dessiner la vue première personne DERRIÈRE
+            canvas.save()
+            canvas.clipRect(cockpitRect)
+            
+            // VUE PREMIÈRE PERSONNE dans la zone cockpit
+            val cockpitW = cockpitRect.width().toInt()
+            val cockpitH = cockpitRect.height().toInt()
+            val offsetX = cockpitRect.left
+            val offsetY = cockpitRect.top
+            
+            // Ciel nuageux qui défile (partie haute)
+            val skyHeight = cockpitH * 0.35f
+            paint.color = Color.parseColor("#87CEEB")
+            canvas.drawRect(offsetX, offsetY, offsetX + cockpitW, offsetY + skyHeight, paint)
+            
+            // Nuages qui défilent selon la vitesse
+            val cloudScrollSpeed = speed * 0.1f
+            val cloudOffset = (phaseTimer * cloudScrollSpeed) % (cockpitW * 1.5f)
+            
+            paint.color = Color.WHITE
+            paint.alpha = 180
+            for (i in 0..3) {
+                val cloudX = offsetX + i * (cockpitW / 2f) - cloudOffset
+                val cloudY = offsetY + skyHeight * (0.2f + i * 0.2f)
+                canvas.drawCircle(cloudX, cloudY, 25f + i * 5f, paint)
+                canvas.drawCircle(cloudX + 20f, cloudY, 20f + i * 4f, paint)
+            }
+            paint.alpha = 255
+            
+            // PISTE EN PERSPECTIVE qui défile vers nous
+            val trackStartY = offsetY + skyHeight
+            val scrollSpeed = speed * 2f
+            val trackOffset = (phaseTimer * scrollSpeed) % 40f
+            
+            // Position horizontale basée sur la rotation du téléphone
+            val steeringOffset = tiltZ * cockpitW * 0.3f
+            val centerX = offsetX + cockpitW / 2f + steeringOffset
+            
+            // Dessiner la piste segment par segment (effet tunnel)
+            for (i in 0..12) {
+                val segmentProgress = (i * 40f - trackOffset) / (cockpitH - skyHeight)
+                val segmentY = trackStartY + segmentProgress * (cockpitH - skyHeight)
+                
+                if (segmentY > offsetY + cockpitH) continue
+                
+                // Perspective : plus c'est loin, plus c'est étroit
+                val perspective = 1f - (segmentProgress * 0.8f).coerceAtMost(0.9f)
+                val segmentWidth = cockpitW * perspective * 0.6f
+                
+                // Virage selon idealDirection et distance
+                val turnInfluence = idealDirection * perspective * cockpitW * 0.2f
+                val segmentCenterX = centerX + turnInfluence
+                
+                // Murs de la piste (gris)
+                paint.color = Color.parseColor("#CCCCCC")
+                if (perspective > 0.1f) {
+                    // Mur gauche
+                    canvas.drawRect(
+                        segmentCenterX - segmentWidth * 0.7f,
+                        segmentY,
+                        segmentCenterX - segmentWidth * 0.5f,
+                        segmentY + 40f * perspective,
+                        paint
+                    )
+                    // Mur droit
+                    canvas.drawRect(
+                        segmentCenterX + segmentWidth * 0.5f,
+                        segmentY,
+                        segmentCenterX + segmentWidth * 0.7f,
+                        segmentY + 40f * perspective,
+                        paint
+                    )
+                }
+                
+                // Piste centrale (blanche/glace)
+                paint.color = Color.parseColor("#E0F6FF")
+                if (perspective > 0.1f) {
+                    canvas.drawRect(
+                        segmentCenterX - segmentWidth * 0.5f,
+                        segmentY,
+                        segmentCenterX + segmentWidth * 0.5f,
+                        segmentY + 40f * perspective,
+                        paint
+                    )
+                }
+            }
+            
+            canvas.restore()
+            
+            // MAINTENANT dessiner votre image cockpit PAR-DESSUS
             bobCockpitBitmap?.let { bmp ->
-                val cockpitRect = RectF(
-                    w * 0.67f,
-                    20f,
-                    w * 0.98f,
-                    h * 0.35f
-                )
                 canvas.drawBitmap(bmp, null, cockpitRect, paint)
             }
             
-            // Contrôles directionnels sous le cockpit
-            val circleX = w * 0.825f
-            val circleY = h * 0.45f
-            
-            // Cercle vert (cible)
-            paint.color = Color.parseColor("#44AA44")
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 6f
-            canvas.drawCircle(circleX, circleY, 40f, paint)
-            
-            // Cercle rouge (position actuelle selon tilt)
-            val redCircleOffset = tiltZ * 30f
-            paint.color = Color.parseColor("#AA4444")
-            paint.style = Paint.Style.FILL
-            canvas.drawCircle(circleX + redCircleOffset, circleY, 12f, paint)
-            
-            // Cercle jaune (position idéale)
-            val idealOffset = idealDirection * 30f
-            paint.color = Color.parseColor("#AAAA44")
-            canvas.drawCircle(circleX + idealOffset, circleY, 6f, paint)
-            
-            paint.style = Paint.Style.FILL
-            
-            // Instructions
-            paint.color = Color.WHITE
+            // Interface minimaliste par-dessus l'image cockpit
+            // Vitesse en bas à droite
+            paint.color = Color.YELLOW
             paint.textSize = 35f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("🎮 TENEZ COMME UN VOLANT", w * 0.825f, h * 0.55f, paint)
-            canvas.drawText("🔴 ➤ 🟡", w * 0.825f, h * 0.6f, paint)
+            canvas.drawText("${speed.toInt()}", cockpitRect.centerX(), cockpitRect.bottom - 60f, paint)
             
-            // Performance actuelle
+            paint.color = Color.WHITE
+            paint.textSize = 18f
+            canvas.drawText("KM/H", cockpitRect.centerX(), cockpitRect.bottom - 35f, paint)
+            
+            // Indicateur de direction
             paint.textSize = 40f
-            paint.color = if (steeringAccuracy > 0.8f) Color.GREEN else if (steeringAccuracy > 0.5f) Color.YELLOW else Color.RED
-            canvas.drawText("${(steeringAccuracy * 100).toInt()}%", w * 0.825f, h * 0.7f, paint)
+            paint.color = Color.YELLOW
+            paint.textAlign = Paint.Align.CENTER
+            val directionArrow = when {
+                idealDirection < -0.3f -> "⬅️"
+                idealDirection > 0.3f -> "➡️" 
+                else -> "⬆️"
+            }
+            canvas.drawText(directionArrow, cockpitRect.centerX(), cockpitRect.top + 50f, paint)
             
-            // Titre et vitesse en bas
+            // Titre en bas
             paint.color = Color.WHITE
             paint.textSize = 40f
             paint.textAlign = Paint.Align.CENTER
