@@ -29,10 +29,10 @@ class BobsledActivity : Activity(), SensorEventListener {
     private var gameState = GameState.PREPARATION
     private var phaseTimer = 0f
     
-    // Durées
+    // Durées - TRAJET 3X PLUS LONG
     private val preparationDuration = 6f
     private val pushStartDuration = 8f
-    private val controlDescentDuration = 30f
+    private val controlDescentDuration = 90f // 3X PLUS LONG (était 30f)
     private val finishLineDuration = 4f
     private val celebrationDuration = 8f
     private val resultsDuration = 5f
@@ -100,6 +100,309 @@ class BobsledActivity : Activity(), SensorEventListener {
             setBackgroundColor(Color.parseColor("#001122"))
             setPadding(35, 30, 35, 30)
         }
+        
+        // NOUVELLES FONCTIONS POUR LE DÉCOR QUI DÉFILE
+        
+        private fun drawScrollingBackground(canvas: Canvas, w: Int, horizonY: Int) {
+            val mountainOffset = currentCurveIntensity * w * 0.4f
+            val speedScroll = (phaseTimer * speed * 0.5f) % w.toFloat()
+            
+            when {
+                trackPosition < 0.3f -> {
+                    // HAUTE MONTAGNE - Pics enneigés
+                    paint.color = Color.rgb(80, 90, 120) // Montagnes sombres
+                    
+                    // Pic principal
+                    val mountain1 = Path().apply {
+                        moveTo(-mountainOffset - speedScroll * 0.3f, horizonY.toFloat())
+                        lineTo(w * 0.1f - mountainOffset - speedScroll * 0.3f, horizonY - 180f)
+                        lineTo(w * 0.3f - mountainOffset - speedScroll * 0.3f, horizonY - 150f)
+                        lineTo(w * 0.5f - mountainOffset - speedScroll * 0.3f, horizonY - 200f)
+                        lineTo(w * 0.7f - mountainOffset - speedScroll * 0.3f, horizonY - 120f)
+                        lineTo(w.toFloat() - mountainOffset - speedScroll * 0.3f, horizonY.toFloat())
+                        close()
+                    }
+                    canvas.drawPath(mountain1, paint)
+                    
+                    // Pic arrière-plan
+                    paint.color = Color.rgb(100, 110, 140)
+                    val mountain2 = Path().apply {
+                        moveTo(w * 0.3f - mountainOffset - speedScroll * 0.2f, horizonY.toFloat())
+                        lineTo(w * 0.6f - mountainOffset - speedScroll * 0.2f, horizonY - 160f)
+                        lineTo(w * 0.9f - mountainOffset - speedScroll * 0.2f, horizonY - 140f)
+                        lineTo(w * 1.2f - mountainOffset - speedScroll * 0.2f, horizonY.toFloat())
+                        close()
+                    }
+                    canvas.drawPath(mountain2, paint)
+                    
+                    // Neige sur les pics
+                    paint.color = Color.WHITE
+                    canvas.drawCircle(w * 0.1f - mountainOffset - speedScroll * 0.3f, horizonY - 170f, 15f, paint)
+                    canvas.drawCircle(w * 0.5f - mountainOffset - speedScroll * 0.3f, horizonY - 190f, 20f, paint)
+                }
+                
+                trackPosition < 0.7f -> {
+                    // FORÊT - Sapins denses
+                    paint.color = Color.rgb(60, 80, 40) // Vert sombre forêt
+                    
+                    // Collines boisées
+                    val forest1 = Path().apply {
+                        moveTo(-speedScroll * 0.8f, horizonY.toFloat())
+                        lineTo(w * 0.2f - speedScroll * 0.8f, horizonY - 100f)
+                        lineTo(w * 0.4f - speedScroll * 0.8f, horizonY - 80f)
+                        lineTo(w * 0.6f - speedScroll * 0.8f, horizonY - 120f)
+                        lineTo(w * 0.8f - speedScroll * 0.8f, horizonY - 90f)
+                        lineTo(w.toFloat() - speedScroll * 0.8f, horizonY.toFloat())
+                        close()
+                    }
+                    canvas.drawPath(forest1, paint)
+                    
+                    // Sapins individuels qui défilent
+                    paint.color = Color.rgb(40, 60, 20)
+                    for (i in 0..8) {
+                        val treeX = (i * w / 4f - speedScroll * 1.2f) % (w * 1.5f) - w * 0.25f
+                        val treeY = horizonY - 60f + kotlin.random.Random(i).nextFloat() * 40f
+                        
+                        // Tronc
+                        paint.color = Color.rgb(80, 50, 30)
+                        canvas.drawRect(treeX - 3f, treeY, treeX + 3f, treeY + 20f, paint)
+                        
+                        // Branches
+                        paint.color = Color.rgb(40, 60, 20)
+                        canvas.drawCircle(treeX, treeY - 5f, 12f, paint)
+                        canvas.drawCircle(treeX, treeY - 15f, 8f, paint)
+                    }
+                }
+                
+                else -> {
+                    // VILLAGE - Chalets et maisons
+                    paint.color = Color.rgb(100, 120, 80) // Collines vertes
+                    
+                    val village1 = Path().apply {
+                        moveTo(-speedScroll, horizonY.toFloat())
+                        lineTo(w * 0.3f - speedScroll, horizonY - 60f)
+                        lineTo(w * 0.7f - speedScroll, horizonY - 80f)
+                        lineTo(w.toFloat() - speedScroll, horizonY.toFloat())
+                        close()
+                    }
+                    canvas.drawPath(village1, paint)
+                    
+                    // Chalets qui défilent
+                    for (i in 0..6) {
+                        val chaletX = (i * w / 3f - speedScroll * 1.5f) % (w * 1.8f) - w * 0.4f
+                        val chaletY = horizonY - 40f + kotlin.random.Random(i + 100).nextFloat() * 20f
+                        
+                        // Maison
+                        paint.color = Color.rgb(150, 100, 80)
+                        canvas.drawRect(chaletX - 15f, chaletY, chaletX + 15f, chaletY + 25f, paint)
+                        
+                        // Toit
+                        paint.color = Color.rgb(120, 80, 60)
+                        val roof = Path().apply {
+                            moveTo(chaletX - 18f, chaletY)
+                            lineTo(chaletX, chaletY - 15f)
+                            lineTo(chaletX + 18f, chaletY)
+                            close()
+                        }
+                        canvas.drawPath(roof, paint)
+                        
+                        // Fenêtre
+                        paint.color = Color.YELLOW
+                        canvas.drawRect(chaletX - 8f, chaletY + 8f, chaletX - 2f, chaletY + 15f, paint)
+                    }
+                }
+            }
+            
+            // Nuages qui bougent selon la zone
+            paint.color = Color.argb(180, 220, 220, 255)
+            val cloudSpeed = speedScroll * 0.1f
+            canvas.drawCircle((w * 0.2f - cloudSpeed) % (w * 1.3f) - w * 0.15f, horizonY * 0.3f, 30f, paint)
+            canvas.drawCircle((w * 0.7f - cloudSpeed) % (w * 1.3f) - w * 0.15f, horizonY * 0.2f, 45f, paint)
+            canvas.drawCircle((w * 0.9f - cloudSpeed) % (w * 1.3f) - w * 0.15f, horizonY * 0.4f, 25f, paint)
+        }
+        
+        private fun drawOverheadElements(canvas: Canvas, w: Int, h: Int) {
+            val elementScroll = (phaseTimer * speed * 2f) % (w * 3f)
+            
+            when {
+                trackPosition < 0.3f -> {
+                    // TÉLÉPHÉRIQUES dans la montagne
+                    if ((elementScroll / w).toInt() % 3 == 0) {
+                        paint.color = Color.rgb(100, 100, 100)
+                        paint.strokeWidth = 8f
+                        paint.style = Paint.Style.STROKE
+                        
+                        // Câble
+                        canvas.drawLine(
+                            -100f + elementScroll % (w * 1.5f),
+                            h * 0.3f,
+                            w + 100f + elementScroll % (w * 1.5f),
+                            h * 0.4f,
+                            paint
+                        )
+                        
+                        // Cabine
+                        paint.style = Paint.Style.FILL
+                        paint.color = Color.RED
+                        val cabinX = w * 0.3f + elementScroll % (w * 1.2f) - w * 0.1f
+                        canvas.drawRect(cabinX - 20f, h * 0.35f, cabinX + 20f, h * 0.38f, paint)
+                    }
+                }
+                
+                trackPosition < 0.7f -> {
+                    // PONTS EN BOIS dans la forêt
+                    if ((elementScroll / w).toInt() % 4 == 1) {
+                        paint.color = Color.rgb(120, 80, 40)
+                        paint.style = Paint.Style.FILL
+                        
+                        // Pont
+                        canvas.drawRect(
+                            w * 0.1f,
+                            h * 0.45f,
+                            w * 0.9f,
+                            h * 0.48f,
+                            paint
+                        )
+                        
+                        // Piliers
+                        paint.color = Color.rgb(80, 60, 30)
+                        canvas.drawRect(w * 0.2f, h * 0.45f, w * 0.22f, h * 0.55f, paint)
+                        canvas.drawRect(w * 0.8f, h * 0.45f, w * 0.82f, h * 0.55f, paint)
+                    }
+                }
+                
+                else -> {
+                    // BANDEROLLES dans le village
+                    if ((elementScroll / w).toInt() % 2 == 0) {
+                        paint.color = Color.rgb(255, 200, 0)
+                        paint.style = Paint.Style.FILL
+                        
+                        // Banderole
+                        canvas.drawRect(
+                            w * 0.15f,
+                            h * 0.4f,
+                            w * 0.85f,
+                            h * 0.42f,
+                            paint
+                        )
+                        
+                        // Texte sur banderole
+                        paint.color = Color.RED
+                        paint.textSize = 24f
+                        paint.textAlign = Paint.Align.CENTER
+                        canvas.drawText("ALLEZ! BRAVO!", w * 0.5f, h * 0.41f + 8f, paint)
+                    }
+                }
+            }
+        }
+        
+        private fun drawSideDecor(canvas: Canvas, w: Int, h: Int, horizonY: Float) {
+            val sideScroll = (phaseTimer * speed * 3f) % 200f
+            
+            // CÔTÉ GAUCHE
+            for (y in horizonY.toInt() until h step 40) {
+                val sideProgress = (y - horizonY) / (h - horizonY)
+                val sideY = y.toFloat() + sideScroll * (1f + sideProgress)
+                
+                when {
+                    trackPosition < 0.3f -> {
+                        // Rochers de montagne
+                        paint.color = Color.rgb(80, 80, 100)
+                        canvas.drawCircle(w * 0.05f, sideY % h.toFloat(), 15f + sideProgress * 20f, paint)
+                    }
+                    
+                    trackPosition < 0.7f -> {
+                        // Barrières de sécurité
+                        paint.color = Color.rgb(255, 50, 50)
+                        canvas.drawRect(
+                            w * 0.02f,
+                            sideY % h.toFloat(),
+                            w * 0.08f,
+                            (sideY + 8f) % h.toFloat(),
+                            paint
+                        )
+                    }
+                    
+                    else -> {
+                        // Spectateurs qui applaudissent
+                        paint.color = Color.rgb(200, 150, 100) // Peau
+                        canvas.drawCircle(w * 0.06f, sideY % h.toFloat(), 8f + sideProgress * 10f, paint)
+                        
+                        // Corps
+                        paint.color = Color.rgb(100, 100, 200) // Vêtements
+                        canvas.drawRect(
+                            w * 0.04f,
+                            (sideY + 8f) % h.toFloat(),
+                            w * 0.08f,
+                            (sideY + 25f) % h.toFloat(),
+                            paint
+                        )
+                    }
+                }
+            }
+            
+            // CÔTÉ DROIT (symétrique)
+            for (y in horizonY.toInt() until h step 45) {
+                val sideProgress = (y - horizonY) / (h - horizonY)
+                val sideY = y.toFloat() + sideScroll * (1.2f + sideProgress)
+                
+                when {
+                    trackPosition < 0.3f -> {
+                        // Rochers de montagne
+                        paint.color = Color.rgb(70, 70, 90)
+                        canvas.drawCircle(w * 0.95f, sideY % h.toFloat(), 12f + sideProgress * 18f, paint)
+                    }
+                    
+                    trackPosition < 0.7f -> {
+                        // Barrières de sécurité
+                        paint.color = Color.rgb(255, 255, 255)
+                        canvas.drawRect(
+                            w * 0.92f,
+                            sideY % h.toFloat(),
+                            w * 0.98f,
+                            (sideY + 8f) % h.toFloat(),
+                            paint
+                        )
+                    }
+                    
+                    else -> {
+                        // Spectateurs qui applaudissent
+                        paint.color = Color.rgb(220, 170, 120) // Peau
+                        canvas.drawCircle(w * 0.94f, sideY % h.toFloat(), 9f + sideProgress * 12f, paint)
+                        
+                        // Corps
+                        paint.color = Color.rgb(200, 100, 100) // Vêtements
+                        canvas.drawRect(
+                            w * 0.92f,
+                            (sideY + 8f) % h.toFloat(),
+                            w * 0.96f,
+                            (sideY + 25f) % h.toFloat(),
+                            paint
+                        )
+                    }
+                }
+            }
+            
+            // EFFETS DE PARTICULES selon la zone
+            paint.color = Color.argb(150, 255, 255, 255)
+            for (i in 0..20) {
+                val particleX = kotlin.random.Random(i).nextFloat() * w
+                val particleY = (kotlin.random.Random(i + 50).nextFloat() * h + sideScroll * 2f) % h.toFloat()
+                
+                when {
+                    trackPosition < 0.3f -> {
+                        // Flocons de neige
+                        canvas.drawCircle(particleX, particleY, 2f, paint)
+                    }
+                    trackPosition >= 0.7f -> {
+                        // Confettis dans le village
+                        paint.color = Color.argb(150, 255, 200, 0)
+                        canvas.drawCircle(particleX, particleY, 3f, paint)
+                        paint.color = Color.argb(150, 255, 255, 255)
+                    }
+                }
+            }
+        }
 
         gameView = BobsledView(this)
 
@@ -138,26 +441,45 @@ class BobsledActivity : Activity(), SensorEventListener {
     
     private fun generateTrackCurves() {
         trackCurves.clear()
-        // Circuit de bobsleigh réaliste avec différents virages
-        trackCurves.addAll(listOf(
-            0f,    // Départ droit
-            0f, 0f, 0f,
-            -0.8f, // Virage gauche
-            -0.6f, -0.4f, -0.2f,
-            0f,    // Ligne droite
-            0f, 0f,
-            0.9f,  // Virage droite serré
-            0.7f, 0.5f, 0.3f,
-            0f,    // Ligne droite
-            0f,
-            -0.5f, // Virage gauche moyen
-            -0.3f, -0.1f,
-            0f,    // Ligne droite
-            0.6f,  // Virage droite
-            0.4f, 0.2f,
-            0f,    // Arrivée droite
-            0f, 0f, 0f
-        ))
+        
+        if (practiceMode) {
+            // MODE PRATIQUE : Toujours le même circuit aléatoire mais fixe
+            kotlin.random.Random(12345).let { fixedRandom ->
+                generateRandomTrack(fixedRandom)
+            }
+        } else {
+            // MODE TOURNOI : Même circuit pour tous les joueurs du même événement
+            // Utilise eventIndex comme seed pour que tous les joueurs aient le même circuit
+            kotlin.random.Random(eventIndex.toLong()).let { tournamentRandom ->
+                generateRandomTrack(tournamentRandom)
+            }
+        }
+    }
+    
+    private fun generateRandomTrack(random: kotlin.random.Random) {
+        // Circuit 3X plus long avec virages aléatoires
+        val trackLength = 75 // 3X plus long (était 25 segments)
+        
+        trackCurves.add(0f) // Départ toujours droit
+        trackCurves.add(0f)
+        trackCurves.add(0f)
+        
+        for (i in 3 until trackLength - 3) {
+            when (random.nextInt(10)) {
+                0, 1 -> trackCurves.add(-0.9f + random.nextFloat() * 0.3f) // Virage gauche serré
+                2, 3 -> trackCurves.add(0.6f + random.nextFloat() * 0.3f)  // Virage droite serré
+                4 -> trackCurves.add(-0.5f + random.nextFloat() * 0.2f)      // Virage gauche moyen
+                5 -> trackCurves.add(0.3f + random.nextFloat() * 0.2f)       // Virage droite moyen
+                6 -> trackCurves.add(-0.3f + random.nextFloat() * 0.1f)      // Virage gauche léger
+                7 -> trackCurves.add(0.2f + random.nextFloat() * 0.1f)       // Virage droite léger
+                else -> trackCurves.add(0f)                                  // Ligne droite
+            }
+        }
+        
+        // Fin toujours droite
+        trackCurves.add(0f)
+        trackCurves.add(0f)
+        trackCurves.add(0f)
     }
 
     override fun onResume() {
@@ -203,12 +525,12 @@ class BobsledActivity : Activity(), SensorEventListener {
     }
     
     private fun handlePushStart() {
-        pushPower = pushPower.coerceAtMost(100f)
-        pushRhythm = pushRhythm.coerceAtMost(100f)
+        pushPower = pushPower.coerceAtMost(150f) // Permet de dépasser 100% jusqu'à 150%
+        pushRhythm = pushRhythm.coerceAtMost(150f) // Permet de dépasser 100% jusqu'à 150%
         
         if (phaseTimer >= pushStartDuration) {
-            pushQuality = (pushPower * 0.6f + pushRhythm * 0.4f) / 100f
-            baseSpeed = 60f + (pushQuality * 60f) // 60-120 km/h de base
+            pushQuality = (pushPower * 0.6f + pushRhythm * 0.4f) / 150f // Ajusté pour 150% max
+            baseSpeed = 60f + (pushQuality * 90f) // 60-150 km/h de base possible
             speed = baseSpeed
             
             gameState = GameState.CONTROL_DESCENT
@@ -479,7 +801,7 @@ class BobsledActivity : Activity(), SensorEventListener {
                         val pushProgress = (pushPower / 100f).coerceIn(0f, 1f)
                         val bobX = 150f + pushProgress * (width - 300f)
                         val bobY = height * 0.7f
-                        val touchRadius = 80f
+                        val touchRadius = 92f // 15% plus grand (était 80f)
                         
                         val touchX = event.x
                         val touchY = event.y
@@ -497,8 +819,8 @@ class BobsledActivity : Activity(), SensorEventListener {
                             }
                             lastPushTime = currentTime
                             
-                            pushPower = pushPower.coerceAtMost(100f)
-                            pushRhythm = pushRhythm.coerceAtMost(100f)
+                            pushPower = pushPower.coerceAtMost(150f) // Permet de dépasser 100%
+                            pushRhythm = pushRhythm.coerceAtMost(150f) // Permet de dépasser 100%
                             
                             cameraShake = 0.2f
                             
@@ -699,7 +1021,7 @@ class BobsledActivity : Activity(), SensorEventListener {
             canvas.drawRoundRect(w/2f - 400f, 120f, w/2f + 400f, 220f, 10f, 10f, paint)
             
             paint.color = Color.WHITE
-            paint.textSize = 60f // BEAUCOUP PLUS GROS
+            paint.textSize = 100f // ÉNORME
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("TAPEZ SUR LE BOBSLEIGH POUR LE POUSSER!", w/2f, 180f, paint)
             
@@ -710,11 +1032,11 @@ class BobsledActivity : Activity(), SensorEventListener {
             canvas.drawRect(w/2f - 180f, h - 120f, w/2f + 180f, h - 80f, paint)
             
             paint.color = Color.GREEN
-            val powerWidth = (pushPower / 100f) * 360f
+            val powerWidth = (pushPower.coerceAtMost(150f) / 150f) * 360f // Permet de dépasser 100% jusqu'à 150%
             canvas.drawRect(w/2f - 180f, h - 120f, w/2f - 180f + powerWidth, h - 80f, paint)
             
             paint.color = Color.WHITE
-            paint.textSize = 48f // BEAUCOUP PLUS GROS
+            paint.textSize = 80f // ENCORE PLUS GROS
             canvas.drawText("PUISSANCE: ${pushPower.toInt()}% | Coups: ${pushCount}", w/2f, h - 50f, paint)
             
             paint.color = Color.argb(200, 255, 0, 0)
@@ -727,38 +1049,30 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
 
         private fun drawWinterGamesTunnel(canvas: Canvas, w: Int, h: Int) {
-            // VRAI DEMI-TUNNEL AVEC MURS COURBES COMME WINTER GAMES !
+            // VRAI DEMI-TUNNEL AVEC DÉCOR QUI DÉFILE - MONTAGNE VERS VILLAGE !
             
-            val horizonY = h * 0.35f
+            val horizonY = h * 0.55f // PLUS DE CIEL - 30% moins de vue perspective
             val roadDistance = 200f
             
-            // 1. CIEL VIOLET RÉTRO
-            paint.color = Color.rgb(170, 140, 255)
+            // 1. CIEL QUI CHANGE SELON LA PROGRESSION
+            val skyColor = when {
+                trackPosition < 0.3f -> Color.rgb(140, 160, 255) // Ciel montagne (bleu-gris)
+                trackPosition < 0.7f -> Color.rgb(160, 180, 255) // Ciel forêt (bleu plus clair)
+                else -> Color.rgb(180, 200, 255) // Ciel village (bleu clair)
+            }
+            paint.color = skyColor
             canvas.drawRect(0f, 0f, w.toFloat(), horizonY, paint)
             
-            // 2. MONTAGNES QUI BOUGENT SELON LES VIRAGES
-            val mountainOffset = currentCurveIntensity * w * 0.3f
-            paint.color = Color.rgb(100, 100, 100)
+            // 2. DÉCOR D'ARRIÈRE-PLAN QUI DÉFILE
+            drawScrollingBackground(canvas, w, horizonY.toInt())
             
-            val mountain1 = Path().apply {
-                moveTo(-mountainOffset, horizonY)
-                lineTo(w * 0.3f - mountainOffset, horizonY - 60f)
-                lineTo(w * 0.7f - mountainOffset, horizonY - 40f)
-                lineTo(w.toFloat() - mountainOffset, horizonY)
-                close()
-            }
-            canvas.drawPath(mountain1, paint)
+            // 3. ÉLÉMENTS AU-DESSUS DE LA PISTE (téléphériques, ponts, banderolles)
+            drawOverheadElements(canvas, w, h)
             
-            val mountain2 = Path().apply {
-                moveTo(w - mountainOffset, horizonY)
-                lineTo(w * 1.3f - mountainOffset, horizonY - 60f)
-                lineTo(w * 1.7f - mountainOffset, horizonY - 40f)
-                lineTo(w * 2f - mountainOffset, horizonY)
-                close()
-            }
-            canvas.drawPath(mountain2, paint)
+            // 4. DÉCOR DES CÔTÉS QUI DÉFILE
+            drawSideDecor(canvas, w, h, horizonY)
             
-            // 3. DEMI-TUNNEL COMPLET LIGNE PAR LIGNE AVEC ANTICIPATION
+            // 5. DEMI-TUNNEL COMPLET LIGNE PAR LIGNE - 2-3X PLUS LARGE
             val roadScroll = (phaseTimer * speed * 3f) % 100f
             
             for (screenY in horizonY.toInt() until h) {
@@ -766,12 +1080,12 @@ class BobsledActivity : Activity(), SensorEventListener {
                 val z = roadDistance * (1f - lineProgress * 0.95f)
                 val scaleFactor = 1f / z
                 
-                // LARGEUR DE LA PISTE SELON LA DISTANCE - 10X PLUS LARGE
-                val roadWidth = (w * 5f * scaleFactor).coerceAtMost(w * 7f)
-                val wallHeight = (600f * scaleFactor).coerceAtMost(800f)
+                // LARGEUR DE LA PISTE 2-3X PLUS LARGE
+                val roadWidth = (w * 15f * scaleFactor).coerceAtMost(w * 20f)
+                val wallHeight = (1500f * scaleFactor).coerceAtMost(2000f)
                 
-                // ANTICIPATION DES VIRAGES CORRIGÉE - Plus visible
-                val lookAheadDistance = (1f - lineProgress) * 5f // 5 virages d'avance pour effet plus visible
+                // ANTICIPATION DES VIRAGES CORRIGÉE
+                val lookAheadDistance = (1f - lineProgress) * 5f
                 val futurePosition = (trackPosition + lookAheadDistance / trackCurves.size.toFloat()) % 1f
                 val futureIndex = (futurePosition * (trackCurves.size - 1)).toInt()
                 val futureProgress = (futurePosition * (trackCurves.size - 1)) - futureIndex
@@ -784,9 +1098,9 @@ class BobsledActivity : Activity(), SensorEventListener {
                     0f
                 }
                 
-                val roadCenterX = w/2f + futureCurve * w * 0.8f * scaleFactor // Plus d'effet de courbe
+                val roadCenterX = w/2f + futureCurve * w * 0.8f * scaleFactor
                 
-                // DESSINER LE DEMI-TUNNEL COMPLET
+                // DESSINER LE DEMI-TUNNEL PLUS PRONONCÉ
                 
                 // 1. SOL DE LA PISTE (BLANC)
                 paint.color = Color.WHITE
@@ -794,88 +1108,87 @@ class BobsledActivity : Activity(), SensorEventListener {
                     roadCenterX - roadWidth/2f,
                     screenY.toFloat(),
                     roadCenterX + roadWidth/2f,
-                    screenY + 2f,
+                    screenY + 3f,
                     paint
                 )
                 
-                // 2. MURS LATÉRAUX (GRIS FONCÉ) - PLUS ÉPAIS
+                // 2. MURS LATÉRAUX PLUS ÉPAIS ET PRONONCÉS
                 paint.color = Color.rgb(120, 120, 120)
                 
-                // Mur gauche vertical - plus épais
+                val wallThickness = 200f * scaleFactor
+                
+                // Mur gauche vertical
                 canvas.drawRect(
-                    roadCenterX - roadWidth/2f - 80f * scaleFactor,
+                    roadCenterX - roadWidth/2f - wallThickness,
                     screenY.toFloat(),
                     roadCenterX - roadWidth/2f,
-                    screenY + 2f,
+                    screenY + 3f,
                     paint
                 )
                 
-                // Mur droit vertical - plus épais
+                // Mur droit vertical
                 canvas.drawRect(
                     roadCenterX + roadWidth/2f,
                     screenY.toFloat(),
-                    roadCenterX + roadWidth/2f + 80f * scaleFactor,
-                    screenY + 2f,
+                    roadCenterX + roadWidth/2f + wallThickness,
+                    screenY + 3f,
                     paint
                 )
                 
-                // 3. MURS COURBES QUI REMONTENT (DEMI-TUNNEL)
+                // 3. COURBE DU DEMI-TUNNEL BEAUCOUP PLUS PRONONCÉE
                 paint.color = Color.rgb(140, 140, 140)
                 
-                // Progression de la courbe selon la hauteur - PLUS GROSSE
-                val curveHeight = wallHeight * (1f - lineProgress * 0.3f)
-                val curveRadius = roadWidth * 0.7f
+                val curveHeight = wallHeight * (1f - lineProgress * 0.2f)
+                val curveRadius = roadWidth * 0.9f
                 
-                // Points pour la courbe gauche (quart de cercle) - PLUS GROS
-                for (angle in 90..180 step 3) { // Plus de détails
+                // Courbe gauche (quart de cercle) - PLUS DÉTAILLÉE
+                for (angle in 90..180 step 2) {
                     val radian = Math.toRadians(angle.toDouble()).toFloat()
-                    val curveX = roadCenterX - roadWidth/2f + cos(radian) * curveRadius * 0.5f
-                    val curveY = screenY + sin(radian) * curveHeight * 0.5f
+                    val curveX = roadCenterX - roadWidth/2f + cos(radian) * curveRadius * 0.8f
+                    val curveY = screenY + sin(radian) * curveHeight * 0.8f
                     
-                    paint.color = Color.rgb(130, 130, 130)
-                    canvas.drawRect(curveX - 20f, curveY, curveX + 20f, curveY + 2f, paint) // Plus épais
+                    paint.color = Color.rgb(130 - (angle-90)/5, 130 - (angle-90)/5, 130 - (angle-90)/5)
+                    canvas.drawRect(curveX - 30f, curveY, curveX + 30f, curveY + 3f, paint)
                 }
                 
-                // Points pour la courbe droite (quart de cercle) - PLUS GROS
-                for (angle in 0..90 step 3) { // Plus de détails
+                // Courbe droite (quart de cercle) - PLUS DÉTAILLÉE
+                for (angle in 0..90 step 2) {
                     val radian = Math.toRadians(angle.toDouble()).toFloat()
-                    val curveX = roadCenterX + roadWidth/2f + cos(radian) * curveRadius * 0.5f
-                    val curveY = screenY + sin(radian) * curveHeight * 0.5f
+                    val curveX = roadCenterX + roadWidth/2f + cos(radian) * curveRadius * 0.8f
+                    val curveY = screenY + sin(radian) * curveHeight * 0.8f
                     
-                    paint.color = Color.rgb(130, 130, 130)
-                    canvas.drawRect(curveX - 20f, curveY, curveX + 20f, curveY + 2f, paint) // Plus épais
+                    paint.color = Color.rgb(130 - angle/5, 130 - angle/5, 130 - angle/5)
+                    canvas.drawRect(curveX - 30f, curveY, curveX + 30f, curveY + 3f, paint)
                 }
                 
-                // 4. OMBRES DANS LE TUNNEL
-                paint.color = Color.rgb(100, 100, 100)
+                // 4. OMBRES PLUS PRONONCÉES
+                paint.color = Color.rgb(80, 80, 80)
                 
-                // Ombre gauche
                 canvas.drawRect(
                     roadCenterX - roadWidth/2f,
                     screenY.toFloat(),
-                    roadCenterX - roadWidth/3f,
-                    screenY + 1f,
+                    roadCenterX - roadWidth/4f,
+                    screenY + 2f,
                     paint
                 )
                 
-                // Ombre droite
                 canvas.drawRect(
-                    roadCenterX + roadWidth/3f,
+                    roadCenterX + roadWidth/4f,
                     screenY.toFloat(),
                     roadCenterX + roadWidth/2f,
-                    screenY + 1f,
+                    screenY + 2f,
                     paint
                 )
                 
-                // 5. LIGNES DE VITESSE (TEXTURE)
-                val texturePosition = (roadScroll + lineProgress * 20f) % 8f
+                // 5. LIGNES DE VITESSE
+                val texturePosition = (roadScroll + lineProgress * 20f) % 6f
                 if (texturePosition < 1f) {
-                    paint.color = Color.rgb(220, 220, 220)
+                    paint.color = Color.rgb(240, 240, 240)
                     canvas.drawRect(
-                        roadCenterX - roadWidth * 0.05f,
+                        roadCenterX - roadWidth * 0.08f,
                         screenY.toFloat(),
-                        roadCenterX + roadWidth * 0.05f,
-                        screenY + 1f,
+                        roadCenterX + roadWidth * 0.08f,
+                        screenY + 2f,
                         paint
                     )
                 }
@@ -959,31 +1272,40 @@ class BobsledActivity : Activity(), SensorEventListener {
                 }
             }
             
-            // 5. INTERFACE AVEC TEXTE BEAUCOUP PLUS GROS
+            // 5. INTERFACE AVEC TEXTE ÉNORME ET INSTRUCTIONS CLAIRES
             paint.color = Color.BLACK
-            paint.textSize = 80f // BEAUCOUP PLUS GROS
+            paint.textSize = 120f // ÉNORME
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("${speed.toInt()} KM/H", 30f, 120f, paint)
+            canvas.drawText("${speed.toInt()} KM/H", 30f, 150f, paint)
             
             if (abs(currentCurveIntensity) > 0.3f) {
-                paint.color = Color.YELLOW
-                paint.textSize = 96f // BEAUCOUP PLUS GROS
-                paint.textAlign = Paint.Align.CENTER
-                val instruction = if (currentCurveIntensity < 0f) "← GAUCHE" else "DROITE →"
-                canvas.drawText(instruction, w/2f, 220f, paint)
+                // FOND SEMI-TRANSPARENT POUR RENDRE LES INSTRUCTIONS PLUS VISIBLES
+                paint.color = Color.argb(180, 0, 0, 0)
+                canvas.drawRoundRect(w/4f, 200f, w*3f/4f, 400f, 20f, 20f, paint)
                 
-                paint.textSize = 64f // BEAUCOUP PLUS GROS
+                paint.color = Color.YELLOW
+                paint.textSize = 150f // GIGANTESQUE
+                paint.textAlign = Paint.Align.CENTER
+                val instruction = if (currentCurveIntensity < 0f) "⬅️ PENCHEZ GAUCHE" else "PENCHEZ DROITE ➡️"
+                canvas.drawText(instruction, w/2f, 280f, paint)
+                
+                paint.textSize = 100f // TRÈS GROS
                 paint.color = when {
                     playerReactionAccuracy > 0.8f -> Color.GREEN
                     playerReactionAccuracy > 0.6f -> Color.YELLOW
                     else -> Color.RED
                 }
-                canvas.drawText("${(playerReactionAccuracy * 100).toInt()}%", w/2f, 300f, paint)
+                canvas.drawText("${(playerReactionAccuracy * 100).toInt()}%", w/2f, 360f, paint)
+                
+                // INDICATION PLUS CLAIRE
+                paint.color = Color.WHITE
+                paint.textSize = 60f
+                canvas.drawText("INCLINEZ VOTRE TÉLÉPHONE!", w/2f, 420f, paint)
                 
                 // DEBUG: Afficher l'angle de montée
                 paint.color = Color.WHITE
-                paint.textSize = 40f // PLUS GROS
-                canvas.drawText("Angle: ${((45f + (abs(currentCurveIntensity) * (speed / maxSpeed).coerceIn(0.3f, 1f) * 30f)).coerceAtMost(75f)).toInt()}°", 30f, h - 60f, paint)
+                paint.textSize = 50f
+                canvas.drawText("Angle: ${((45f + (abs(currentCurveIntensity) * (speed / maxSpeed).coerceIn(0.3f, 1f) * 30f)).coerceAtMost(75f)).toInt()}°", 30f, h - 80f, paint)
             }
         }
         
@@ -1095,20 +1417,21 @@ class BobsledActivity : Activity(), SensorEventListener {
             canvas.drawRect(0f, 0f, w.toFloat(), h * 0.4f, paint)
             
             paint.color = Color.BLACK
-            paint.textSize = 80f
+            paint.textSize = 120f // ÉNORME
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("${finalScore}", w/2f, h * 0.25f, paint)
             
-            paint.textSize = 30f
+            paint.textSize = 50f // PLUS GROS
             canvas.drawText("POINTS", w/2f, h * 0.35f, paint)
             
             paint.color = Color.parseColor("#001122")
-            paint.textSize = 24f
+            paint.textSize = 48f // BEAUCOUP PLUS GROS
             canvas.drawText("🚀 Poussée: ${(pushQuality * 100).toInt()}%", w/2f, h * 0.5f, paint)
-            canvas.drawText("🎮 Réflexes: ${(playerReactionAccuracy * 100).toInt()}%", w/2f, h * 0.55f, paint)
-            canvas.drawText("🏆 Virages parfaits: ${perfectTurns}", w/2f, h * 0.6f, paint)
-            canvas.drawText("🕒 Temps: ${raceTime.toInt()}s", w/2f, h * 0.65f, paint)
-            canvas.drawText("⚡ Vitesse moy: ${speed.toInt()} km/h", w/2f, h * 0.7f, paint)
+            canvas.drawText("🎮 Réflexes: ${(playerReactionAccuracy * 100).toInt()}%", w/2f, h * 0.56f, paint)
+            canvas.drawText("🏆 Virages parfaits: ${perfectTurns}", w/2f, h * 0.62f, paint)
+            canvas.drawText("🕒 Temps: ${raceTime.toInt()}s", w/2f, h * 0.68f, paint)
+            canvas.drawText("⚡ Vitesse moy: ${speed.toInt()} km/h", w/2f, h * 0.74f, paint)
+            canvas.drawText("💥 Impacts murs: ${wallHits}", w/2f, h * 0.8f, paint)
         }
     }
 
