@@ -234,23 +234,24 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
     }
     
-    private fun handleFirstDescent() {
-        // Première descente - vitesse modérée
-        if (phaseTimer >= firstDescentDuration) {
-            speed += 15f  // Accélération pour la deuxième descente
-            gameState = GameState.SECOND_DESCENT
-            phaseTimer = 0f
+    private fun updateControlPhase() {
+        // Génération de direction idéale qui change
+        turnTimer += 0.025f
+        if (turnTimer > 2.5f) {
+            idealDirection = -1f + kotlin.random.Random.nextFloat() * 2f
+            turnTimer = 0f
         }
-    }
-    
-    private fun handleSecondDescent() {
-        // Deuxième descente - plus rapide
-        if (phaseTimer >= secondDescentDuration) {
-            speed += 20f  // Encore plus de vitesse pour le contrôle
-            speed = speed.coerceAtMost(maxSpeed)
-            gameState = GameState.CONTROL_DESCENT
-            phaseTimer = 0f
-            generateNewTurn()
+        
+        // Calcul de précision du steering
+        val directionError = abs(tiltZ - idealDirection)
+        steeringAccuracy = 1f - (directionError / 2f).coerceIn(0f, 1f)
+        
+        // Accumulation de performance
+        controlPerformance = (controlPerformance * 0.98f + steeringAccuracy * 0.02f)
+        
+        // Ajustement de vitesse selon performance
+        if (steeringAccuracy < 0.5f) {
+            speed = maxOf(speed * 0.995f, 40f)  // Ralentissement si mauvais contrôle
         }
     }
     
@@ -445,12 +446,10 @@ class BobsledActivity : Activity(), SensorEventListener {
     private fun updateStatus() {
         statusText.text = when (gameState) {
             GameState.PREPARATION -> "🛷 ${tournamentData.playerNames[currentPlayerIndex]} | Préparation... ${(preparationDuration - phaseTimer).toInt() + 1}s"
-            GameState.PUSH_START -> "🚀 ${tournamentData.playerNames[currentPlayerIndex]} | Poussée: ${pushCount} (${pushPower.toInt()}%) | ${(pushStartDuration - phaseTimer).toInt() + 1}s"
-            GameState.FIRST_DESCENT -> "🛷 ${tournamentData.playerNames[currentPlayerIndex]} | Première descente: ${speed.toInt()} km/h"
-            GameState.SECOND_DESCENT -> "⚡ ${tournamentData.playerNames[currentPlayerIndex]} | Accélération: ${speed.toInt()} km/h"
+            GameState.PUSH_START -> "🚀 ${tournamentData.playerNames[currentPlayerIndex]} | Poussée: ${pushCount} (${(pushQuality * 100).toInt()}%) | ${(pushStartDuration - phaseTimer).toInt() + 1}s"
             GameState.CONTROL_DESCENT -> "🎮 ${tournamentData.playerNames[currentPlayerIndex]} | Contrôle: ${(steeringAccuracy * 100).toInt()}% | ${speed.toInt()} km/h"
-            GameState.FINISH_LINE -> "🏁 ${tournamentData.playerNames[currentPlayerIndex]} | Ligne d'arrivée!"
-            GameState.CELEBRATION -> "🎉 ${tournamentData.playerNames[currentPlayerIndex]} | Célébration!"
+            GameState.FINISH_LINE -> "🏁 ${tournamentData.playerNames[currentPlayerIndex]} | Ligne d'arrivée: ${speed.toInt()} km/h!"
+            GameState.CELEBRATION -> "🎉 ${tournamentData.playerNames[currentPlayerIndex]} | Vitesse finale: ${speed.toInt()} km/h!"
             GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | Score: ${finalScore}"
             GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Course terminée!"
         }
@@ -924,7 +923,7 @@ class BobsledActivity : Activity(), SensorEventListener {
             val maxLength = h * 1.2f
             
             for (i in 0 until lineCount) {
-                val angle = (2 * PI / lineCount * i).toFloat()
+                val angle = (2.0 * PI / lineCount * i).toFloat()
                 val speedFactor = (speed / maxSpeed).coerceIn(0.3f, 1f)
                 val length = maxLength * speedFactor
                 
@@ -1000,7 +999,7 @@ class BobsledActivity : Activity(), SensorEventListener {
             val maxLength = h * 0.8f
             
             for (i in 0 until lineCount) {
-                val angle = (2 * PI / lineCount * i).toFloat()
+                val angle = (2.0 * PI / lineCount * i).toFloat()
                 val length = maxLength * 0.6f  // Plus court pour l'arrière-plan
                 
                 val endX = centerX + cos(angle) * length
@@ -1075,7 +1074,7 @@ class BobsledActivity : Activity(), SensorEventListener {
                 val maxLength = h * (1.2f - tunnelProgress * 0.8f)  // Tunnel qui rétrécit
                 
                 for (i in 0 until lineCount) {
-                    val angle = (2 * PI / lineCount * i).toFloat()
+                    val angle = (2.0 * PI / lineCount * i).toFloat()
                     val speedFactor = 1f - tunnelProgress * 0.7f  // Ralentissement
                     val length = maxLength * speedFactor
                     
@@ -1093,7 +1092,7 @@ class BobsledActivity : Activity(), SensorEventListener {
                 
                 // Particules d'or qui explosent
                 for (i in 0..20) {
-                    val angle = (2 * PI / 20 * i + celebProgress * 4).toFloat()
+                    val angle = (2.0 * PI / 20 * i + celebProgress * 4).toFloat()
                     val radius = celebProgress * 300f
                     val particleX = centerX + cos(angle) * radius
                     val particleY = centerY + sin(angle) * radius
@@ -1233,6 +1232,6 @@ class BobsledActivity : Activity(), SensorEventListener {
     )
 
     enum class GameState {
-        PREPARATION, PUSH_START, FIRST_DESCENT, SECOND_DESCENT, CONTROL_DESCENT, FINISH_LINE, CELEBRATION, RESULTS, FINISHED
+        PREPARATION, PUSH_START, CONTROL_DESCENT, FINISH_LINE, CELEBRATION, RESULTS, FINISHED
     }
 }
