@@ -687,7 +687,7 @@ class BobsledActivity : Activity(), SensorEventListener {
             }
             canvas.drawPath(mountain2, paint)
             
-            // 3. DEMI-TUNNEL COMPLET LIGNE PAR LIGNE
+            // 3. DEMI-TUNNEL COMPLET LIGNE PAR LIGNE AVEC ANTICIPATION
             val roadScroll = (phaseTimer * speed * 3f) % 100f
             
             for (screenY in horizonY.toInt() until h) {
@@ -699,10 +699,11 @@ class BobsledActivity : Activity(), SensorEventListener {
                 val roadWidth = (w * 0.5f * scaleFactor).coerceAtMost(w * 0.7f)
                 val wallHeight = (60f * scaleFactor).coerceAtMost(80f)
                 
-                // VIRAGE - POSITION DU CENTRE
-                val curvePosition = (trackPosition * 50f + lineProgress * 10f + roadScroll * 0.1f) % trackCurves.size
-                val curveIndex = curvePosition.toInt()
-                val curveProgress = curvePosition - curveIndex
+                // ANTICIPATION DES VIRAGES - Plus on regarde loin, plus on voit les virages futurs
+                val lookAheadDistance = (1f - lineProgress) * 2f // 2 virages d'avance au maximum
+                val futurePosition = (trackPosition * 50f + lineProgress * 10f + roadScroll * 0.1f + lookAheadDistance) % trackCurves.size
+                val curveIndex = futurePosition.toInt()
+                val curveProgress = futurePosition - curveIndex
                 
                 val currentCurve = if (curveIndex < trackCurves.size) {
                     val curve1 = trackCurves[curveIndex]
@@ -809,17 +810,45 @@ class BobsledActivity : Activity(), SensorEventListener {
                 }
             }
             
-            // 4. BOBSLEIGH FIXE AU PREMIER PLAN - TAILLE RÉDUITE
+            // 4. BOBSLEIGH AVEC PHYSIQUE DE VIRAGES - Monte sur les parois !
             val bobX = w / 2f
-            val bobY = h * 0.82f
-            val bobScale = 0.2f // RÉDUIT de 0.5f à 0.2f (2.5x plus petit)
+            val baseBobY = h * 0.82f // Position de base au fond de la piste
+            val bobScale = 0.2f
             
+            // CALCUL DE LA MONTÉE SUR LES PAROIS
+            var bobVerticalOffset = 0f
+            var bobRotation = 0f
+            
+            if (abs(currentCurveIntensity) > 0.3f) {
+                // Force centrifuge : virage gauche = monte à droite, virage droite = monte à gauche
+                val centrifugalForce = abs(currentCurveIntensity)
+                val speedFactor = (speed / maxSpeed).coerceIn(0.3f, 1f) // Plus de vitesse = monte plus haut
+                
+                // Calcul de l'angle de montée (45° à 75° selon l'intensité)
+                val climbAngle = (45f + (centrifugalForce * speedFactor * 30f)).coerceAtMost(75f)
+                val climbRadians = Math.toRadians(climbAngle.toDouble()).toFloat()
+                
+                // Distance de montée sur la paroi inclinée
+                val climbDistance = centrifugalForce * speedFactor * 60f // Jusqu'à 60px de montée
+                
+                // Position verticale (monte vers le haut)
+                bobVerticalOffset = -sin(climbRadians) * climbDistance
+                
+                // Rotation supplémentaire pour aller de 45° (sprite) vers 75° max
+                val additionalRotation = climbAngle - 45f
+                bobRotation = if (currentCurveIntensity < 0f) -additionalRotation else additionalRotation
+            }
+            
+            val bobY = baseBobY + bobVerticalOffset
+            
+            // Choix du sprite selon la direction du virage
             val bobSprite = when {
                 currentCurveIntensity < -0.3f -> bobLeftBitmap
                 currentCurveIntensity > 0.3f -> bobRightBitmap
                 else -> bobStraightBitmap
             }
             
+            // Dessiner le bobsleigh avec rotation si nécessaire
             bobSprite?.let { bmp ->
                 val dstRect = RectF(
                     bobX - bmp.width * bobScale / 2f,
@@ -827,37 +856,61 @@ class BobsledActivity : Activity(), SensorEventListener {
                     bobX + bmp.width * bobScale / 2f,
                     bobY + bmp.height * bobScale / 2f
                 )
-                canvas.drawBitmap(bmp, null, dstRect, paint)
+                
+                if (abs(bobRotation) > 1f) {
+                    // Appliquer une rotation supplémentaire
+                    canvas.save()
+                    canvas.rotate(bobRotation, bobX, bobY)
+                    canvas.drawBitmap(bmp, null, dstRect, paint)
+                    canvas.restore()
+                } else {
+                    canvas.drawBitmap(bmp, null, dstRect, paint)
+                }
             } ?: run {
+                // Fallback coloré selon l'état
                 paint.color = when {
                     currentCurveIntensity < -0.3f -> Color.GREEN
                     currentCurveIntensity > 0.3f -> Color.BLUE
                     else -> Color.YELLOW
                 }
-                // Fallback aussi réduit
+                
+                if (abs(bobRotation) > 1f) {
+                    canvas.save()
+                    canvas.rotate(bobRotation, bobX, bobY)
+                }
+                
                 canvas.drawRoundRect(bobX - 25f, bobY - 15f, bobX + 25f, bobY + 15f, 8f, 8f, paint)
+                
+                if (abs(bobRotation) > 1f) {
+                    canvas.restore()
+                }
             }
             
             // 5. INTERFACE AVEC TEXTE PLUS GROS
             paint.color = Color.BLACK
-            paint.textSize = 40f // PLUS GROS
+            paint.textSize = 40f
             paint.textAlign = Paint.Align.LEFT
             canvas.drawText("${speed.toInt()} KM/H", 30f, 80f, paint)
             
             if (abs(currentCurveIntensity) > 0.3f) {
                 paint.color = Color.YELLOW
-                paint.textSize = 48f // PLUS GROS
+                paint.textSize = 48f
                 paint.textAlign = Paint.Align.CENTER
                 val instruction = if (currentCurveIntensity < 0f) "← GAUCHE" else "DROITE →"
                 canvas.drawText(instruction, w/2f, 140f, paint)
                 
-                paint.textSize = 32f // PLUS GROS
+                paint.textSize = 32f
                 paint.color = when {
                     playerReactionAccuracy > 0.8f -> Color.GREEN
                     playerReactionAccuracy > 0.6f -> Color.YELLOW
                     else -> Color.RED
                 }
                 canvas.drawText("${(playerReactionAccuracy * 100).toInt()}%", w/2f, 180f, paint)
+                
+                // DEBUG: Afficher l'angle de montée
+                paint.color = Color.WHITE
+                paint.textSize = 20f
+                canvas.drawText("Angle: ${((45f + (abs(currentCurveIntensity) * (speed / maxSpeed).coerceIn(0.3f, 1f) * 30f)).coerceAtMost(75f)).toInt()}°", 30f, h - 30f, paint)
             }
         }
         
