@@ -255,14 +255,19 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     }
     
     private fun handleLanding() {
-        // Atterrissage - pencher vers soi pour un bon atterrissage - LOGIQUE CORRIGÉE
-        if (tiltY < -0.07f && tiltY > -0.35f && abs(tiltX) < 0.21f) { // INVERSÉ: tiltY négatif = pencher vers soi
-            landingBonus += 1.0f
-        } else {
-            landingBonus -= 0.5f
-        }
+        val landingProgress = phaseTimer / landingDuration
         
-        landingBonus = landingBonus.coerceIn(0f, 30f)
+        // Bonus d'atterrissage SEULEMENT pendant la phase d'impact visuel (land2: 2-4 secondes)
+        if (landingProgress >= 0.4f && landingProgress < 0.8f) {
+            // Atterrissage - pencher vers soi pour un bon atterrissage - LOGIQUE CORRIGÉE
+            if (tiltY < -0.07f && tiltY > -0.35f && abs(tiltX) < 0.21f) { // INVERSÉ: tiltY négatif = pencher vers soi
+                landingBonus += 1.0f
+            } else {
+                landingBonus -= 0.5f
+            }
+            
+            landingBonus = landingBonus.coerceIn(0f, 30f)
+        }
         
         if (phaseTimer >= landingDuration) {
             calculateFinalScore()
