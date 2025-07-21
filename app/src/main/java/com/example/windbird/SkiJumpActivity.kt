@@ -979,16 +979,16 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             
             val landingProgress = phaseTimer / landingDuration
             
-            // Position du skieur selon la phase d'atterrissage
+            // Position du skieur selon la phase d'atterrissage - TIMING CORRIGÉ
             val skierX: Float
             val skierY: Float
             val currentBitmap: Bitmap?
             val scale: Float
             
             when {
-                landingProgress < 0.3f -> {
-                    // Phase 1: Descente vers la piste (0-1.5s)
-                    val descentProgress = landingProgress / 0.3f
+                landingProgress < 0.4f -> {
+                    // Phase 1: Descente vers la piste (0-2s) - AUGMENTÉ de 1.5s à 2s
+                    val descentProgress = landingProgress / 0.4f
                     skierX = w * (0.2f + descentProgress * 0.3f) // Arrive en diagonale
                     skierY = h * (0.3f + descentProgress * 0.45f) // Descend vers la piste
                     currentBitmap = skierLand1Bitmap
@@ -1004,9 +1004,9 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                     }
                     paint.alpha = 255
                 }
-                landingProgress < 0.6f -> {
-                    // Phase 2: Impact et explosion de neige (1.5-3s)
-                    val impactProgress = (landingProgress - 0.3f) / 0.3f
+                landingProgress < 0.8f -> {
+                    // Phase 2: Impact et explosion de neige (2-4s) - AUGMENTÉ de 1.5s à 2s
+                    val impactProgress = (landingProgress - 0.4f) / 0.4f
                     skierX = w * (0.5f + impactProgress * 0.1f) // Glisse un peu
                     skierY = h * 0.75f // Sur la piste
                     currentBitmap = skierLand2Bitmap
@@ -1024,8 +1024,8 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                     paint.alpha = 255
                 }
                 else -> {
-                    // Phase 3: Se relève et salue (3-5s)
-                    val standingProgress = (landingProgress - 0.6f) / 0.4f
+                    // Phase 3: Se relève et salue (4-5s) - RÉDUIT de 2s à 1s
+                    val standingProgress = (landingProgress - 0.8f) / 0.2f
                     skierX = w * (0.6f + standingProgress * 0.1f) // Continue à glisser doucement
                     skierY = h * 0.75f // Stable sur la piste
                     currentBitmap = skierLand3Bitmap
@@ -1050,19 +1050,19 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("${jumpDistance.toInt()}m", w/2f, h * 0.15f, paint)
             
-            // Instructions selon la phase
+            // Instructions selon la phase - TIMING CORRIGÉ
             paint.color = Color.WHITE
             paint.textSize = 60f  // AUGMENTÉ de 40f
             
             val instruction = when {
-                landingProgress < 0.3f -> "✈️ DESCEND VERS LA PISTE"
-                landingProgress < 0.6f -> "💥 ATTERRISSAGE! 📱 PENCHEZ LÉGÈREMENT VERS VOUS"
+                landingProgress < 0.4f -> "✈️ DESCEND VERS LA PISTE"
+                landingProgress < 0.8f -> "💥 ATTERRISSAGE! 📱 PENCHEZ LÉGÈREMENT VERS VOUS"
                 else -> "🎉 SE RELÈVE ET SALUE!"
             }
             canvas.drawText(instruction, w/2f, h * 0.25f, paint)
             
-            // Instructions d'atterrissage plus claires
-            if (landingProgress >= 0.3f && landingProgress < 0.6f) {
+            // Instructions d'atterrissage plus claires - TIMING CORRIGÉ
+            if (landingProgress >= 0.4f && landingProgress < 0.8f) {
                 paint.textSize = 50f  // AUGMENTÉ
                 paint.color = Color.CYAN
                 canvas.drawText("📱 Penchez MODÉRÉMENT vers VOUS", w/2f, h * 0.35f, paint)
