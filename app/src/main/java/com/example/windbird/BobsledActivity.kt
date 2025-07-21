@@ -454,12 +454,14 @@ class BobsledActivity : Activity(), SensorEventListener {
             return bitmap
         }
 
-        // GESTION DU TACTILE POUR LA POUSSÉE
+        // GESTION DU TACTILE POUR LA POUSSÉE - ZONE QUI SUIT LE BOBSLEIGH
         override fun onTouchEvent(event: MotionEvent): Boolean {
             if (gameState == GameState.PUSH_START) {
                 when (event.action) {
                     MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                        val bobX = width/2f
+                        // Zone qui suit le bobsleigh qui bouge
+                        val pushProgress = (pushPower / 100f).coerceIn(0f, 1f)
+                        val bobX = 150f + pushProgress * (width - 300f)
                         val bobY = height * 0.7f
                         val touchRadius = 80f
                         
@@ -594,7 +596,9 @@ class BobsledActivity : Activity(), SensorEventListener {
             canvas.drawLine(100f, trackY - 50f, 100f, trackY + 50f, paint)
             paint.style = Paint.Style.FILL
             
-            val bobX = w/2f
+            // BOBSLEIGH QUI BOUGE DE GAUCHE À DROITE SELON LA POUSSÉE
+            val pushProgress = (pushPower / 100f).coerceIn(0f, 1f)
+            val bobX = 150f + pushProgress * (w - 300f) // De gauche à droite
             val bobY = trackY
             
             paint.color = Color.argb(100, 255, 255, 0)
@@ -621,41 +625,41 @@ class BobsledActivity : Activity(), SensorEventListener {
             }
             
             paint.color = Color.argb(200, 0, 0, 0)
-            canvas.drawRoundRect(w/2f - 200f, 120f, w/2f + 200f, 180f, 10f, 10f, paint)
+            canvas.drawRoundRect(w/2f - 300f, 120f, w/2f + 300f, 200f, 10f, 10f, paint)
             
             paint.color = Color.WHITE
-            paint.textSize = 28f
+            paint.textSize = 40f // PLUS GROS
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("TAPEZ SUR LE BOBSLEIGH POUR LE POUSSER!", w/2f, 155f, paint)
+            canvas.drawText("TAPEZ SUR LE BOBSLEIGH POUR LE POUSSER!", w/2f, 170f, paint)
             
             paint.color = Color.argb(200, 0, 0, 0)
-            canvas.drawRoundRect(w/2f - 160f, h - 110f, w/2f + 160f, h - 40f, 10f, 10f, paint)
+            canvas.drawRoundRect(w/2f - 200f, h - 150f, w/2f + 200f, h - 40f, 10f, 10f, paint)
             
             paint.color = Color.GRAY
-            canvas.drawRect(w/2f - 150f, h - 100f, w/2f + 150f, h - 70f, paint)
+            canvas.drawRect(w/2f - 180f, h - 120f, w/2f + 180f, h - 80f, paint)
             
             paint.color = Color.GREEN
-            val powerWidth = (pushPower / 100f) * 300f
-            canvas.drawRect(w/2f - 150f, h - 100f, w/2f - 150f + powerWidth, h - 70f, paint)
+            val powerWidth = (pushPower / 100f) * 360f
+            canvas.drawRect(w/2f - 180f, h - 120f, w/2f - 180f + powerWidth, h - 80f, paint)
             
             paint.color = Color.WHITE
-            paint.textSize = 20f
+            paint.textSize = 28f // PLUS GROS
             canvas.drawText("PUISSANCE: ${pushPower.toInt()}% | Coups: ${pushCount}", w/2f, h - 50f, paint)
             
             paint.color = Color.argb(200, 255, 0, 0)
-            canvas.drawRoundRect(w - 100f, 60f, w - 20f, 120f, 10f, 10f, paint)
+            canvas.drawRoundRect(w - 120f, 60f, w - 20f, 140f, 10f, 10f, paint)
             
-            paint.textSize = 24f
+            paint.textSize = 36f // PLUS GROS
             paint.color = Color.WHITE
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("${(pushStartDuration - phaseTimer).toInt() + 1}s", w - 60f, 100f, paint)
+            canvas.drawText("${(pushStartDuration - phaseTimer).toInt() + 1}s", w - 70f, 110f, paint)
         }
 
         private fun drawWinterGamesTunnel(canvas: Canvas, w: Int, h: Int) {
-            // EXACT COPY OF WINTER GAMES 1985 PSEUDO 3D TECHNIQUE !
+            // VRAI DEMI-TUNNEL AVEC MURS COURBES COMME WINTER GAMES !
             
-            val horizonY = h * 0.35f // Ligne d'horizon
-            val roadDistance = 200f   // Distance maximale visible
+            val horizonY = h * 0.35f
+            val roadDistance = 200f
             
             // 1. CIEL VIOLET RÉTRO
             paint.color = Color.rgb(170, 140, 255)
@@ -674,7 +678,6 @@ class BobsledActivity : Activity(), SensorEventListener {
             }
             canvas.drawPath(mountain1, paint)
             
-            // Montagne répétée pour couvrir l'écran
             val mountain2 = Path().apply {
                 moveTo(w - mountainOffset, horizonY)
                 lineTo(w * 1.3f - mountainOffset, horizonY - 60f)
@@ -684,24 +687,19 @@ class BobsledActivity : Activity(), SensorEventListener {
             }
             canvas.drawPath(mountain2, paint)
             
-            // 3. TUNNEL PSEUDO 3D - LIGNE PAR LIGNE COMME EN 1985 !
-            
-            // Animation de défilement selon la vitesse
+            // 3. DEMI-TUNNEL COMPLET LIGNE PAR LIGNE
             val roadScroll = (phaseTimer * speed * 3f) % 100f
             
-            // Dessiner ligne par ligne de l'horizon vers le bas
             for (screenY in horizonY.toInt() until h) {
                 val lineProgress = (screenY - horizonY) / (h - horizonY)
-                
-                // CALCUL DE DISTANCE Z (PERSPECTIVE PSEUDO 3D)
-                val z = roadDistance * (1f - lineProgress * 0.95f) // Plus proche = plus grand
+                val z = roadDistance * (1f - lineProgress * 0.95f)
                 val scaleFactor = 1f / z
                 
                 // LARGEUR DE LA PISTE SELON LA DISTANCE
-                val roadWidth = (w * 0.6f * scaleFactor).coerceAtMost(w * 0.8f)
+                val roadWidth = (w * 0.5f * scaleFactor).coerceAtMost(w * 0.7f)
+                val wallHeight = (60f * scaleFactor).coerceAtMost(80f)
                 
-                // POSITION HORIZONTALE DU CENTRE (VIRAGE)
-                // Calcul du virage selon la position sur le circuit
+                // VIRAGE - POSITION DU CENTRE
                 val curvePosition = (trackPosition * 50f + lineProgress * 10f + roadScroll * 0.1f) % trackCurves.size
                 val curveIndex = curvePosition.toInt()
                 val curveProgress = curvePosition - curveIndex
@@ -714,64 +712,112 @@ class BobsledActivity : Activity(), SensorEventListener {
                     0f
                 }
                 
-                val roadCenterX = w/2f + currentCurve * w * 0.4f * scaleFactor
+                val roadCenterX = w/2f + currentCurve * w * 0.3f * scaleFactor
                 
-                // DESSINER CETTE LIGNE DE TUNNEL
+                // DESSINER LE DEMI-TUNNEL COMPLET
                 
-                // Sol de la piste (blanc)
+                // 1. SOL DE LA PISTE (BLANC)
                 paint.color = Color.WHITE
                 canvas.drawRect(
                     roadCenterX - roadWidth/2f,
                     screenY.toFloat(),
                     roadCenterX + roadWidth/2f,
-                    screenY + 1f,
+                    screenY + 2f,
                     paint
                 )
                 
-                // Mur gauche (gris)
-                val wallThickness = 20f * scaleFactor
-                paint.color = Color.rgb(150, 150, 150)
+                // 2. MURS LATÉRAUX (GRIS FONCÉ)
+                paint.color = Color.rgb(120, 120, 120)
+                
+                // Mur gauche vertical
                 canvas.drawRect(
-                    roadCenterX - roadWidth/2f - wallThickness,
+                    roadCenterX - roadWidth/2f - 8f * scaleFactor,
                     screenY.toFloat(),
                     roadCenterX - roadWidth/2f,
-                    screenY + 1f,
+                    screenY + 2f,
                     paint
                 )
                 
-                // Mur droit (gris)
+                // Mur droit vertical
                 canvas.drawRect(
                     roadCenterX + roadWidth/2f,
                     screenY.toFloat(),
-                    roadCenterX + roadWidth/2f + wallThickness,
+                    roadCenterX + roadWidth/2f + 8f * scaleFactor,
+                    screenY + 2f,
+                    paint
+                )
+                
+                // 3. MURS COURBES QUI REMONTENT (DEMI-TUNNEL)
+                paint.color = Color.rgb(140, 140, 140)
+                
+                // Progression de la courbe selon la hauteur
+                val curveHeight = wallHeight * (1f - lineProgress * 0.3f)
+                val curveRadius = roadWidth * 0.7f
+                
+                // Points pour la courbe gauche (quart de cercle)
+                for (angle in 90..180 step 5) {
+                    val radian = Math.toRadians(angle.toDouble()).toFloat()
+                    val curveX = roadCenterX - roadWidth/2f + cos(radian) * curveRadius * 0.5f
+                    val curveY = screenY + sin(radian) * curveHeight * 0.5f
+                    
+                    paint.color = Color.rgb(130, 130, 130)
+                    canvas.drawRect(curveX - 2f, curveY, curveX + 2f, curveY + 2f, paint)
+                }
+                
+                // Points pour la courbe droite (quart de cercle)
+                for (angle in 0..90 step 5) {
+                    val radian = Math.toRadians(angle.toDouble()).toFloat()
+                    val curveX = roadCenterX + roadWidth/2f + cos(radian) * curveRadius * 0.5f
+                    val curveY = screenY + sin(radian) * curveHeight * 0.5f
+                    
+                    paint.color = Color.rgb(130, 130, 130)
+                    canvas.drawRect(curveX - 2f, curveY, curveX + 2f, curveY + 2f, paint)
+                }
+                
+                // 4. OMBRES DANS LE TUNNEL
+                paint.color = Color.rgb(100, 100, 100)
+                
+                // Ombre gauche
+                canvas.drawRect(
+                    roadCenterX - roadWidth/2f,
+                    screenY.toFloat(),
+                    roadCenterX - roadWidth/3f,
                     screenY + 1f,
                     paint
                 )
                 
-                // Lignes de vitesse sur la piste (effet de texture)
+                // Ombre droite
+                canvas.drawRect(
+                    roadCenterX + roadWidth/3f,
+                    screenY.toFloat(),
+                    roadCenterX + roadWidth/2f,
+                    screenY + 1f,
+                    paint
+                )
+                
+                // 5. LIGNES DE VITESSE (TEXTURE)
                 val texturePosition = (roadScroll + lineProgress * 20f) % 8f
                 if (texturePosition < 1f) {
                     paint.color = Color.rgb(220, 220, 220)
                     canvas.drawRect(
-                        roadCenterX - roadWidth * 0.1f,
+                        roadCenterX - roadWidth * 0.05f,
                         screenY.toFloat(),
-                        roadCenterX + roadWidth * 0.1f,
+                        roadCenterX + roadWidth * 0.05f,
                         screenY + 1f,
                         paint
                     )
                 }
             }
             
-            // 4. BOBSLEIGH FIXE AU PREMIER PLAN (COMME WINTER GAMES)
+            // 4. BOBSLEIGH FIXE AU PREMIER PLAN - TAILLE RÉDUITE
             val bobX = w / 2f
             val bobY = h * 0.82f
-            val bobScale = 0.5f
+            val bobScale = 0.2f // RÉDUIT de 0.5f à 0.2f (2.5x plus petit)
             
-            // Choix du sprite selon le virage actuel
             val bobSprite = when {
-                currentCurveIntensity < -0.3f -> bobLeftBitmap   // Virage gauche
-                currentCurveIntensity > 0.3f -> bobRightBitmap   // Virage droite
-                else -> bobStraightBitmap                        // Ligne droite
+                currentCurveIntensity < -0.3f -> bobLeftBitmap
+                currentCurveIntensity > 0.3f -> bobRightBitmap
+                else -> bobStraightBitmap
             }
             
             bobSprite?.let { bmp ->
@@ -783,36 +829,35 @@ class BobsledActivity : Activity(), SensorEventListener {
                 )
                 canvas.drawBitmap(bmp, null, dstRect, paint)
             } ?: run {
-                // Fallback coloré selon direction
                 paint.color = when {
                     currentCurveIntensity < -0.3f -> Color.GREEN
                     currentCurveIntensity > 0.3f -> Color.BLUE
                     else -> Color.YELLOW
                 }
-                canvas.drawRoundRect(bobX - 60f, bobY - 40f, bobX + 60f, bobY + 40f, 15f, 15f, paint)
+                // Fallback aussi réduit
+                canvas.drawRoundRect(bobX - 25f, bobY - 15f, bobX + 25f, bobY + 15f, 8f, 8f, paint)
             }
             
-            // 5. INTERFACE STYLE WINTER GAMES
+            // 5. INTERFACE AVEC TEXTE PLUS GROS
             paint.color = Color.BLACK
-            paint.textSize = 30f
+            paint.textSize = 40f // PLUS GROS
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("${speed.toInt()} KM/H", 30f, 60f, paint)
+            canvas.drawText("${speed.toInt()} KM/H", 30f, 80f, paint)
             
-            // Instructions de virage
             if (abs(currentCurveIntensity) > 0.3f) {
                 paint.color = Color.YELLOW
-                paint.textSize = 32f
+                paint.textSize = 48f // PLUS GROS
                 paint.textAlign = Paint.Align.CENTER
                 val instruction = if (currentCurveIntensity < 0f) "← GAUCHE" else "DROITE →"
-                canvas.drawText(instruction, w/2f, 120f, paint)
+                canvas.drawText(instruction, w/2f, 140f, paint)
                 
-                paint.textSize = 20f
+                paint.textSize = 32f // PLUS GROS
                 paint.color = when {
                     playerReactionAccuracy > 0.8f -> Color.GREEN
                     playerReactionAccuracy > 0.6f -> Color.YELLOW
                     else -> Color.RED
                 }
-                canvas.drawText("${(playerReactionAccuracy * 100).toInt()}%", w/2f, 145f, paint)
+                canvas.drawText("${(playerReactionAccuracy * 100).toInt()}%", w/2f, 180f, paint)
             }
         }
         
