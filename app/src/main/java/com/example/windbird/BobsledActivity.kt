@@ -581,72 +581,89 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
         
         private fun drawPushStart(canvas: Canvas, w: Int, h: Int) {
-            // POUSSÉE TACTILE STYLE WINTER GAMES
+            // POUSSÉE TACTILE AVEC IMAGE DE PRÉPARATION EN ARRIÈRE-PLAN
             
-            // Fond ciel simple comme Winter Games
-            paint.color = Color.rgb(150, 200, 255)
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
-            
-            // Montagne en arrière-plan
-            paint.color = Color.rgb(100, 100, 100)
-            val mountainPath = Path().apply {
-                moveTo(0f, h * 0.4f)
-                lineTo(w * 0.3f, h * 0.2f)
-                lineTo(w * 0.7f, h * 0.25f)
-                lineTo(w.toFloat(), h * 0.35f)
-                lineTo(w.toFloat(), h * 0.4f)
-                close()
+            // Fond avec l'image de poussée ou fallback
+            bobPushBitmap?.let { bmp ->
+                val dstRect = RectF(0f, 0f, w.toFloat(), h.toFloat())
+                canvas.drawBitmap(bmp, null, dstRect, paint)
+                
+                // Overlay semi-transparent pour voir les éléments par-dessus
+                paint.color = Color.argb(100, 255, 255, 255)
+                canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            } ?: run {
+                // Fond ciel simple comme Winter Games
+                paint.color = Color.rgb(150, 200, 255)
+                canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+                
+                // Montagne en arrière-plan
+                paint.color = Color.rgb(100, 100, 100)
+                val mountainPath = Path().apply {
+                    moveTo(0f, h * 0.4f)
+                    lineTo(w * 0.3f, h * 0.2f)
+                    lineTo(w * 0.7f, h * 0.25f)
+                    lineTo(w.toFloat(), h * 0.35f)
+                    lineTo(w.toFloat(), h * 0.4f)
+                    close()
+                }
+                canvas.drawPath(mountainPath, paint)
+                
+                // Piste de départ droite et simple
+                paint.color = Color.WHITE
+                val trackY = h * 0.7f
+                canvas.drawRect(50f, trackY - 40f, w - 50f, trackY + 40f, paint)
+                
+                // Bordures de piste
+                paint.color = Color.GRAY
+                paint.strokeWidth = 4f
+                paint.style = Paint.Style.STROKE
+                canvas.drawLine(50f, trackY - 40f, w - 50f, trackY - 40f, paint)
+                canvas.drawLine(50f, trackY + 40f, w - 50f, trackY + 40f, paint)
+                paint.style = Paint.Style.FILL
+                
+                // Ligne de départ
+                paint.color = Color.RED
+                paint.strokeWidth = 6f
+                paint.style = Paint.Style.STROKE
+                canvas.drawLine(100f, trackY - 50f, 100f, trackY + 50f, paint)
+                paint.style = Paint.Style.FILL
             }
-            canvas.drawPath(mountainPath, paint)
             
-            // Piste de départ droite et simple
-            paint.color = Color.WHITE
-            val trackY = h * 0.7f
-            canvas.drawRect(50f, trackY - 40f, w - 50f, trackY + 40f, paint)
-            
-            // Bordures de piste
-            paint.color = Color.GRAY
-            paint.strokeWidth = 4f
-            paint.style = Paint.Style.STROKE
-            canvas.drawLine(50f, trackY - 40f, w - 50f, trackY - 40f, paint)
-            canvas.drawLine(50f, trackY + 40f, w - 50f, trackY + 40f, paint)
-            paint.style = Paint.Style.FILL
-            
-            // Ligne de départ
-            paint.color = Color.RED
-            paint.strokeWidth = 6f
-            paint.style = Paint.Style.STROKE
-            canvas.drawLine(100f, trackY - 50f, 100f, trackY + 50f, paint)
-            paint.style = Paint.Style.FILL
-            
-            // BOBSLEIGH qui avance selon les touchés tactiles
+            // BOBSLEIGH qui avance selon les touchés tactiles (par-dessus l'image)
             val pushProgress = (pushPower / 100f).coerceIn(0f, 1f)
+            val trackY = h * 0.7f
             val bobX = 120f + pushProgress * (w - 200f)
             val bobY = trackY
             
-            // Bobsleigh simple mais efficace
+            // Zone tactile visible (rectangle autour du bobsleigh)
+            paint.color = Color.YELLOW
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 4f
+            canvas.drawRoundRect(bobX - 60f, bobY - 40f, bobX + 60f, bobY + 40f, 10f, 10f, paint)
+            paint.style = Paint.Style.FILL
+            
+            // Bobsleigh simple mais visible par-dessus l'image
             paint.color = Color.RED
             canvas.drawRoundRect(bobX - 30f, bobY - 12f, bobX + 30f, bobY + 12f, 6f, 6f, paint)
             
             // Pilotes qui poussent (points bleus)
             paint.color = Color.BLUE
-            canvas.drawCircle(bobX - 50f, bobY - 5f, 6f, paint)
-            canvas.drawCircle(bobX - 50f, bobY + 5f, 6f, paint)
+            canvas.drawCircle(bobX - 50f, bobY - 5f, 8f, paint)
+            canvas.drawCircle(bobX - 50f, bobY + 5f, 8f, paint)
             
-            // INSTRUCTIONS TACTILES CLAIRES
-            paint.color = Color.BLACK
-            paint.textSize = 40f
+            // INSTRUCTIONS TACTILES CLAIRES avec fond semi-transparent
+            paint.color = Color.argb(180, 0, 0, 0)
+            canvas.drawRoundRect(w/2f - 250f, 120f, w/2f + 250f, 180f, 10f, 10f, paint)
+            
+            paint.color = Color.WHITE
+            paint.textSize = 32f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("👈 TAPEZ SUR LE BOBSLEIGH POUR LE POUSSER! 👉", w/2f, 150f, paint)
+            canvas.drawText("👈 TAPEZ SUR LE BOBSLEIGH POUR LE POUSSER! 👉", w/2f, 155f, paint)
             
-            // Zone tactile visible (rectangle autour du bobsleigh)
-            paint.color = Color.YELLOW
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 3f
-            canvas.drawRoundRect(bobX - 60f, bobY - 40f, bobX + 60f, bobY + 40f, 10f, 10f, paint)
-            paint.style = Paint.Style.FILL
+            // Barre de puissance avec fond semi-transparent
+            paint.color = Color.argb(180, 0, 0, 0)
+            canvas.drawRoundRect(w/2f - 160f, h - 110f, w/2f + 160f, h - 40f, 10f, 10f, paint)
             
-            // Barre de puissance simple
             paint.color = Color.GRAY
             canvas.drawRect(w/2f - 150f, h - 100f, w/2f + 150f, h - 70f, paint)
             
@@ -654,158 +671,136 @@ class BobsledActivity : Activity(), SensorEventListener {
             val powerWidth = (pushPower / 100f) * 300f
             canvas.drawRect(w/2f - 150f, h - 100f, w/2f - 150f + powerWidth, h - 70f, paint)
             
-            paint.color = Color.BLACK
+            paint.color = Color.WHITE
             paint.textSize = 24f
             canvas.drawText("PUISSANCE: ${pushPower.toInt()}%", w/2f, h - 50f, paint)
             
-            // Temps restant
+            // Temps restant avec fond
+            paint.color = Color.argb(180, 255, 0, 0)
+            canvas.drawRoundRect(w - 120f, 60f, w - 20f, 120f, 10f, 10f, paint)
+            
             paint.textSize = 30f
-            paint.color = Color.RED
-            canvas.drawText("${(pushStartDuration - phaseTimer).toInt() + 1}s", w - 100f, 100f, paint)
+            paint.color = Color.WHITE
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("${(pushStartDuration - phaseTimer).toInt() + 1}s", w - 70f, 100f, paint)
         }
 
         private fun drawFullScreenTunnel(canvas: Canvas, w: Int, h: Int) {
-            // COPIE EXACTE DU STYLE WINTER GAMES 1985 !
+            // VOTRE SUPERBE CODE DE PISTE 3D !
+            val centerX = w / 2f
+            val horizonY = h * 0.25f
             
-            val centerX = w/2f
-            val trackCenterX = centerX + (tiltZ * w * 0.15f) // Inclinaison du téléphone
+            // 1. CIEL VIOLET + MONTAGNES FAÇON C64
+            paint.color = Color.rgb(170, 140, 255) // violet rétro
+            canvas.drawRect(0f, 0f, w.toFloat(), horizonY, paint)
+            paint.color = Color.rgb(100, 100, 100) // montagne grise
+            val mountain = Path().apply {
+                moveTo(0f, horizonY)
+                lineTo(w * 0.3f, horizonY - 80f)
+                lineTo(w * 0.7f, horizonY - 50f)
+                lineTo(w.toFloat(), horizonY)
+                close()
+            }
+            canvas.drawPath(mountain, paint)
             
-            // Fond ciel comme Winter Games
-            paint.color = Color.rgb(150, 200, 255)
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
-            
-            // MONTAGNES EN ARRIÈRE-PLAN QUI DÉFILENT
-            val mountainSpeed = speed * 0.3f
-            val mountainOffset = (phaseTimer * mountainSpeed) % (w * 1.5f)
-            
-            paint.color = Color.rgb(80, 80, 80)
-            for (i in -1..3) {
-                val mountainX = i * (w * 0.5f) - mountainOffset
-                val mountainPath = Path().apply {
-                    moveTo(mountainX - w * 0.3f, h * 0.3f)
-                    lineTo(mountainX, h * 0.1f)
-                    lineTo(mountainX + w * 0.3f, h * 0.3f)
-                    lineTo(mountainX + w * 0.6f, h * 0.3f)
+            // 2. PISTE VUE DE L'ARRIÈRE (style Winter Games)
+            val segments = 18
+            val curve = sin(phaseTimer * 0.7f) * 0.6f  // virages oscillants
+            val curveNext = sin(phaseTimer * 0.7f + 0.5f) * 0.6f
+            for (i in 0 until segments) {
+                val t = i.toFloat() / segments
+                val tNext = (i + 1).toFloat() / segments
+                val y1 = horizonY + t * (h - horizonY)
+                val y2 = horizonY + tNext * (h - horizonY)
+                val roadW1 = w * (0.1f + t * 0.8f)
+                val roadW2 = w * (0.1f + tNext * 0.8f)
+                val curve1 = curve * (1 - t)
+                val curve2 = curveNext * (1 - tNext)
+                val cx1 = centerX + curve1 * w * 0.4f
+                val cx2 = centerX + curve2 * w * 0.4f
+                
+                // mur gauche
+                paint.color = Color.DKGRAY
+                val wallL = Path().apply {
+                    moveTo(cx1 - roadW1 / 2f - 12f, y1)
+                    lineTo(cx1 - roadW1 / 2f, y1)
+                    lineTo(cx2 - roadW2 / 2f, y2)
+                    lineTo(cx2 - roadW2 / 2f - 12f, y2)
                     close()
                 }
-                canvas.drawPath(mountainPath, paint)
-            }
-            
-            // ARBRES QUI DÉFILENT (plus rapides que les montagnes)
-            paint.color = Color.rgb(0, 100, 0)
-            val treeSpeed = speed * 0.8f
-            val treeOffset = (phaseTimer * treeSpeed) % (w * 0.8f)
-            
-            for (i in -2..4) {
-                val treeX = i * (w * 0.2f) - treeOffset
-                if (treeX > -50f && treeX < w + 50f) {
-                    // Tronc
-                    canvas.drawRect(treeX - 3f, h * 0.25f, treeX + 3f, h * 0.3f, paint)
-                    // Feuillage
-                    canvas.drawCircle(treeX, h * 0.25f, 12f, paint)
+                canvas.drawPath(wallL, paint)
+                
+                // mur droit
+                val wallR = Path().apply {
+                    moveTo(cx1 + roadW1 / 2f + 12f, y1)
+                    lineTo(cx1 + roadW1 / 2f, y1)
+                    lineTo(cx2 + roadW2 / 2f, y2)
+                    lineTo(cx2 + roadW2 / 2f + 12f, y2)
+                    close()
                 }
-            }
-            
-            // PISTE QUI SERPENTE COMME WINTER GAMES !
-            val curveIntensity = sin(distance * 0.008f + phaseTimer * 0.5f) * 0.4f
-            val nextCurve = sin(distance * 0.008f + phaseTimer * 0.5f + 1f) * 0.4f
-            
-            // Dessiner la piste segment par segment avec VRAIES COURBES
-            val numSegments = 25
-            for (i in 0 until numSegments) {
-                val segmentDistance = i.toFloat() / numSegments
-                val perspective = 1f - segmentDistance * 0.8f // Rétrécit vers l'horizon
+                canvas.drawPath(wallR, paint)
                 
-                // Position Y du segment (perspective)
-                val segmentY = h * 0.35f + segmentDistance * h * 0.5f
+                // piste centrale
+                paint.color = Color.WHITE
+                val track = Path().apply {
+                    moveTo(cx1 - roadW1 / 2f, y1)
+                    lineTo(cx1 + roadW1 / 2f, y1)
+                    lineTo(cx2 + roadW2 / 2f, y2)
+                    lineTo(cx2 - roadW2 / 2f, y2)
+                    close()
+                }
+                canvas.drawPath(track, paint)
                 
-                // Courbe progressive entre les virages
-                val curve = curveIntensity + (nextCurve - curveIntensity) * segmentDistance
-                val segmentCenterX = centerX + curve * w * 0.3f * perspective
-                
-                // Largeur de piste selon perspective
-                val trackWidth = w * 0.4f * perspective
-                val wallHeight = 25f * perspective
-                
-                if (segmentY > h * 0.3f && segmentY < h) {
-                    // Surface de piste (blanc)
-                    paint.color = Color.WHITE
-                    canvas.drawRect(
-                        segmentCenterX - trackWidth/2f,
-                        segmentY - 3f * perspective,
-                        segmentCenterX + trackWidth/2f,
-                        segmentY + 3f * perspective,
-                        paint
-                    )
-                    
-                    // Mur gauche (gris)
-                    paint.color = Color.rgb(150, 150, 150)
-                    canvas.drawRect(
-                        segmentCenterX - trackWidth/2f - wallHeight,
-                        segmentY - wallHeight/2f,
-                        segmentCenterX - trackWidth/2f,
-                        segmentY + wallHeight/2f,
-                        paint
-                    )
-                    
-                    // Mur droit (gris)
-                    canvas.drawRect(
-                        segmentCenterX + trackWidth/2f,
-                        segmentY - wallHeight/2f,
-                        segmentCenterX + trackWidth/2f + wallHeight,
-                        segmentY + wallHeight/2f,
-                        paint
-                    )
-                    
-                    // Lignes sur la piste tous les 5 segments
-                    if (i % 5 == 0) {
-                        paint.color = Color.GRAY
-                        canvas.drawRect(
-                            segmentCenterX - trackWidth/4f,
-                            segmentY - 1f,
-                            segmentCenterX + trackWidth/4f,
-                            segmentY + 1f,
-                            paint
-                        )
+                // ligne décorative
+                if (i % 2 == 0) {
+                    paint.color = Color.LTGRAY
+                    val stripe = Path().apply {
+                        moveTo(cx1 - roadW1 * 0.1f, y1)
+                        lineTo(cx1 + roadW1 * 0.1f, y1)
+                        lineTo(cx2 + roadW2 * 0.1f, y2)
+                        lineTo(cx2 - roadW2 * 0.1f, y2)
+                        close()
                     }
+                    canvas.drawPath(stripe, paint)
                 }
             }
             
-            // EFFET DE NEIGE/PARTICULES qui foncent vers nous
-            val particleSpeed = speed * 2f
-            paint.color = Color.WHITE
-            for (i in 0..15) {
-                val particleLife = (phaseTimer * particleSpeed + i * 50f) % h
-                val particleX = centerX + (i - 7) * 60f + sin(particleLife * 0.02f) * 30f
-                val particleY = h - particleLife
-                
-                if (particleY > h * 0.3f && particleY < h) {
-                    val size = 2f + (h - particleY) / h * 3f
-                    canvas.drawCircle(particleX, particleY, size, paint)
-                }
-            }
+            // 3. BOBSLEIGH EN VUE ARRIÈRE
+            val bobY = h * 0.75f
+            val bobScale = 1.2f + sin(phaseTimer * 3f) * 0.05f
+            val bobW = 60f * bobScale
+            val bobH = 80f * bobScale
             
-            // COCKPIT simple en bas (comme Winter Games)
-            paint.color = Color.rgb(100, 50, 0) // Marron
-            canvas.drawRect(0f, h * 0.85f, w.toFloat(), h.toFloat(), paint)
-            
-            // Volant/guidon
-            paint.color = Color.rgb(150, 100, 50)
-            canvas.drawRect(w/2f - 40f, h * 0.87f, w/2f + 40f, h * 0.93f, paint)
-            
-            // VITESSE comme Winter Games (coin supérieur)
+            // ombre du bob
             paint.color = Color.BLACK
-            paint.textSize = 30f
-            paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("${speed.toInt()} KM/H", 20f, 50f, paint)
+            paint.alpha = 80
+            canvas.drawOval(centerX - bobW/2f, bobY + bobH * 0.1f, centerX + bobW/2f, bobY + bobH * 0.3f, paint)
+            paint.alpha = 255
             
-            // Instructions de virage
-            if (abs(curveIntensity) > 0.2f) {
+            // corps du bob
+            paint.color = Color.rgb(255, 100, 0)
+            canvas.drawRoundRect(centerX - bobW/2f, bobY - bobH/2f, centerX + bobW/2f, bobY + bobH/2f, 20f, 20f, paint)
+            
+            // têtes des pilotes
+            paint.color = Color.YELLOW
+            for (i in 0..2) {
+                val offset = (i - 1) * 18f
+                canvas.drawCircle(centerX + offset, bobY - bobH * 0.3f, 10f, paint)
+            }
+            
+            // 4. VITESSE
+            paint.textSize = 36f
+            paint.color = Color.BLACK
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("${speed.toInt()} km/h", 30f, 50f, paint)
+            
+            // Instructions de virage selon l'inclinaison du téléphone
+            if (abs(tiltZ) > 0.3f) {
                 paint.color = Color.YELLOW
                 paint.textSize = 40f
                 paint.textAlign = Paint.Align.CENTER
-                val direction = if (curveIntensity < 0f) "← GAUCHE" else "DROITE →"
-                canvas.drawText(direction, w/2f, 100f, paint)
+                val direction = if (tiltZ < 0f) "← INCLINEZ GAUCHE" else "INCLINEZ DROITE →"
+                canvas.drawText(direction, w/2f, 120f, paint)
             }
         }
         
