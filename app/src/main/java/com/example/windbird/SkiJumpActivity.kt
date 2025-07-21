@@ -441,6 +441,13 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         private var skierLand2Bitmap: Bitmap? = null
         private var skierLand3Bitmap: Bitmap? = null
         
+        // Drapeaux des pays
+        private var flagCanadaBitmap: Bitmap? = null
+        private var flagUsaBitmap: Bitmap? = null
+        private var flagFranceBitmap: Bitmap? = null
+        private var flagNorvegeBitmap: Bitmap? = null
+        private var flagJapanBitmap: Bitmap? = null
+        
         init {
             try {
                 skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_approach)
@@ -449,9 +456,56 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 skierLand1Bitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_land1)
                 skierLand2Bitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_land2)
                 skierLand3Bitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_land3)
+                
+                // Charger les drapeaux
+                flagCanadaBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_canada)
+                flagUsaBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_usa)
+                flagFranceBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_france)
+                flagNorvegeBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_norvege)
+                flagJapanBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_japan)
+                
             } catch (e: Exception) {
                 createFallbackSkierBitmaps()
+                createFallbackFlagBitmaps()
             }
+        }
+        
+        private fun createFallbackFlagBitmaps() {
+            // Créer des drapeaux de fallback si les images ne sont pas trouvées
+            flagCanadaBitmap = createFallbackFlag(Color.RED, Color.WHITE)
+            flagUsaBitmap = createFallbackFlag(Color.BLUE, Color.RED, Color.WHITE)
+            flagFranceBitmap = createFallbackFlag(Color.BLUE, Color.WHITE, Color.RED)
+            flagNorvegeBitmap = createFallbackFlag(Color.RED, Color.WHITE, Color.BLUE)
+            flagJapanBitmap = createFallbackFlag(Color.WHITE, Color.RED)
+        }
+        
+        private fun createFallbackFlag(vararg colors: Int): Bitmap {
+            val flagBitmap = Bitmap.createBitmap(300, 200, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(flagBitmap)
+            val tempPaint = Paint().apply { style = Paint.Style.FILL }
+            
+            when (colors.size) {
+                2 -> {
+                    tempPaint.color = colors[0]
+                    canvas.drawRect(0f, 0f, 300f, 200f, tempPaint)
+                    tempPaint.color = colors[1]
+                    canvas.drawCircle(150f, 100f, 50f, tempPaint)
+                }
+                3 -> {
+                    tempPaint.color = colors[0]
+                    canvas.drawRect(0f, 0f, 100f, 200f, tempPaint)
+                    tempPaint.color = colors[1]
+                    canvas.drawRect(100f, 0f, 200f, 200f, tempPaint)
+                    tempPaint.color = colors[2]
+                    canvas.drawRect(200f, 0f, 300f, 200f, tempPaint)
+                }
+                else -> {
+                    tempPaint.color = colors[0]
+                    canvas.drawRect(0f, 0f, 300f, 200f, tempPaint)
+                }
+            }
+            
+            return flagBitmap
         }
         
         private fun createFallbackSkierBitmaps() {
@@ -529,6 +583,23 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             }
         }
         
+        private fun getPlayerFlagBitmap(): Bitmap? {
+            // En mode pratique, toujours prendre le drapeau du Canada
+            if (practiceMode) {
+                return flagCanadaBitmap
+            }
+            
+            val playerCountry = tournamentData.playerCountries[currentPlayerIndex]
+            return when (playerCountry.uppercase()) {
+                "CANADA" -> flagCanadaBitmap
+                "USA", "ÉTATS-UNIS", "ETATS-UNIS" -> flagUsaBitmap
+                "FRANCE" -> flagFranceBitmap
+                "NORVÈGE", "NORWAY" -> flagNorvegeBitmap
+                "JAPON", "JAPAN" -> flagJapanBitmap
+                else -> flagCanadaBitmap // Drapeau par défaut
+            }
+        }
+        
         private fun drawPreparation(canvas: Canvas, w: Int, h: Int) {
             paint.color = Color.parseColor("#87CEEB")
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
@@ -547,26 +618,41 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             drawTrees(canvas, w, h)
             drawCrowd(canvas, w, h)
             
+            // Afficher le drapeau image au lieu de l'emoji
+            val flagBitmap = getPlayerFlagBitmap()
+            flagBitmap?.let { flag ->
+                val flagWidth = 200f
+                val flagHeight = 133f // Ratio 3:2 typique des drapeaux
+                val flagX = w/2f - flagWidth/2f
+                val flagY = h * 0.1f
+                
+                val dstRect = RectF(flagX, flagY, flagX + flagWidth, flagY + flagHeight)
+                canvas.drawBitmap(flag, null, dstRect, paint)
+                
+                // Bordure autour du drapeau
+                paint.color = Color.WHITE
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = 4f
+                canvas.drawRect(dstRect, paint)
+                paint.style = Paint.Style.FILL
+            }
+            
             val playerCountry = tournamentData.playerCountries[currentPlayerIndex]
-            val flag = getCountryFlag(playerCountry)
             
             paint.color = Color.WHITE
-            paint.textSize = 180f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText(flag, w/2f, h * 0.18f, paint)
-            
             paint.textSize = 48f
-            canvas.drawText(playerCountry.uppercase(), w/2f, h * 0.25f, paint)
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText(playerCountry.uppercase(), w/2f, h * 0.3f, paint)
             
             paint.textSize = 56f
-            canvas.drawText("🎿 SAUT À SKI 🎿", w/2f, h * 0.35f, paint)
+            canvas.drawText("🎿 SAUT À SKI 🎿", w/2f, h * 0.38f, paint)
             
             paint.textSize = 40f
-            canvas.drawText("Préparez-vous...", w/2f, h * 0.42f, paint)
+            canvas.drawText("Préparez-vous...", w/2f, h * 0.45f, paint)
             
             paint.textSize = 36f
             paint.color = Color.YELLOW
-            canvas.drawText("Dans ${(preparationDuration - phaseTimer).toInt() + 1} secondes", w/2f, h * 0.5f, paint)
+            canvas.drawText("Dans ${(preparationDuration - phaseTimer).toInt() + 1} secondes", w/2f, h * 0.52f, paint)
             
             paint.textSize = 40f
             paint.color = Color.CYAN
