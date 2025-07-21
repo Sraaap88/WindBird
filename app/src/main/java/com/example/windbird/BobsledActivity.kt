@@ -154,23 +154,34 @@ class BobsledActivity : Activity(), SensorEventListener {
     }
     
     private fun generateRandomTrack(random: kotlin.random.Random) {
-        // Circuit 3X plus long avec virages aléatoires
+        // Circuit 3X plus long avec virages aléatoires MAIS PAS TROP FOUS
         val trackLength = 75 // 3X plus long (était 25 segments)
         
         trackCurves.add(0f) // Départ toujours droit
         trackCurves.add(0f)
         trackCurves.add(0f)
         
+        var lastCurve = 0f // Pour éviter les changements trop brusques
+        
         for (i in 3 until trackLength - 3) {
-            when (random.nextInt(10)) {
-                0, 1 -> trackCurves.add(-0.9f + random.nextFloat() * 0.3f) // Virage gauche serré
-                2, 3 -> trackCurves.add(0.6f + random.nextFloat() * 0.3f)  // Virage droite serré
-                4 -> trackCurves.add(-0.5f + random.nextFloat() * 0.2f)      // Virage gauche moyen
-                5 -> trackCurves.add(0.3f + random.nextFloat() * 0.2f)       // Virage droite moyen
-                6 -> trackCurves.add(-0.3f + random.nextFloat() * 0.1f)      // Virage gauche léger
-                7 -> trackCurves.add(0.2f + random.nextFloat() * 0.1f)       // Virage droite léger
-                else -> trackCurves.add(0f)                                  // Ligne droite
+            val newCurve = when (random.nextInt(10)) {
+                0, 1 -> -0.7f + random.nextFloat() * 0.2f // Virage gauche (moins extrême)
+                2, 3 -> 0.5f + random.nextFloat() * 0.2f  // Virage droite (moins extrême)
+                4 -> -0.4f + random.nextFloat() * 0.1f      // Virage gauche moyen
+                5 -> 0.3f + random.nextFloat() * 0.1f       // Virage droite moyen
+                6, 7 -> lastCurve * 0.5f                    // Transition douce (50% de l'ancien)
+                else -> 0f                                  // Ligne droite
             }
+            
+            // Éviter les changements trop brusques
+            val smoothedCurve = if (abs(newCurve - lastCurve) > 0.6f) {
+                lastCurve + (newCurve - lastCurve) * 0.5f // Transition progressive
+            } else {
+                newCurve
+            }
+            
+            trackCurves.add(smoothedCurve)
+            lastCurve = smoothedCurve
         }
         
         // Fin toujours droite
@@ -763,13 +774,13 @@ class BobsledActivity : Activity(), SensorEventListener {
                     canvas.drawCircle(crowdX, horizonY - 20f, 8f, paint) // Têtes de spectateurs
                 }
                 
-                // BANDEROLE AU-DESSUS DE LA PISTE (on passe en-dessous)
+                // BANDEROLE SIMPLE comme avant
                 paint.color = Color.rgb(255, 200, 0)
-                canvas.drawRect(w * 0.2f, h * 0.6f, w * 0.8f, h * 0.63f, paint)
+                canvas.drawRect(w * 0.1f, h * 0.25f, w * 0.9f, h * 0.28f, paint)
                 paint.color = Color.RED
-                paint.textSize = 32f
+                paint.textSize = 24f
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("ALLEZ! BRAVO!", w * 0.5f, h * 0.625f, paint)
+                canvas.drawText("ALLEZ! BRAVO!", w * 0.5f, h * 0.27f, paint)
             }
             
             // 4. DEMI-TUNNEL (comme avant mais 3x plus large)
