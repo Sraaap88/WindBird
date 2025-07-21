@@ -255,7 +255,7 @@ class BobsledActivity : Activity(), SensorEventListener {
     }
     
     private fun updateTrackProgress() {
-        val progressSpeed = speed / 2000f // Vitesse de progression
+        val progressSpeed = speed / 6000f // RALENTI 3X (était 2000f) pour course 3x plus longue
         trackPosition += progressSpeed * 0.025f
         trackPosition = trackPosition.coerceAtMost(1f)
         
@@ -746,134 +746,44 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
 
         private fun drawWinterGamesTunnel(canvas: Canvas, w: Int, h: Int) {
-            val horizonY = h * 0.55f
+            val horizonY = h * 0.35f // REMIS À 35% comme avant
             val roadDistance = 200f
             
-            // 1. CIEL QUI CHANGE SELON LA PROGRESSION
-            val skyColor = when {
-                trackPosition < 0.3f -> Color.rgb(140, 160, 255) // Montagne
-                trackPosition < 0.7f -> Color.rgb(160, 180, 255) // Forêt
-                else -> Color.rgb(180, 200, 255) // Village
-            }
-            paint.color = skyColor
+            // 1. CIEL SIMPLE
+            paint.color = Color.rgb(170, 140, 255)
             canvas.drawRect(0f, 0f, w.toFloat(), horizonY, paint)
             
-            // 2. DÉCOR SIMPLE QUI DÉFILE
-            val speedScroll = (phaseTimer * speed * 0.5f) % w.toFloat()
+            // 2. MONTAGNES SIMPLES (comme avant)
+            val mountainOffset = currentCurveIntensity * w * 0.3f
+            paint.color = Color.rgb(100, 100, 100)
             
-            when {
-                trackPosition < 0.3f -> {
-                    // MONTAGNE - Pics simples
-                    paint.color = Color.rgb(80, 90, 120)
-                    canvas.drawRect(-speedScroll * 0.3f, horizonY - 100f, w - speedScroll * 0.3f, horizonY, paint)
-                    paint.color = Color.WHITE
-                    for (i in 0..3) {
-                        canvas.drawCircle(w * (0.2f + i * 0.3f) - speedScroll * 0.3f, horizonY - 80f, 15f, paint)
-                    }
-                }
-                trackPosition < 0.7f -> {
-                    // FORÊT - Collines vertes simples
-                    paint.color = Color.rgb(60, 80, 40)
-                    canvas.drawRect(-speedScroll * 0.8f, horizonY - 80f, w - speedScroll * 0.8f, horizonY, paint)
-                    paint.color = Color.rgb(40, 60, 20)
-                    for (i in 0..5) {
-                        val treeX = (w * i / 3f - speedScroll) % (w * 1.5f)
-                        canvas.drawRect(treeX - 2f, horizonY - 30f, treeX + 2f, horizonY, paint)
-                    }
-                }
-                else -> {
-                    // VILLAGE AVEC FOULE - Plus animé près de l'arrivée
-                    paint.color = Color.rgb(100, 120, 80)
-                    canvas.drawRect(-speedScroll, horizonY - 60f, w - speedScroll, horizonY, paint)
-                    
-                    // FOULE QUI APPLAUDIT (surtout près de l'arrivée)
-                    val crowdDensity = if (trackPosition > 0.85f) 15 else 8 // Plus dense près arrivée
-                    paint.color = Color.rgb(200, 150, 100)
-                    for (i in 0..crowdDensity) {
-                        val crowdX = (w * i / 6f - speedScroll * 1.5f) % (w * 1.8f)
-                        canvas.drawCircle(crowdX, horizonY - 25f, 8f, paint) // Têtes
-                    }
-                }
+            val mountain1 = Path().apply {
+                moveTo(-mountainOffset, horizonY)
+                lineTo(w * 0.3f - mountainOffset, horizonY - 60f)
+                lineTo(w * 0.7f - mountainOffset, horizonY - 40f)
+                lineTo(w.toFloat() - mountainOffset, horizonY)
+                close()
             }
+            canvas.drawPath(mountain1, paint)
             
-            // 3. ÉLÉMENTS AU-DESSUS selon la zone
-            val elementScroll = (phaseTimer * speed * 2f) % (w * 3f)
-            
-            when {
-                trackPosition < 0.3f && (elementScroll / w).toInt() % 4 == 0 -> {
-                    // TÉLÉPHÉRIQUE occasionnel
-                    paint.color = Color.GRAY
-                    paint.strokeWidth = 6f
-                    paint.style = Paint.Style.STROKE
-                    canvas.drawLine(0f, h * 0.3f, w.toFloat(), h * 0.35f, paint)
-                    paint.style = Paint.Style.FILL
-                    paint.color = Color.RED
-                    canvas.drawRect(w * 0.4f, h * 0.32f, w * 0.5f, h * 0.35f, paint)
+            // 3. FOULE À LA FIN SEULEMENT
+            if (trackPosition > 0.85f) {
+                paint.color = Color.rgb(200, 150, 100)
+                for (i in 0..20) {
+                    val crowdX = w * i / 15f
+                    canvas.drawCircle(crowdX, horizonY - 20f, 8f, paint) // Têtes de spectateurs
                 }
                 
-                trackPosition > 0.8f -> {
-                    // BANDEROLLES ET AMBIANCE D'ARRIVÉE
-                    paint.color = Color.rgb(255, 200, 0)
-                    canvas.drawRect(w * 0.1f, h * 0.4f, w * 0.9f, h * 0.42f, paint)
-                    
-                    paint.color = Color.RED
-                    paint.textSize = 32f
-                    paint.textAlign = Paint.Align.CENTER
-                    canvas.drawText("ALLEZ! ALLEZ! ALLEZ!", w * 0.5f, h * 0.415f, paint)
-                    
-                    // DRAPEAUX qui flottent
-                    for (i in 0..4) {
-                        paint.color = if (i % 2 == 0) Color.RED else Color.BLUE
-                        val flagX = w * (0.15f + i * 0.18f)
-                        canvas.drawRect(flagX, h * 0.45f, flagX + 15f, h * 0.48f, paint)
-                    }
-                }
+                // BANDEROLE SIMPLE
+                paint.color = Color.rgb(255, 200, 0)
+                canvas.drawRect(w * 0.1f, h * 0.25f, w * 0.9f, h * 0.28f, paint)
+                paint.color = Color.RED
+                paint.textSize = 24f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("ALLEZ! BRAVO!", w * 0.5f, h * 0.27f, paint)
             }
             
-            // 4. CÔTÉS SIMPLES QUI DÉFILENT
-            val sideScroll = (phaseTimer * speed * 3f) % 200f
-            
-            // Côté gauche
-            for (y in horizonY.toInt() until h step 50) {
-                val sideY = (y.toFloat() + sideScroll) % h.toFloat()
-                
-                when {
-                    trackPosition < 0.3f -> {
-                        paint.color = Color.rgb(80, 80, 100)
-                        canvas.drawCircle(w * 0.05f, sideY, 12f, paint) // Rochers
-                    }
-                    trackPosition < 0.7f -> {
-                        paint.color = Color.rgb(255, 50, 50)
-                        canvas.drawRect(w * 0.02f, sideY, w * 0.06f, sideY + 6f, paint) // Barrières
-                    }
-                    else -> {
-                        paint.color = Color.rgb(200, 150, 100)
-                        canvas.drawCircle(w * 0.04f, sideY, 6f, paint) // Spectateurs
-                    }
-                }
-            }
-            
-            // Côté droit (symétrique)
-            for (y in horizonY.toInt() until h step 45) {
-                val sideY = (y.toFloat() + sideScroll * 1.2f) % h.toFloat()
-                
-                when {
-                    trackPosition < 0.3f -> {
-                        paint.color = Color.rgb(70, 70, 90)
-                        canvas.drawCircle(w * 0.95f, sideY, 10f, paint)
-                    }
-                    trackPosition < 0.7f -> {
-                        paint.color = Color.rgb(255, 255, 255)
-                        canvas.drawRect(w * 0.94f, sideY, w * 0.98f, sideY + 6f, paint)
-                    }
-                    else -> {
-                        paint.color = Color.rgb(220, 170, 120)
-                        canvas.drawCircle(w * 0.96f, sideY, 7f, paint)
-                    }
-                }
-            }
-            
-            // 5. DEMI-TUNNEL LARGE
+            // 4. DEMI-TUNNEL (comme avant mais 3x plus large)
             val roadScroll = (phaseTimer * speed * 3f) % 100f
             
             for (screenY in horizonY.toInt() until h) {
@@ -881,7 +791,7 @@ class BobsledActivity : Activity(), SensorEventListener {
                 val z = roadDistance * (1f - lineProgress * 0.95f)
                 val scaleFactor = 1f / z
                 
-                val roadWidth = (w * 15f * scaleFactor).coerceAtMost(w * 20f)
+                val roadWidth = (w * 15f * scaleFactor).coerceAtMost(w * 20f) // 3x plus large
                 val wallHeight = (1500f * scaleFactor).coerceAtMost(2000f)
                 
                 val lookAheadDistance = (1f - lineProgress) * 5f
@@ -899,7 +809,7 @@ class BobsledActivity : Activity(), SensorEventListener {
                 
                 val roadCenterX = w/2f + futureCurve * w * 0.8f * scaleFactor
                 
-                // SOL DE LA PISTE
+                // SOL
                 paint.color = Color.WHITE
                 canvas.drawRect(roadCenterX - roadWidth/2f, screenY.toFloat(), roadCenterX + roadWidth/2f, screenY + 3f, paint)
                 
