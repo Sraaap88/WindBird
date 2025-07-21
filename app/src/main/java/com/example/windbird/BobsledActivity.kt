@@ -2,7 +2,7 @@
 // ✅ VERSION ENRICHIE DU SCRIPT DE BOBSLED COMPLÈTE : IMMERSION VISUELLE PARFAITE 🎿🛷
 // Toutes les sections ont été conservées selon la structure d'origine, mais avec des VISUELS AMÉLIORÉS
 // Étapes : Préparation ➜ Poussée ➜ Descente 1 ➜ Cockpit 1 ➜ Descente 2 ➜ Cockpit 2 ➜ Descente finale ➜ Ligne d'arrivée ➜ Résultats
-
+ 
 // ⚠️ Cette version modifie UNIQUEMENT les fonctions visuelles (drawPreparation, drawPushStart, drawDescent, drawCockpit, drawFinish, drawResults)
 // ➕ Ajouts : textures, perspective, échelle réaliste, effet de vitesse, drapeau agrandi, ambiance neige et tunnel lumineux.
 
