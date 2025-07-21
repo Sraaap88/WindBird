@@ -416,10 +416,9 @@ class BobsledActivity : Activity(), SensorEventListener {
             try {
                 bobsledPreparationBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobsled_preparation)
                 bobPushBitmap = BitmapFactory.decodeResource(resources, R.drawable.bob_push)
-                // Temporairement commenté jusqu'à ce que vous ajoutiez les images
-                // bobStraightBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobnv_straight)
-                // bobLeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobnv_left)
-                // bobRightBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobnv_right)
+                bobStraightBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobnv_straight)
+                bobLeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobnv_left)
+                bobRightBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobnv_right)
                 bobFinishLineBitmap = BitmapFactory.decodeResource(resources, R.drawable.bob_finish_line)
                 bobCelebrationBitmap = BitmapFactory.decodeResource(resources, R.drawable.bob_celebration)
             } catch (e: Exception) {
