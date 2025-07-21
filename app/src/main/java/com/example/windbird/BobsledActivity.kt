@@ -204,33 +204,30 @@ class BobsledActivity : Activity(), SensorEventListener {
     }
     
     private fun handlePushStart() {
-        val currentTime = System.currentTimeMillis()
-        val shakeThreshold = 1.5f
+        // Plus de secouage ! Maintenant on pousse avec le tactile
+        // Le bobsleigh démarre à 1 pouce du bord gauche
         
-        val totalShake = abs(tiltX) + abs(tiltY) + abs(tiltZ)
-        if (totalShake > shakeThreshold) {
-            if (currentTime - lastPushTime > 300) {
-                pushCount++
-                
-                val timeDiff = currentTime - lastPushTime
-                if (timeDiff > 300 && timeDiff < 600) {
-                    pushRhythm += 2f
-                    pushPower += 12f
-                } else {
-                    pushPower += 8f
-                }
-                
-                lastPushTime = currentTime
-                cameraShake += 0.2f
-                generateIceParticles()
+        // Simulation de poussée tactile basée sur le mouvement du gyroscope
+        val pushForce = abs(tiltX) + abs(tiltY)
+        if (pushForce > 0.5f) {
+            pushPower += pushForce * 2f
+            pushCount++
+            
+            // Calcul d'efficacité selon la régularité
+            val currentTime = System.currentTimeMillis()
+            if (currentTime - lastPushTime > 200 && currentTime - lastPushTime < 800) {
+                pushRhythm += 3f  // Bon rythme
+            } else {
+                pushRhythm += 1f  // Rythme moyen
             }
+            lastPushTime = currentTime
         }
         
         pushPower = pushPower.coerceAtMost(100f)
         pushRhythm = pushRhythm.coerceAtMost(100f)
         
         if (phaseTimer >= pushStartDuration) {
-            pushQuality = (pushPower * 0.7f + pushRhythm * 0.3f) / 100f
+            pushQuality = (pushPower * 0.6f + pushRhythm * 0.4f) / 100f
             speed = 35f + (pushQuality * 25f)
             
             gameState = GameState.FIRST_DESCENT
@@ -621,15 +618,25 @@ class BobsledActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#E0F6FF")
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
-            // Piste simple
-            paint.color = Color.parseColor("#CCCCCC")
-            canvas.drawRect(0f, h * 0.7f, w.toFloat(), h * 0.85f, paint)
+            // Piste inclinée pour la poussée
+            paint.color = Color.parseColor("#FFFFFF")
+            val trackWidth = 200f
+            val trackY = h * 0.75f
+            canvas.drawRect(0f, trackY - trackWidth/2f, w.toFloat(), trackY + trackWidth/2f, paint)
             
-            // Bobsleigh qui traverse TOUT l'écran selon la poussée
-            val pushProgress = (pushPower / 100f) * 0.7f + (phaseTimer / pushStartDuration) * 0.3f
-            val bobX = w * (-0.1f + pushProgress * 1.2f)  // Va de -10% à +110% (sort complètement)
-            val bobY = h * 0.775f
-            val scale = 0.15f
+            // Bordures de piste
+            paint.color = Color.parseColor("#CCCCCC")
+            paint.strokeWidth = 8f
+            paint.style = Paint.Style.STROKE
+            canvas.drawLine(0f, trackY - trackWidth/2f, w.toFloat(), trackY - trackWidth/2f, paint)
+            canvas.drawLine(0f, trackY + trackWidth/2f, w.toFloat(), trackY + trackWidth/2f, paint)
+            paint.style = Paint.Style.FILL
+            
+            // Bobsleigh qui avance selon la poussée - COMMENCE À 1 POUCE DU BORD
+            val pushProgress = pushPower / 100f
+            val bobX = 50f + pushProgress * (w - 100f)  // De 50px à w-50px
+            val bobY = trackY
+            val scale = 0.18f
             
             bobPushBitmap?.let { bmp ->
                 val dstRect = RectF(
@@ -641,18 +648,28 @@ class BobsledActivity : Activity(), SensorEventListener {
                 canvas.drawBitmap(bmp, null, dstRect, paint)
             }
             
-            // Instructions
+            // Instructions améliorées
             paint.color = Color.RED
-            paint.textSize = 60f
+            paint.textSize = 50f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("🚀 SECOUEZ POUR POUSSER! 🚀", w/2f, h * 0.15f, paint)
+            canvas.drawText("🏃‍♂️ BOUGEZ POUR POUSSER! 🏃‍♂️", w/2f, h * 0.15f, paint)
             
             paint.color = Color.WHITE
-            paint.textSize = 45f
-            canvas.drawText("Poussées: ${pushCount} | Puissance: ${pushPower.toInt()}%", w/2f, h * 0.25f, paint)
+            paint.textSize = 35f
+            canvas.drawText("Poussées: ${pushCount}", w/2f, h * 0.25f, paint)
             
-            // Barre de puissance
-            drawPushPowerMeter(canvas, w, h)
+            // Efficacité de poussée
+            val efficiency = (pushQuality * 100).toInt()
+            paint.color = when {
+                efficiency > 80 -> Color.GREEN
+                efficiency > 60 -> Color.YELLOW
+                else -> Color.RED
+            }
+            paint.textSize = 40f
+            canvas.drawText("Efficacité: ${efficiency}%", w/2f, h * 0.32f, paint)
+            
+            // Barre de puissance améliorée
+            drawImprovedPushPowerMeter(canvas, w, h)
         }
         
         private fun drawFirstDescent(canvas: Canvas, w: Int, h: Int) {
@@ -660,16 +677,47 @@ class BobsledActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#87CEEB")
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
-            // Animation diagonale : haut-gauche vers bas-droite
+            // PISTE INCLINÉE haut-gauche vers bas-droite
             val progress = phaseTimer / firstDescentDuration
-            val startX = -200f
-            val startY = h * 0.1f
-            val endX = w + 200f
-            val endY = h * 0.9f
             
-            val bobX = startX + (endX - startX) * progress
-            val bobY = startY + (endY - startY) * progress
+            // Points de la piste inclinée
+            val trackStartX = -100f
+            val trackStartY = h * 0.1f
+            val trackEndX = w + 100f
+            val trackEndY = h * 0.9f
+            val trackWidth = 150f
+            
+            // Dessiner la piste inclinée
+            paint.color = Color.parseColor("#FFFFFF")
+            val trackPath = Path().apply {
+                // Côté haut de la piste
+                moveTo(trackStartX - trackWidth/2f, trackStartY - trackWidth/4f)
+                lineTo(trackEndX - trackWidth/2f, trackEndY - trackWidth/4f)
+                // Côté bas de la piste
+                lineTo(trackEndX + trackWidth/2f, trackEndY + trackWidth/4f)
+                lineTo(trackStartX + trackWidth/2f, trackStartY + trackWidth/4f)
+                close()
+            }
+            canvas.drawPath(trackPath, paint)
+            
+            // Bordures de la piste
+            paint.color = Color.parseColor("#CCCCCC")
+            paint.strokeWidth = 6f
+            paint.style = Paint.Style.STROKE
+            canvas.drawLine(trackStartX - trackWidth/2f, trackStartY - trackWidth/4f, trackEndX - trackWidth/2f, trackEndY - trackWidth/4f, paint)
+            canvas.drawLine(trackStartX + trackWidth/2f, trackStartY + trackWidth/4f, trackEndX + trackWidth/2f, trackEndY + trackWidth/4f, paint)
+            paint.style = Paint.Style.FILL
+            
+            // Bobsleigh SUR la piste inclinée
+            val bobX = trackStartX + (trackEndX - trackStartX) * progress
+            val bobY = trackStartY + (trackEndY - trackStartY) * progress
+            
+            // Angle du bobsleigh selon la pente
+            val angle = atan2(trackEndY - trackStartY, trackEndX - trackStartX) * 180f / PI.toFloat()
             val scale = 0.2f
+            
+            canvas.save()
+            canvas.rotate(angle, bobX, bobY)
             
             bobFinishLineBitmap?.let { bmp ->
                 val dstRect = RectF(
@@ -681,16 +729,18 @@ class BobsledActivity : Activity(), SensorEventListener {
                 canvas.drawBitmap(bmp, null, dstRect, paint)
             }
             
-            // Effet de traînée
+            canvas.restore()
+            
+            // Effet de traînée SUR LA PISTE
             for (i in 1..5) {
-                val trailProgress = progress - (i * 0.1f)
+                val trailProgress = progress - (i * 0.08f)
                 if (trailProgress > 0f) {
-                    val trailX = startX + (endX - startX) * trailProgress
-                    val trailY = startY + (endY - startY) * trailProgress
+                    val trailX = trackStartX + (trackEndX - trackStartX) * trailProgress
+                    val trailY = trackStartY + (trackEndY - trackStartY) * trailProgress
                     
                     paint.color = Color.WHITE
                     paint.alpha = (255 * (1f - i * 0.2f)).toInt()
-                    canvas.drawCircle(trailX, trailY, 8f - i * 1.5f, paint)
+                    canvas.drawCircle(trailX, trailY, 8f - i * 1f, paint)
                     paint.alpha = 255
                 }
             }
@@ -711,16 +761,42 @@ class BobsledActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#6495ED")
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
-            // Animation diagonale PLUS RAPIDE
+            // MÊME PISTE INCLINÉE mais plus rapide
             val progress = phaseTimer / secondDescentDuration
-            val startX = -200f
-            val startY = h * 0.1f
-            val endX = w + 200f
-            val endY = h * 0.9f
             
-            val bobX = startX + (endX - startX) * progress
-            val bobY = startY + (endY - startY) * progress
-            val scale = 0.22f  // Légèrement plus gros
+            val trackStartX = -100f
+            val trackStartY = h * 0.1f
+            val trackEndX = w + 100f
+            val trackEndY = h * 0.9f
+            val trackWidth = 160f  // Légèrement plus large
+            
+            // Piste inclinée
+            paint.color = Color.parseColor("#FFFFFF")
+            val trackPath = Path().apply {
+                moveTo(trackStartX - trackWidth/2f, trackStartY - trackWidth/4f)
+                lineTo(trackEndX - trackWidth/2f, trackEndY - trackWidth/4f)
+                lineTo(trackEndX + trackWidth/2f, trackEndY + trackWidth/4f)
+                lineTo(trackStartX + trackWidth/2f, trackStartY + trackWidth/4f)
+                close()
+            }
+            canvas.drawPath(trackPath, paint)
+            
+            // Bordures renforcées
+            paint.color = Color.parseColor("#AAAAAA")
+            paint.strokeWidth = 8f
+            paint.style = Paint.Style.STROKE
+            canvas.drawLine(trackStartX - trackWidth/2f, trackStartY - trackWidth/4f, trackEndX - trackWidth/2f, trackEndY - trackWidth/4f, paint)
+            canvas.drawLine(trackStartX + trackWidth/2f, trackStartY + trackWidth/4f, trackEndX + trackWidth/2f, trackEndY + trackWidth/4f, paint)
+            paint.style = Paint.Style.FILL
+            
+            // Bobsleigh SUR la piste avec angle
+            val bobX = trackStartX + (trackEndX - trackStartX) * progress
+            val bobY = trackStartY + (trackEndY - trackStartY) * progress
+            val angle = atan2(trackEndY - trackStartY, trackEndX - trackStartX) * 180f / PI.toFloat()
+            val scale = 0.22f
+            
+            canvas.save()
+            canvas.rotate(angle, bobX, bobY)
             
             bobFinishLineBitmap?.let { bmp ->
                 val dstRect = RectF(
@@ -732,27 +808,39 @@ class BobsledActivity : Activity(), SensorEventListener {
                 canvas.drawBitmap(bmp, null, dstRect, paint)
             }
             
-            // Effet de vitesse plus intense
+            canvas.restore()
+            
+            // Effet de vitesse plus intense SUR LA PISTE
             for (i in 1..8) {
-                val trailProgress = progress - (i * 0.05f)
+                val trailProgress = progress - (i * 0.04f)
                 if (trailProgress > 0f) {
-                    val trailX = startX + (endX - startX) * trailProgress
-                    val trailY = startY + (endY - startY) * trailProgress
+                    val trailX = trackStartX + (trackEndX - trackStartX) * trailProgress
+                    val trailY = trackStartY + (trackEndY - trackStartY) * trailProgress
                     
                     paint.color = Color.CYAN
                     paint.alpha = (255 * (1f - i * 0.125f)).toInt()
-                    canvas.drawCircle(trailX, trailY, 12f - i * 1.2f, paint)
+                    canvas.drawCircle(trailX, trailY, 12f - i * 1f, paint)
                     paint.alpha = 255
                 }
             }
             
-            // Lignes de vitesse
-            for (i in 0..10) {
+            // Lignes de vitesse parallèles à la piste
+            for (i in 0..8) {
                 paint.color = Color.WHITE
-                paint.alpha = 150
-                paint.strokeWidth = 3f
-                val lineY = (i * h / 10f + phaseTimer * speed * 3f) % (h + 100f)
-                canvas.drawLine(0f, lineY, w.toFloat(), lineY + 50f, paint)
+                paint.alpha = 120
+                paint.strokeWidth = 2f
+                
+                val lineProgress = (i * 0.15f + phaseTimer * 3f) % 1.2f
+                if (lineProgress <= 1f) {
+                    val lineX = trackStartX + (trackEndX - trackStartX) * lineProgress
+                    val lineY = trackStartY + (trackEndY - trackStartY) * lineProgress
+                    
+                    // Lignes perpendiculaires à la direction de la piste
+                    val perpX = -(trackEndY - trackStartY) / 10f
+                    val perpY = (trackEndX - trackStartX) / 10f
+                    
+                    canvas.drawLine(lineX - perpX, lineY - perpY, lineX + perpX, lineY + perpY, paint)
+                }
                 paint.alpha = 255
             }
             
@@ -822,131 +910,75 @@ class BobsledActivity : Activity(), SensorEventListener {
         
         private fun drawImmersiveTunnel(canvas: Canvas, tunnelRect: RectF) {
             // Fond noir profond
-            paint.color = Color.parseColor("#000000")
+            paint.color = Color.parseColor("#000011")
             canvas.drawRect(tunnelRect, paint)
             
-            // TUNNEL CYLINDRIQUE ULTRA RÉALISTE
-            val scrollSpeed = speed * 2.5f
-            val tunnelOffset = (phaseTimer * scrollSpeed) % 60f
-            val centerX = tunnelRect.centerX() + (tiltZ * tunnelRect.width() * 0.15f)
+            // TUNNEL STYLE COMMODORE 64 - SIMPLE ET EFFICACE !
+            val centerX = tunnelRect.centerX() + (tiltZ * tunnelRect.width() * 0.1f)
+            val centerY = tunnelRect.centerY()
             
-            // Générer segments de tunnel avec perspective parfaite
-            for (i in 0..8) {
-                val depth = (i * 60f - tunnelOffset) / tunnelRect.height()
-                val segmentY = tunnelRect.top + depth * tunnelRect.height()
+            // Point de fuite au centre
+            val vanishingX = centerX
+            val vanishingY = tunnelRect.top + tunnelRect.height() * 0.3f
+            
+            // Dessiner les segments du tunnel du plus loin au plus proche
+            for (i in 0..12) {
+                val distance = i / 12f
+                val segment_y = tunnelRect.top + distance * tunnelRect.height()
                 
-                if (segmentY > tunnelRect.bottom || depth < 0f) continue
+                // Perspective simple : plus c'est proche, plus c'est large
+                val width = 20f + distance * tunnelRect.width() * 0.8f
+                val height = 15f + distance * 40f
                 
-                // Perspective exponentielle pour plus de réalisme
-                val perspective = 1f / (1f + depth * 2f)
+                // Virage selon idealDirection
+                val turnOffset = idealDirection * distance * tunnelRect.width() * 0.15f
+                val segmentCenterX = centerX + turnOffset
                 
-                // Virage selon la direction avec anticipation
-                val turnInfluence = idealDirection * depth * tunnelRect.width() * 0.25f
-                val segmentCenterX = centerX + turnInfluence
+                // Couleur qui s'éclaircit quand on se rapproche
+                val brightness = (80 + distance * 100).toInt().coerceAtMost(255)
+                paint.color = Color.rgb(brightness, brightness, brightness)
                 
-                // Rayon du tunnel selon perspective
-                val tunnelRadius = tunnelRect.width() * perspective * 0.4f
-                val segmentHeight = 50f * perspective
-                
-                // VOÛTE DU TUNNEL (demi-cercle supérieur)
-                paint.color = Color.parseColor("#444444")
-                paint.style = Paint.Style.FILL
-                
-                val vaultRect = RectF(
-                    segmentCenterX - tunnelRadius,
-                    segmentY - tunnelRadius * 0.7f,
-                    segmentCenterX + tunnelRadius,
-                    segmentY + tunnelRadius * 0.3f
+                // Rectangle simple pour chaque segment
+                canvas.drawRect(
+                    segmentCenterX - width/2f,
+                    segment_y - height/2f,
+                    segmentCenterX + width/2f,
+                    segment_y + height/2f,
+                    paint
                 )
-                canvas.drawArc(vaultRect, 180f, 180f, true, paint)
                 
-                // REFLETS SUR LA VOÛTE
-                if (perspective > 0.3f) {
-                    paint.color = Color.parseColor("#666666")
-                    paint.alpha = (200 * perspective).toInt()
-                    val reflectRect = RectF(
-                        segmentCenterX - tunnelRadius * 0.4f,
-                        segmentY - tunnelRadius * 0.6f,
-                        segmentCenterX + tunnelRadius * 0.4f,
-                        segmentY - tunnelRadius * 0.2f
-                    )
-                    canvas.drawArc(reflectRect, 180f, 180f, true, paint)
-                    paint.alpha = 255
-                }
-                
-                // SOL DU TUNNEL (trapèze perspectif)
-                val nextDepth = ((i + 1) * 60f - tunnelOffset) / tunnelRect.height()
-                val nextPerspective = 1f / (1f + nextDepth * 2f)
-                val nextRadius = tunnelRect.width() * nextPerspective * 0.4f
-                val nextY = tunnelRect.top + nextDepth * tunnelRect.height()
-                val nextCenterX = centerX + idealDirection * nextDepth * tunnelRect.width() * 0.25f
-                
-                paint.color = Color.parseColor("#FFFFFF")
-                val floorPath = Path().apply {
-                    moveTo(segmentCenterX - tunnelRadius * 0.9f, segmentY)
-                    lineTo(segmentCenterX + tunnelRadius * 0.9f, segmentY)
-                    if (nextDepth <= 3f && nextY <= tunnelRect.bottom) {
-                        lineTo(nextCenterX + nextRadius * 0.9f, nextY)
-                        lineTo(nextCenterX - nextRadius * 0.9f, nextY)
-                    } else {
-                        lineTo(segmentCenterX + tunnelRadius * 0.7f, segmentY + segmentHeight)
-                        lineTo(segmentCenterX - tunnelRadius * 0.7f, segmentY + segmentHeight)
-                    }
-                    close()
-                }
-                canvas.drawPath(floorPath, paint)
-                
-                // LIGNES DE GUIDAGE (effet de vitesse)
-                if (i % 2 == 0 && perspective > 0.25f) {
-                    paint.color = Color.parseColor("#E0E0E0")
-                    paint.strokeWidth = 4f * perspective
+                // Lignes de séparation
+                if (i % 2 == 0) {
+                    paint.color = Color.parseColor("#FFFFFF")
+                    paint.strokeWidth = 2f + distance * 3f
                     paint.style = Paint.Style.STROKE
-                    canvas.drawLine(
-                        segmentCenterX - tunnelRadius * 0.15f,
-                        segmentY,
-                        segmentCenterX + tunnelRadius * 0.15f,
-                        segmentY,
+                    canvas.drawRect(
+                        segmentCenterX - width/2f,
+                        segment_y - height/2f,
+                        segmentCenterX + width/2f,
+                        segment_y + height/2f,
                         paint
                     )
                     paint.style = Paint.Style.FILL
                 }
-                
-                // ÉCLAIRAGE DYNAMIQUE
-                if (perspective > 0.4f) {
-                    paint.color = Color.parseColor("#FFFFFF")
-                    paint.alpha = (100 * perspective).toInt()
-                    canvas.drawCircle(segmentCenterX, segmentY - tunnelRadius * 0.3f, tunnelRadius * 0.1f, paint)
-                    paint.alpha = 255
-                }
             }
             
-            // EFFET DE PARTICULES DE GLACE
-            for (i in 0..15) {
-                val particleX = tunnelRect.centerX() + kotlin.random.Random.nextFloat() * tunnelRect.width() - tunnelRect.width()/2f
-                val particleY = tunnelRect.top + (phaseTimer * speed * 4f + i * 30f) % tunnelRect.height()
-                val particleSize = 2f + kotlin.random.Random.nextFloat() * 3f
-                
-                paint.color = Color.parseColor("#E0F6FF")
-                paint.alpha = 180
-                canvas.drawCircle(particleX, particleY, particleSize, paint)
-                paint.alpha = 255
-            }
+            // Lignes de perspective qui convergent vers le point de fuite
+            paint.color = Color.parseColor("#FFFFFF")
+            paint.strokeWidth = 3f
+            paint.style = Paint.Style.STROKE
             
-            // Interface cockpit overlay
-            bobCockpitBitmap?.let { bmp ->
-                val cockpitScale = 0.35f
-                val cockpitImageRect = RectF(
-                    tunnelRect.left + 10f,
-                    tunnelRect.bottom - (bmp.height * cockpitScale) - 10f,
-                    tunnelRect.left + 10f + (bmp.width * cockpitScale),
-                    tunnelRect.bottom - 10f
-                )
-                canvas.drawBitmap(bmp, null, cockpitImageRect, paint)
-            }
+            // 4 lignes principales du tunnel
+            canvas.drawLine(tunnelRect.left, tunnelRect.bottom, vanishingX - 10f, vanishingY, paint)
+            canvas.drawLine(tunnelRect.right, tunnelRect.bottom, vanishingX + 10f, vanishingY, paint)
+            canvas.drawLine(tunnelRect.left + 50f, tunnelRect.bottom, vanishingX - 5f, vanishingY, paint)
+            canvas.drawLine(tunnelRect.right - 50f, tunnelRect.bottom, vanishingX + 5f, vanishingY, paint)
             
-            // Indicateurs de contrôle
+            paint.style = Paint.Style.FILL
+            
+            // Flèches BEAUCOUP PLUS GROSSES
             paint.color = Color.YELLOW
-            paint.textSize = 40f
+            paint.textSize = 80f  // ÉNORME !
             paint.textAlign = Paint.Align.CENTER
             
             val directionArrow = when {
@@ -954,61 +986,102 @@ class BobsledActivity : Activity(), SensorEventListener {
                 idealDirection > 0.3f -> "➡️" 
                 else -> "⬆️"
             }
-            canvas.drawText(directionArrow, tunnelRect.centerX(), tunnelRect.top + 50f, paint)
+            canvas.drawText(directionArrow, tunnelRect.centerX(), tunnelRect.top + 100f, paint)
             
-            // Vitesse
+            // Interface cockpit overlay (plus petit)
+            bobCockpitBitmap?.let { bmp ->
+                val cockpitScale = 0.25f
+                val cockpitImageRect = RectF(
+                    tunnelRect.left + 5f,
+                    tunnelRect.bottom - (bmp.height * cockpitScale) - 5f,
+                    tunnelRect.left + 5f + (bmp.width * cockpitScale),
+                    tunnelRect.bottom - 5f
+                )
+                canvas.drawBitmap(bmp, null, cockpitImageRect, paint)
+            }
+            
+            // Vitesse bien visible
             paint.color = Color.WHITE
-            paint.textSize = 25f
+            paint.textSize = 30f
             paint.textAlign = Paint.Align.RIGHT
-            canvas.drawText("${speed.toInt()}", tunnelRect.right - 15f, tunnelRect.bottom - 40f, paint)
-            canvas.drawText("KM/H", tunnelRect.right - 15f, tunnelRect.bottom - 15f, paint)
-            
-            // Performance
-            paint.textSize = 20f
-            paint.color = if (steeringAccuracy > 0.8f) Color.GREEN else if (steeringAccuracy > 0.5f) Color.YELLOW else Color.RED
-            canvas.drawText("${(steeringAccuracy * 100).toInt()}%", tunnelRect.right - 15f, tunnelRect.bottom - 65f, paint)
+            canvas.drawText("${speed.toInt()}", tunnelRect.right - 10f, tunnelRect.bottom - 30f, paint)
+            canvas.drawText("KM/H", tunnelRect.right - 10f, tunnelRect.bottom - 5f, paint)
         }
         
         private fun drawFinishLine(canvas: Canvas, w: Int, h: Int) {
-            // Même layout que control descent mais avec ligne d'arrivée qui passe
+            // Layout comme control descent
             val mapRect = RectF(0f, 0f, w * 0.65f, h.toFloat())
             val tunnelRect = RectF(w * 0.65f, 0f, w.toFloat(), h.toFloat())
             
-            // Carte à gauche (simplifiée)
+            // Carte à gauche 
             paint.color = Color.parseColor("#E0F6FF")
             canvas.drawRect(mapRect, paint)
             
             paint.color = Color.parseColor("#FFD700")
-            paint.textSize = 40f
+            paint.textSize = 35f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("🏁 LIGNE D'ARRIVÉE!", mapRect.centerX(), mapRect.centerY(), paint)
+            canvas.drawText("🏁 LIGNE D'ARRIVÉE!", mapRect.centerX(), mapRect.centerY() - 50f, paint)
+            canvas.drawText("PRESQUE FINI!", mapRect.centerX(), mapRect.centerY() + 20f, paint)
             
-            // Tunnel à droite avec ligne d'arrivée qui passe
-            paint.color = Color.parseColor("#000000")
+            // Tunnel à droite - LIGNE D'ARRIVÉE QUI ARRIVE VERS NOUS
+            paint.color = Color.parseColor("#000011")
             canvas.drawRect(tunnelRect, paint)
             
-            // Ligne d'arrivée qui descend depuis le haut
-            val lineProgress = phaseTimer / finishLineDuration
-            val lineY = tunnelRect.top - 100f + lineProgress * (tunnelRect.height() + 200f)
+            // Tunnel simple avec ligne qui approche
+            val centerX = tunnelRect.centerX()
+            val centerY = tunnelRect.centerY()
             
-            // Damier de la ligne d'arrivée
-            for (i in 0..10) {
-                val color = if (i % 2 == 0) Color.BLACK else Color.WHITE
-                paint.color = color
-                val segmentWidth = tunnelRect.width() / 10f
+            // Segments tunnel basiques
+            for (i in 0..8) {
+                val distance = i / 8f
+                val segment_y = tunnelRect.top + distance * tunnelRect.height()
+                val width = 20f + distance * tunnelRect.width() * 0.6f
+                
+                paint.color = Color.rgb(60 + (distance * 80).toInt(), 60 + (distance * 80).toInt(), 60 + (distance * 80).toInt())
                 canvas.drawRect(
-                    tunnelRect.left + i * segmentWidth,
-                    lineY - 30f,
-                    tunnelRect.left + (i + 1) * segmentWidth,
-                    lineY + 30f,
+                    centerX - width/2f,
+                    segment_y - 10f,
+                    centerX + width/2f,
+                    segment_y + 10f,
                     paint
                 )
             }
             
+            // LIGNE D'ARRIVÉE qui approche du fond vers nous
+            val lineProgress = phaseTimer / finishLineDuration
+            val lineDepth = 1f - lineProgress  // Part du fond et se rapproche
+            
+            if (lineDepth > 0f) {
+                val lineY = tunnelRect.top + lineDepth * tunnelRect.height() * 0.8f
+                val lineWidth = 30f + (1f - lineDepth) * tunnelRect.width() * 0.8f
+                
+                // Damier noir et blanc de la ligne d'arrivée
+                val segments = 8
+                val segmentWidth = lineWidth / segments
+                
+                for (i in 0 until segments) {
+                    val color = if (i % 2 == 0) Color.BLACK else Color.WHITE
+                    paint.color = color
+                    canvas.drawRect(
+                        centerX - lineWidth/2f + i * segmentWidth,
+                        lineY - 15f * (1f - lineDepth + 0.2f),
+                        centerX - lineWidth/2f + (i + 1) * segmentWidth,
+                        lineY + 15f * (1f - lineDepth + 0.2f),
+                        paint
+                    )
+                }
+            }
+            
+            // Flèche énorme
             paint.color = Color.YELLOW
-            paint.textSize = 50f
+            paint.textSize = 80f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("🏁", tunnelRect.centerX(), tunnelRect.centerY(), paint)
+            canvas.drawText("🏁", tunnelRect.centerX(), tunnelRect.top + 100f, paint)
+            
+            // Message
+            paint.color = Color.WHITE
+            paint.textSize = 25f
+            canvas.drawText("LIGNE D'ARRIVÉE!", tunnelRect.centerX(), tunnelRect.bottom - 50f, paint)
         }
         
         private fun drawCelebration(canvas: Canvas, w: Int, h: Int) {
@@ -1016,31 +1089,82 @@ class BobsledActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#FFD700")
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
-            // Animation de célébration : haut-gauche vers centre puis glisse
+            // PISTE DE CÉLÉBRATION avec vraie géométrie
             val totalProgress = phaseTimer / celebrationDuration
-            val descentProgress = (totalProgress * 2f).coerceAtMost(1f)  // Première moitié : descente
-            val slideProgress = maxOf(0f, totalProgress * 2f - 1f)       // Deuxième moitié : glissade
+            val descentProgress = (totalProgress * 1.5f).coerceAtMost(1f)  // Descente rapide
+            val slideProgress = maxOf(0f, totalProgress * 2f - 1f)         // Glissade lente
             
+            // Points de la piste de célébration
             val startX = -150f
             val startY = h * 0.1f
-            val centerX = w * 0.5f
-            val centerY = h * 0.6f
-            val endX = w * 0.8f
+            val centerX = w * 0.4f
+            val centerY = h * 0.65f  // Plus bas pour être "sur le plat"
+            val endX = w * 0.85f
+            val endY = centerY  // Reste sur le plat
             
-            var bobX: Float
-            var bobY: Float
+            // Dessiner la piste de célébration en 2 parties
+            paint.color = Color.parseColor("#FFFFFF")
+            val trackWidth = 120f
             
             if (descentProgress < 1f) {
-                // Phase de descente vers le centre
+                // Partie inclinée (descente)
+                val trackPath1 = Path().apply {
+                    moveTo(startX - trackWidth/3f, startY - trackWidth/6f)
+                    lineTo(centerX - trackWidth/2f, centerY - trackWidth/4f)
+                    lineTo(centerX + trackWidth/2f, centerY + trackWidth/4f)
+                    lineTo(startX + trackWidth/3f, startY + trackWidth/6f)
+                    close()
+                }
+                canvas.drawPath(trackPath1, paint)
+            }
+            
+            // Partie plate (glissade)
+            val trackPath2 = Path().apply {
+                moveTo(centerX - trackWidth/2f, centerY - trackWidth/4f)
+                lineTo(endX - trackWidth/2f, endY - trackWidth/4f)
+                lineTo(endX + trackWidth/2f, endY + trackWidth/4f)
+                lineTo(centerX + trackWidth/2f, centerY + trackWidth/4f)
+                close()
+            }
+            canvas.drawPath(trackPath2, paint)
+            
+            // Bordures de piste
+            paint.color = Color.parseColor("#CCCCCC")
+            paint.strokeWidth = 6f
+            paint.style = Paint.Style.STROKE
+            
+            // Bordure partie inclinée
+            if (descentProgress < 1f) {
+                canvas.drawLine(startX - trackWidth/3f, startY - trackWidth/6f, centerX - trackWidth/2f, centerY - trackWidth/4f, paint)
+                canvas.drawLine(startX + trackWidth/3f, startY + trackWidth/6f, centerX + trackWidth/2f, centerY + trackWidth/4f, paint)
+            }
+            
+            // Bordure partie plate
+            canvas.drawLine(centerX - trackWidth/2f, centerY - trackWidth/4f, endX - trackWidth/2f, endY - trackWidth/4f, paint)
+            canvas.drawLine(centerX + trackWidth/2f, centerY + trackWidth/4f, endX + trackWidth/2f, endY + trackWidth/4f, paint)
+            paint.style = Paint.Style.FILL
+            
+            // Position du bobsleigh SUR LA PISTE
+            var bobX: Float
+            var bobY: Float
+            var bobAngle = 0f
+            
+            if (descentProgress < 1f) {
+                // Phase de descente vers le centre SUR LA PISTE INCLINÉE
                 bobX = startX + (centerX - startX) * descentProgress
                 bobY = startY + (centerY - startY) * descentProgress
+                bobAngle = atan2(centerY - startY, centerX - startX) * 180f / PI.toFloat()
             } else {
-                // Phase de glissade lente
+                // Phase de glissade lente SUR LA PISTE PLATE
                 bobX = centerX + (endX - centerX) * slideProgress
-                bobY = centerY
+                bobY = centerY  // Reste sur le plat
+                bobAngle = 0f  // Horizontal sur le plat
             }
             
             val scale = 0.25f
+            
+            canvas.save()
+            canvas.rotate(bobAngle, bobX, bobY)
             
             bobCelebrationBitmap?.let { bmp ->
                 val dstRect = RectF(
@@ -1052,15 +1176,17 @@ class BobsledActivity : Activity(), SensorEventListener {
                 canvas.drawBitmap(bmp, null, dstRect, paint)
             }
             
+            canvas.restore()
+            
             // Effets de célébration
             paint.color = Color.WHITE
             paint.textSize = 60f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("🎉 FÉLICITATIONS! 🎉", w/2f, h * 0.3f, paint)
+            canvas.drawText("🎉 FÉLICITATIONS! 🎉", w/2f, h * 0.2f, paint)
             
             paint.color = Color.parseColor("#FF6600")
-            paint.textSize = 80f
-            canvas.drawText("${speed.toInt()} KM/H", w/2f, h * 0.85f, paint)
+            paint.textSize = 50f
+            canvas.drawText("Vitesse finale: ${speed.toInt()} KM/H", w/2f, h * 0.9f, paint)
         }
         
         private fun drawResults(canvas: Canvas, w: Int, h: Int) {
@@ -1089,18 +1215,31 @@ class BobsledActivity : Activity(), SensorEventListener {
             canvas.drawText("🕒 Temps: ${raceTime.toInt()}s", w/2f, h * 0.6f, paint)
         }
         
-        private fun drawPushPowerMeter(canvas: Canvas, w: Int, h: Int) {
+        private fun drawImprovedPushPowerMeter(canvas: Canvas, w: Int, h: Int) {
+            // Barre de puissance avec efficacité
             paint.color = Color.parseColor("#333333")
-            canvas.drawRect(150f, h - 120f, w - 150f, h - 50f, paint)
+            canvas.drawRect(100f, h - 120f, w - 100f, h - 50f, paint)
             
+            // Barre de puissance colorée
             paint.color = if (pushPower > 70f) Color.GREEN else if (pushPower > 40f) Color.YELLOW else Color.RED
-            val powerWidth = (pushPower / 100f) * (w - 300f)
-            canvas.drawRect(150f, h - 115f, 150f + powerWidth, h - 55f, paint)
+            val powerWidth = (pushPower / 100f) * (w - 200f)
+            canvas.drawRect(100f, h - 115f, 100f + powerWidth, h - 55f, paint)
             
+            // Texte de puissance
             paint.color = Color.WHITE
-            paint.textSize = 30f
+            paint.textSize = 25f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("PUISSANCE: ${pushPower.toInt()}%", w/2f, h - 130f, paint)
+            
+            // Indicateur d'efficacité séparé
+            val efficiency = (pushQuality * 100).toInt()
+            paint.color = when {
+                efficiency > 80 -> Color.GREEN
+                efficiency > 60 -> Color.YELLOW  
+                else -> Color.RED
+            }
+            paint.textSize = 20f
+            canvas.drawText("Efficacité: ${efficiency}%", w/2f, h - 25f, paint)
         }
         
         private fun drawIceParticles(canvas: Canvas, w: Int, h: Int) {
