@@ -163,8 +163,15 @@ class BiathlonActivity : Activity(), SensorEventListener {
         }
 
         if (gameState == GameState.SHOOTING) {
-            crosshair.x += z * 0.005f
-            crosshair.y += x * 0.005f
+            // CORRIGÉ : Système de visée plus intuitif
+            // Mouvement horizontal : incliner le téléphone gauche/droite (axe Y)
+            crosshair.x += y * 0.008f
+            
+            // Mouvement vertical : incliner le téléphone avant/arrière (axe X)
+            // Inverser le signe pour que pencher vers l'avant déplace vers le haut
+            crosshair.y -= x * 0.008f
+            
+            // Limiter la visée dans la zone de tir
             crosshair.x = crosshair.x.coerceIn(0.1f, 0.9f)
             crosshair.y = crosshair.y.coerceIn(0.2f, 0.6f)
         }
@@ -334,25 +341,84 @@ class BiathlonActivity : Activity(), SensorEventListener {
         private val bgPaint = Paint().apply { color = Color.parseColor("#87CEEB") }
         private val snowPaint = Paint().apply { color = Color.WHITE }
         private val trackPaint = Paint().apply { color = Color.LTGRAY }
+        private val treePaint = Paint().apply { color = Color.parseColor("#0F5132") }
+        private val mountainPaint = Paint().apply { color = Color.parseColor("#6C757D") }
+        private val cloudPaint = Paint().apply { color = Color.parseColor("#F8F9FA") }
 
         override fun onDraw(canvas: Canvas) {
             val w = canvas.width
             val h = canvas.height
             
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), bgPaint)
+            // AMÉLIORÉ : Ciel dégradé
+            val skyGradient = LinearGradient(
+                0f, 0f, 0f, h * 0.4f,
+                Color.parseColor("#87CEEB"), Color.parseColor("#B0E0E6"),
+                Shader.TileMode.CLAMP
+            )
+            bgPaint.shader = skyGradient
+            canvas.drawRect(0f, 0f, w.toFloat(), h * 0.4f, bgPaint)
+            bgPaint.shader = null
             
-            for (i in 0..10) {
-                val lineX = (backgroundOffset + i * 100) % (w + 200)
-                snowPaint.alpha = 50
-                canvas.drawRect(lineX, 0f, lineX + 2, h.toFloat(), snowPaint)
+            // AJOUTÉ : Montagnes en arrière-plan
+            mountainPaint.color = Color.parseColor("#A0A0A0")
+            for (i in 0..4) {
+                val mountainX = (backgroundOffset * 0.3f + i * w * 0.5f) % (w + w * 0.5f) - w * 0.25f
+                canvas.drawPath(createMountainPath(mountainX, h * 0.15f, w * 0.4f, h * 0.25f), mountainPaint)
             }
             
-            snowPaint.alpha = 255
-            canvas.drawRect(0f, h * 0.6f, w.toFloat(), h.toFloat(), snowPaint)
+            mountainPaint.color = Color.parseColor("#707070")
+            for (i in 0..3) {
+                val mountainX = (backgroundOffset * 0.5f + i * w * 0.7f) % (w + w * 0.7f) - w * 0.35f
+                canvas.drawPath(createMountainPath(mountainX, h * 0.2f, w * 0.5f, h * 0.2f), mountainPaint)
+            }
             
+            // AJOUTÉ : Nuages
+            cloudPaint.alpha = 180
+            for (i in 0..3) {
+                val cloudX = (backgroundOffset * 0.2f + i * w * 0.8f) % (w + w * 0.8f) - w * 0.4f
+                drawCloud(canvas, cloudX, h * 0.1f + i * 30f, 80f)
+            }
+            cloudPaint.alpha = 255
+            
+            // AJOUTÉ : Forêt d'arrière-plan
+            for (i in 0..15) {
+                val treeX = (backgroundOffset * 0.7f + i * 80) % (w + 160) - 80
+                drawTree(canvas, treeX, h * 0.4f, 60f, h * 0.2f)
+            }
+            
+            // Sol de neige avec dégradé
+            val snowGradient = LinearGradient(
+                0f, h * 0.6f, 0f, h.toFloat(),
+                Color.parseColor("#FFFFFF"), Color.parseColor("#F0F8FF"),
+                Shader.TileMode.CLAMP
+            )
+            snowPaint.shader = snowGradient
+            canvas.drawRect(0f, h * 0.6f, w.toFloat(), h.toFloat(), snowPaint)
+            snowPaint.shader = null
+            
+            // AJOUTÉ : Traces de ski et empreintes
+            paint.color = Color.parseColor("#E0E0E0")
+            paint.strokeWidth = 3f
+            for (i in 0..20) {
+                val traceX = (backgroundOffset + i * 50) % (w + 100) - 50
+                canvas.drawLine(traceX, h * 0.6f, traceX + 40, h.toFloat(), paint)
+                canvas.drawLine(traceX + 10, h * 0.6f, traceX + 50, h.toFloat(), paint)
+            }
+            
+            // Piste principale
+            trackPaint.color = Color.parseColor("#DCDCDC")
             canvas.drawRect(0f, h * 0.75f, w.toFloat(), h.toFloat(), trackPaint)
-
-            // MODIFIÉ : Affichage du sprite animé
+            
+            // AJOUTÉ : Bordures de piste
+            paint.color = Color.parseColor("#FF6B6B")
+            paint.strokeWidth = 8f
+            for (i in 0..10) {
+                val flagX = (backgroundOffset + i * 150) % (w + 300) - 150
+                canvas.drawLine(flagX, h * 0.73f, flagX, h * 0.77f, paint)
+                canvas.drawLine(flagX, h * 0.73f, flagX + 20, h * 0.74f, paint)
+            }
+            
+            // CORRIGÉ : Le skieur avance et ne recule jamais
             val progressRatio = distance / totalDistance
             val skierX = (w * 0.1f) + (progressRatio * w * 0.6f) + playerOffset * 100f
             val skierY = h * 0.75f - (currentFrame?.height ?: 50)
@@ -453,10 +519,44 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 }
             }
             
+            // Barre de progression
             paint.color = Color.BLACK
             canvas.drawRect(w * 0.1f, 20f, w * 0.9f, 40f, paint)
             paint.color = Color.GREEN
             canvas.drawRect(w * 0.1f, 20f, w * 0.1f + (progressRatio * w * 0.8f), 40f, paint)
+        }
+        
+        // AJOUTÉ : Fonction pour dessiner une montagne
+        private fun createMountainPath(startX: Float, startY: Float, width: Float, height: Float): Path {
+            val path = Path()
+            path.moveTo(startX, startY + height)
+            path.lineTo(startX + width * 0.3f, startY + height * 0.7f)
+            path.lineTo(startX + width * 0.5f, startY)
+            path.lineTo(startX + width * 0.7f, startY + height * 0.6f)
+            path.lineTo(startX + width, startY + height)
+            path.close()
+            return path
+        }
+        
+        // AJOUTÉ : Fonction pour dessiner un nuage
+        private fun drawCloud(canvas: Canvas, x: Float, y: Float, size: Float) {
+            canvas.drawCircle(x, y, size * 0.6f, cloudPaint)
+            canvas.drawCircle(x + size * 0.5f, y, size * 0.5f, cloudPaint)
+            canvas.drawCircle(x - size * 0.3f, y, size * 0.4f, cloudPaint)
+            canvas.drawCircle(x + size * 0.2f, y - size * 0.3f, size * 0.4f, cloudPaint)
+        }
+        
+        // AJOUTÉ : Fonction pour dessiner un arbre
+        private fun drawTree(canvas: Canvas, x: Float, baseY: Float, width: Float, height: Float) {
+            // Tronc
+            treePaint.color = Color.parseColor("#8B4513")
+            canvas.drawRect(x - width * 0.1f, baseY, x + width * 0.1f, baseY + height * 0.3f, treePaint)
+            
+            // Feuillage
+            treePaint.color = Color.parseColor("#0F5132")
+            canvas.drawCircle(x, baseY + height * 0.2f, width * 0.4f, treePaint)
+            treePaint.color = Color.parseColor("#228B22")
+            canvas.drawCircle(x, baseY, width * 0.3f, treePaint)
         }
     }
 
