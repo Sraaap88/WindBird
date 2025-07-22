@@ -203,11 +203,11 @@ class BiathlonActivity : Activity(), SensorEventListener {
                     val x = event.values[0]  // Inclinaison gauche/droite
                     val y = event.values[1]  // Inclinaison avant/arrière
                     
-                    // NOUVEAU : Système de bille - la visée roule selon l'inclinaison du téléphone
-                    // Inverser X pour que ça soit intuitif (incliner droite = bille va à droite)
-                    crosshair.x += -x * 0.008f
-                    // Inverser Y pour que ça soit intuitif (incliner avant = bille va vers le haut)
-                    crosshair.y += y * 0.008f
+                    // CORRIGÉ : Vraie simulation de bille qui roule
+                    // Si j'incline le téléphone vers la droite, la bille roule vers la droite
+                    crosshair.x += x * 0.012f
+                    // Si j'incline le téléphone vers l'avant (loin de moi), la bille roule vers le haut de l'écran
+                    crosshair.y -= y * 0.012f
                     
                     // Limiter la visée dans la zone de tir
                     crosshair.x = crosshair.x.coerceIn(0.1f, 0.9f)
@@ -446,7 +446,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 canvas.drawText("🎯 ZONE DE TIR 🎯", w/2f, 60f, paint)
                 
                 paint.textSize = 24f
-                canvas.drawText("Pivotez pour viser • TAPEZ l'écran pour tirer", w/2f, 100f, paint)
+                canvas.drawText("Téléphone à PLAT • Inclinez DOUCEMENT : droite→droite, vers vous→bas", w/2f, 100f, paint)
                 
                 if (shotsFired >= 5) {
                     paint.color = Color.GREEN
