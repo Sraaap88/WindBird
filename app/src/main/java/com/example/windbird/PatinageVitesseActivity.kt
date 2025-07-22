@@ -237,12 +237,29 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     
     private fun updateRhythm(currentTime: Long): Float {
         val idealInterval = 450L // Rythme idéal Winter Games
+        
+        if (lastStrokeTime == 0L) {
+            // Premier coup - initialiser
+            lastStrokeTime = currentTime
+            playerRhythm = 0.5f
+            return 0.5f
+        }
+        
         val actualInterval = currentTime - lastStrokeTime
         
-        val rhythmAccuracy = 1f - abs(actualInterval - idealInterval) / idealInterval.toFloat()
-        playerRhythm = (playerRhythm * 0.7f + rhythmAccuracy.coerceIn(0f, 1f) * 0.3f)
+        // Calcul plus généreux du rythme
+        val rhythmAccuracy = when {
+            actualInterval < 200L -> 0.2f // Trop rapide
+            actualInterval < 350L -> 0.6f + (350L - actualInterval) / 150f * 0.3f // Bon
+            actualInterval <= 550L -> 1f - abs(actualInterval - idealInterval) / 100f // Parfait
+            actualInterval < 800L -> 0.6f - (actualInterval - 550L) / 250f * 0.4f // Acceptable
+            else -> 0.1f // Trop lent
+        }.coerceIn(0f, 1f)
         
-        return playerRhythm.coerceIn(0.3f, 1f)
+        // Mise à jour plus responsive du rythme
+        playerRhythm = (playerRhythm * 0.3f + rhythmAccuracy * 0.7f).coerceIn(0f, 1f)
+        
+        return playerRhythm
     }
     
     private fun updatePositions() {
@@ -346,15 +363,60 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         }
     }
 
+    private fun getCountryFlag(country: String): String {
+        return when (country.uppercase()) {
+            "FRANCE" -> "🇫🇷"
+            "CANADA" -> "🇨🇦"
+            "USA", "ÉTATS-UNIS", "ETATS-UNIS" -> "🇺🇸"
+            "ALLEMAGNE", "GERMANY" -> "🇩🇪"
+            "ITALIE", "ITALY" -> "🇮🇹"
+            "SUISSE", "SWITZERLAND" -> "🇨🇭"
+            "AUTRICHE", "AUSTRIA" -> "🇦🇹"
+            "NORVÈGE", "NORWAY" -> "🇳🇴"
+            "SUÈDE", "SWEDEN" -> "🇸🇪"
+            "FINLANDE", "FINLAND" -> "🇫🇮"
+            "JAPON", "JAPAN" -> "🇯🇵"
+            "CORÉE", "KOREA" -> "🇰🇷"
+            "RUSSIE", "RUSSIA" -> "🇷🇺"
+            "POLOGNE", "POLAND" -> "🇵🇱"
+            "SLOVÉNIE", "SLOVENIA" -> "🇸🇮"
+            "RÉPUBLIQUE TCHÈQUE", "CZECH REPUBLIC" -> "🇨🇿"
+            else -> "🏴"
+        }
+    }
+
     inner class PatinageVitesseView(context: Context) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         
-        // Images exactement comme Winter Games
+        // Images exactement comme Winter Games + image de préparation
         private var skaterSpriteSheet: Bitmap? = null
+        private var preparationBackground: Bitmap? = null
+        
+        // Images des drapeaux
+        private var flagCanadaBitmap: Bitmap? = null
+        private var flagUsaBitmap: Bitmap? = null
+        private var flagFranceBitmap: Bitmap? = null
+        private var flagNorvegeBitmap: Bitmap? = null
+        private var flagJapanBitmap: Bitmap? = null
         
         init {
             // Utiliser directement les sprites créés en code pour voir le jeu de jambes
             createFallbackSprites()
+            
+            // Charger l'image de préparation et les drapeaux
+            try {
+                preparationBackground = BitmapFactory.decodeResource(resources, R.drawable.speekskating_preparation)
+                
+                // Charger les drapeaux
+                flagCanadaBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_canada)
+                flagUsaBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_usa)
+                flagFranceBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_france)
+                flagNorvegeBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_norvege)
+                flagJapanBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_japan)
+            } catch (e: Exception) {
+                // Les images ne sont pas trouvées, utiliser le fallback
+                preparationBackground = null
+            }
         }
         
         private fun createFallbackSprites() {
@@ -379,6 +441,23 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             }
         }
 
+        private fun getPlayerFlagBitmap(): Bitmap? {
+            // En mode pratique, toujours prendre le drapeau du Canada
+            if (practiceMode) {
+                return flagCanadaBitmap
+            }
+            
+            val playerCountry = tournamentData.playerCountries[currentPlayerIndex]
+            return when (playerCountry.uppercase()) {
+                "CANADA" -> flagCanadaBitmap
+                "USA", "ÉTATS-UNIS", "ETATS-UNIS" -> flagUsaBitmap
+                "FRANCE" -> flagFranceBitmap
+                "NORVÈGE", "NORWAY" -> flagNorvegeBitmap
+                "JAPON", "JAPAN" -> flagJapanBitmap
+                else -> flagCanadaBitmap // Drapeau par défaut
+            }
+        }
+
         override fun onDraw(canvas: Canvas) {
             val w = width
             val h = height
@@ -393,44 +472,103 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         }
         
         private fun drawPreparation(canvas: Canvas, w: Int, h: Int) {
-            // Arrière-plan bleu ciel
-            paint.color = Color.parseColor("#87CEEB")
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
-            
-            // Piste de glace
-            paint.color = Color.WHITE
-            canvas.drawRect(0f, h * 0.3f, w.toFloat(), h.toFloat(), paint)
-            
-            // Séparation des couloirs (ligne du milieu)
-            paint.color = Color.BLACK
-            paint.strokeWidth = 4f
-            canvas.drawLine(0f, h * 0.65f, w.toFloat(), h * 0.65f, paint)
-            
-            // Marques de distance
-            paint.textSize = 16f
-            paint.textAlign = Paint.Align.CENTER
-            for (i in 0..5) {
-                val x = w * 0.1f + i * (w * 0.8f / 5f)
-                canvas.drawLine(x, h * 0.3f, x, h * 0.35f, paint)
-                canvas.drawText("${i * 50}m", x, h * 0.28f, paint)
+            // Utiliser l'image de fond si disponible
+            preparationBackground?.let { bg ->
+                val dstRect = RectF(0f, 0f, w.toFloat(), h.toFloat())
+                canvas.drawBitmap(bg, null, dstRect, paint)
+            } ?: run {
+                // Fallback : arrière-plan simple
+                paint.color = Color.parseColor("#87CEEB")
+                canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+                
+                // Piste de glace
+                paint.color = Color.WHITE
+                canvas.drawRect(0f, h * 0.3f, w.toFloat(), h.toFloat(), paint)
+                
+                // Séparation des couloirs
+                paint.color = Color.BLACK
+                paint.strokeWidth = 4f
+                canvas.drawLine(0f, h * 0.65f, w.toFloat(), h * 0.65f, paint)
             }
             
-            // Instructions
+            // GROS DRAPEAU DU PAYS dans le coin supérieur gauche
+            val playerCountry = if (practiceMode) "CANADA" else tournamentData.playerCountries[currentPlayerIndex]
+            val flagBitmap = getPlayerFlagBitmap()
+            
+            flagBitmap?.let { flag ->
+                val flagWidth = 180f // GROS drapeau
+                val flagHeight = 120f
+                val flagX = 30f
+                val flagY = 30f
+                
+                val flagRect = RectF(flagX, flagY, flagX + flagWidth, flagY + flagHeight)
+                canvas.drawBitmap(flag, null, flagRect, paint)
+                
+                // Bordure dorée autour du drapeau
+                paint.color = Color.parseColor("#FFD700")
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = 6f
+                canvas.drawRect(flagRect, paint)
+                paint.style = Paint.Style.FILL
+                
+                // Nom du pays sous le drapeau
+                paint.color = Color.parseColor("#000066")
+                paint.textSize = 24f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText(playerCountry.uppercase(), flagX + flagWidth/2f, flagY + flagHeight + 35f, paint)
+            } ?: run {
+                // Fallback emoji si pas d'image
+                val flag = getCountryFlag(playerCountry)
+                paint.color = Color.parseColor("#FFD700")
+                canvas.drawRect(30f, 30f, 210f, 150f, paint)
+                
+                paint.color = Color.BLACK
+                paint.textSize = 80f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText(flag, 120f, 110f, paint)
+                
+                paint.textSize = 24f
+                canvas.drawText(playerCountry.uppercase(), 120f, 185f, paint)
+            }
+            
+            // TITRE PRINCIPAL
             paint.color = Color.parseColor("#000066")
-            paint.textSize = 28f
+            paint.textSize = 44f // PLUS GROS
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("⛸️ PATINAGE VITESSE 250M ⛸️", w/2f, h * 0.1f, paint)
+            paint.style = Paint.Style.FILL
+            canvas.drawText("⛸️ PATINAGE VITESSE 250M ⛸️", w/2f, h * 0.08f, paint)
             
-            paint.textSize = 20f
-            paint.color = Color.parseColor("#003399")
-            canvas.drawText("Inclinez gauche-droite en RYTHME avec les jambes", w/2f, h * 0.15f, paint)
-            canvas.drawText("Suivez l'animation du patineur!", w/2f, h * 0.19f, paint)
+            // INSTRUCTIONS PRINCIPALES - BEAUCOUP PLUS GROSSES
+            paint.color = Color.parseColor("#FF0000") // ROUGE pour attirer l'attention
+            paint.textSize = 32f // ÉNORME
+            canvas.drawText("📱 INCLINEZ GAUCHE-DROITE", w/2f, h * 0.15f, paint)
+            canvas.drawText("EN RYTHME AVEC LES JAMBES!", w/2f, h * 0.20f, paint)
             
-            // Décompte
+            // DÉTAILS EN BLEU - PLUS GROS
+            paint.color = Color.parseColor("#0000FF")
+            paint.textSize = 26f // PLUS GROS
+            canvas.drawText("⬅️ GAUCHE → ➡️ DROITE → ⬅️ GAUCHE", w/2f, h * 0.27f, paint)
+            canvas.drawText("ALTERNEZ en suivant l'animation!", w/2f, h * 0.32f, paint)
+            
+            // EXEMPLE VISUEL - MOUVEMENT SIMULÉ
+            val demoTime = (phaseTimer * 2f) % 2f
+            val demoPhase = if (demoTime < 1f) "⬅️ GAUCHE" else "➡️ DROITE"
+            paint.color = Color.parseColor("#FF6600") // ORANGE
+            paint.textSize = 38f // TRÈS GROS
+            canvas.drawText("MAINTENANT: $demoPhase", w/2f, h * 0.42f, paint)
+            
+            // Décompte PLUS VISIBLE
             val countdown = (preparationDuration - phaseTimer).toInt() + 1
-            paint.textSize = 48f
+            paint.textSize = 60f // ÉNORME
             paint.color = Color.RED
-            canvas.drawText("Prêt dans ${countdown}", w/2f, h * 0.25f, paint)
+            canvas.drawText("DÉBUT DANS ${countdown}s", w/2f, h * 0.52f, paint)
+            
+            // CONSEILS SUPPLÉMENTAIRES
+            paint.color = Color.parseColor("#006600") // VERT FONCÉ
+            paint.textSize = 22f // LISIBLE
+            canvas.drawText("✓ Regardez les jambes du patineur", w/2f, h * 0.60f, paint)
+            canvas.drawText("✓ Rythme régulier = Plus rapide", w/2f, h * 0.64f, paint)
+            canvas.drawText("✓ Pas trop vite, pas trop lent!", w/2f, h * 0.68f, paint)
         }
         
         private fun drawCountdown(canvas: Canvas, w: Int, h: Int) {
@@ -697,29 +835,52 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             paint.shader = null
             
-            // Résultat de la course
+            // Résultat de la course - ÉNORME
             paint.color = Color.parseColor("#8B0000")
-            paint.textSize = 36f
+            paint.textSize = 48f // BEAUCOUP PLUS GROS
             paint.textAlign = Paint.Align.CENTER
             
             val resultText = "TEMPS: ${raceTime.toInt()}s - $timeQuality"
-            canvas.drawText(resultText, w/2f, h * 0.2f, paint)
+            canvas.drawText(resultText, w/2f, h * 0.15f, paint)
             
-            // Score final
-            paint.textSize = 64f
-            canvas.drawText("${finalScore} POINTS", w/2f, h * 0.35f, paint)
+            // Score final - ÉNORME
+            paint.textSize = 80f // TRÈS GROS
+            canvas.drawText("${finalScore} POINTS", w/2f, h * 0.28f, paint)
             
-            // Détails
-            paint.textSize = 20f
+            // Détails - BEAUCOUP PLUS GROS ET ESPACÉS
+            paint.textSize = 32f // GROS
             paint.color = Color.parseColor("#333333")
-            canvas.drawText("Distance: ${playerDistance.toInt()}m / ${totalDistance.toInt()}m", w/2f, h * 0.6f, paint)
-            canvas.drawText("Rythme moyen: ${(playerRhythm * 100).toInt()}%", w/2f, h * 0.65f, paint)
-            canvas.drawText("Coups parfaits: $perfectStrokes", w/2f, h * 0.7f, paint)
             
-            // Classification du temps
-            paint.textSize = 16f
+            canvas.drawText("📏 Distance: ${playerDistance.toInt()}m / ${totalDistance.toInt()}m", w/2f, h * 0.45f, paint)
+            
+            canvas.drawText("🎵 Rythme moyen: ${(playerRhythm * 100).toInt()}%", w/2f, h * 0.52f, paint)
+            
+            canvas.drawText("⭐ Coups parfaits: $perfectStrokes", w/2f, h * 0.59f, paint)
+            
+            canvas.drawText("🏃 Coups totaux: $strokeCount", w/2f, h * 0.66f, paint)
+            
+            // Classification du temps - PLUS GROS
+            paint.textSize = 24f // LISIBLE
             paint.color = Color.parseColor("#666666")
-            canvas.drawText("< 25s: Excellent | 25-30s: Bon | 30-35s: Moyen | > 35s: Lent", w/2f, h * 0.85f, paint)
+            canvas.drawText("< 25s: Excellent | 25-30s: Bon", w/2f, h * 0.78f, paint)
+            canvas.drawText("30-35s: Moyen | > 35s: Lent", w/2f, h * 0.83f, paint)
+            
+            // Encouragement basé sur la performance
+            paint.textSize = 28f
+            paint.color = when (timeQuality) {
+                "EXCELLENT" -> Color.parseColor("#FFD700")
+                "BON" -> Color.parseColor("#32CD32")
+                "MOYEN" -> Color.parseColor("#FF8C00")
+                else -> Color.parseColor("#FF4500")
+            }
+            
+            val encouragement = when (timeQuality) {
+                "EXCELLENT" -> "🏆 PERFORMANCE OLYMPIQUE!"
+                "BON" -> "💪 TRÈS BIEN JOUÉ!"
+                "MOYEN" -> "👍 PAS MAL, CONTINUEZ!"
+                else -> "🔥 ENTRAÎNEZ-VOUS ENCORE!"
+            }
+            canvas.drawText(encouragement, w/2f, h * 0.92f, paint)
         }
     }
 
