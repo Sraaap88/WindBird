@@ -416,7 +416,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         init {
             // Charger toutes les images
             try {
-                preparationBackground = BitmapFactory.decodeResource(resources, R.drawable.speekskating_preparation)
+                preparationBackground = BitmapFactory.decodeResource(resources, R.drawable.speedskating_preparation)
                 
                 // Charger tes 4 nouvelles images du patineur
                 speedskatingLeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.speedskating_left)
