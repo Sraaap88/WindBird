@@ -140,7 +140,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         tiltY = event.values[1]
         tiltZ = event.values[2]
 
-        // Progression TRÈS lente du jeu
+        // Progression du jeu - vitesse constante
         phaseTimer += 0.025f
 
         when (gameState) {
@@ -204,18 +204,37 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     }
     
     private fun handleTakeoff() {
-        // Système original restauré - Phase fusionnée: accumulation de puissance + animation de saut
-        // Redresser le téléphone pour puissance de saut - ANGLE RÉDUIT DE 30%
-        if (tiltY < -0.105f) { // RÉDUIT de -0.15f (30% moins sensible)
-            takeoffPower += 3.0f
+        // Phase de takeoff avec timing critique pour la puissance
+        val takeoffProgress = phaseTimer / 5f
+        
+        // Zone critique: 1 seconde avant la fin (4-5 secondes)
+        val criticalZone = takeoffProgress >= 0.8f // Dernière seconde
+        
+        if (criticalZone) {
+            // Calcul de puissance basé sur timing ET force du mouvement
+            val timeInCriticalZone = (takeoffProgress - 0.8f) / 0.2f // 0 à 1 dans la zone critique
+            
+            // Bonus de timing: maximum au milieu de la zone critique
+            val timingBonus = if (timeInCriticalZone <= 0.5f) {
+                timeInCriticalZone * 2f // 0 à 1 dans la première moitié
+            } else {
+                2f - (timeInCriticalZone * 2f) // 1 à 0 dans la seconde moitié
+            }
+            
+            // Force du mouvement (plus négatif = plus fort)
+            val tiltStrength = abs(tiltY.coerceAtMost(0f)) // Seulement les valeurs négatives
+            
+            if (tiltY < -0.15f) { // Pencher fort vers l'avant
+                val powerGain = (tiltStrength * 200f) * (1f + timingBonus) // Jusqu'à 120% avec bon timing
+                takeoffPower += powerGain
+            }
         }
         
-        takeoffPower = takeoffPower.coerceIn(0f, 100f)
+        takeoffPower = takeoffPower.coerceIn(0f, 120f) // Maximum 120%
         
-        // Phase plus longue - 5 secondes au lieu de 4 pour avoir le temps de réagir
         if (phaseTimer >= 5f) {
-            // Calculer distance de base (système original)
-            jumpDistance = (speed * 1.2f) + (takeoffPower * 0.8f)
+            // Calculer distance avec bonus de puissance
+            jumpDistance = (speed * 1.2f) + (takeoffPower * 0.9f)
             gameState = GameState.FLIGHT
             phaseTimer = 0f
             generateMoreSnowParticles()
@@ -786,7 +805,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         }
         
         private fun drawTakeoff(canvas: Canvas, w: Int, h: Int) {
-            // VUE DE PROFIL - Phase fusionnée décollage + saut (système original)
+            // VUE DE PROFIL - Phase fusionnée décollage + saut
             paint.color = Color.parseColor("#87CEEB")
             paint.style = Paint.Style.FILL
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
@@ -802,11 +821,11 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             rampPath.close()
             canvas.drawPath(rampPath, paint)
             
-            // Animation PLUS LENTE: le skieur arrive et saute avec plus de temps
-            val takeoffProgress = phaseTimer / 5f // Phase de 5 secondes
+            val takeoffProgress = phaseTimer / 5f
+            val criticalZone = takeoffProgress >= 0.8f // Dernière seconde
             
             if (takeoffProgress < 0.4f) {
-                // Phase 1: Accumulation de puissance (2s)
+                // Phase 1: Approche normale (0-2s)
                 val approachProgress = takeoffProgress / 0.4f
                 val skierX = w * (0.2f + approachProgress * 0.6f)
                 val skierY = h * (0.9f - approachProgress * 0.4f)
@@ -823,23 +842,47 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                     canvas.drawBitmap(bmp, null, dstRect, paint)
                 }
                 
-                // Instructions pour accumulation de puissance
-                paint.color = Color.YELLOW
-                paint.textSize = 90f  // RÉDUIT pour être lisible
+                // Instructions d'attente
+                paint.color = Color.WHITE
+                paint.textSize = 80f
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("🚀 PENCHEZ MODÉRÉMENT VERS L'AVANT! 🚀", w/2f, h * 0.15f, paint)
+                canvas.drawText("🏁 APPROCHE FINALE", w/2f, h * 0.15f, paint)
+                
+                paint.color = Color.CYAN
+                paint.textSize = 60f
+                canvas.drawText("Préparez-vous...", w/2f, h * 0.25f, paint)
+                
+            } else if (!criticalZone) {
+                // Phase 2: Attente de la zone critique (2-4s)
+                val waitProgress = (takeoffProgress - 0.4f) / 0.4f
+                val skierX = w * (0.8f - waitProgress * 0.1f) // Léger recul pour prendre de l'élan
+                val skierY = h * 0.5f
+                
+                val scale = 0.3f
+                
+                skierJumpBitmap?.let { bmp ->
+                    val dstRect = RectF(
+                        skierX - bmp.width * scale / 2f,
+                        skierY - bmp.height * scale / 2f,
+                        skierX + bmp.width * scale / 2f,
+                        skierY + bmp.height * scale / 2f
+                    )
+                    canvas.drawBitmap(bmp, null, dstRect, paint)
+                }
+                
+                // Instructions d'attente
+                paint.color = Color.YELLOW
+                paint.textSize = 90f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("⏰ ATTENDEZ...", w/2f, h * 0.15f, paint)
                 
                 paint.color = Color.WHITE
-                paint.textSize = 70f  // AUGMENTÉ
-                canvas.drawText("Puissance: ${takeoffPower.toInt()}%", w/2f, h * 0.25f, paint)
-                
-                paint.textSize = 40f
-                paint.color = Color.CYAN
-                canvas.drawText("(Pas besoin de pencher fort!)", w/2f, h * 0.32f, paint)
+                paint.textSize = 50f
+                canvas.drawText("Zone de saut dans ${(1f - (takeoffProgress - 0.8f) / 0.2f * 1f).toInt() + 1}s", w/2f, h * 0.25f, paint)
                 
             } else {
-                // Phase 2: SAUT avec plus de temps (3s)
-                val jumpAnimProgress = (takeoffProgress - 0.4f) / 0.6f
+                // Phase 3: ZONE CRITIQUE - Saut avec timing ! (4-5s)
+                val jumpAnimProgress = (takeoffProgress - 0.8f) / 0.2f
                 
                 val startX = w * 0.8f
                 val startY = h * 0.5f
@@ -848,7 +891,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 val skierY = startY - jumpAnimProgress * h * 0.25f + (jumpAnimProgress * jumpAnimProgress) * h * 0.15f
                 
                 // Rotation selon la puissance
-                val rotation = (takeoffPower / 100f) * 20f - 10f
+                val rotation = (takeoffPower / 120f) * 25f - 12f
                 
                 canvas.save()
                 canvas.translate(skierX, skierY)
@@ -877,15 +920,19 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 }
                 paint.alpha = 255
                 
-                // Instructions pour le saut
-                paint.color = Color.YELLOW
-                paint.textSize = 100f  // ÉNORME
+                // Instructions CRITIQUES
+                paint.color = Color.RED
+                paint.textSize = 120f
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("🛫 ENVOL À 80 KM/H! 🛫", w/2f, h * 0.15f, paint)
+                canvas.drawText("🚀 MAINTENANT ! 🚀", w/2f, h * 0.12f, paint)
+                
+                paint.color = Color.YELLOW
+                paint.textSize = 80f
+                canvas.drawText("PENCHEZ FORT VERS VOUS!", w/2f, h * 0.22f, paint)
             }
             
-            // Barre de puissance
-            drawTakeoffPowerMeter(canvas, w, h)
+            // Barre de puissance - ne bouge que dans la zone critique
+            drawTakeoffPowerMeter(canvas, w, h, criticalZone)
         }
         
         private fun drawFlight(canvas: Canvas, w: Int, h: Int) {
@@ -1132,19 +1179,39 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             canvas.drawText("km/h", w - 70f, h - 60f, paint)
         }
         
-        private fun drawTakeoffPowerMeter(canvas: Canvas, w: Int, h: Int) {
+        private fun drawTakeoffPowerMeter(canvas: Canvas, w: Int, h: Int, criticalZone: Boolean = false) {
             paint.color = Color.parseColor("#333333")
             paint.style = Paint.Style.FILL
             canvas.drawRect(140f, h - 120f, w - 140f, h - 30f, paint)
             
-            paint.color = if (takeoffPower > 70f) Color.GREEN else if (takeoffPower > 40f) Color.YELLOW else Color.RED
-            val powerWidth = (takeoffPower / 100f) * (w - 280f)
-            canvas.drawRect(140f, h - 115f, 140f + powerWidth, h - 35f, paint)
+            // La barre ne bouge que dans la zone critique
+            if (criticalZone) {
+                paint.color = when {
+                    takeoffPower > 100f -> Color.parseColor("#00FF00") // Vert brillant pour 120%
+                    takeoffPower > 70f -> Color.GREEN
+                    takeoffPower > 40f -> Color.YELLOW
+                    else -> Color.RED
+                }
+                val powerWidth = (takeoffPower / 120f) * (w - 280f) // Échelle jusqu'à 120%
+                canvas.drawRect(140f, h - 115f, 140f + powerWidth, h - 35f, paint)
+            }
             
             paint.color = Color.WHITE
             paint.textSize = 28f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("PUISSANCE: ${takeoffPower.toInt()}%", w/2f, h - 130f, paint)
+            
+            if (criticalZone) {
+                canvas.drawText("PUISSANCE: ${takeoffPower.toInt()}%", w/2f, h - 130f, paint)
+                
+                // Indicateur de zone parfaite
+                if (takeoffPower > 100f) {
+                    paint.color = Color.parseColor("#00FF00")
+                    paint.textSize = 24f
+                    canvas.drawText("PARFAIT! ⭐", w/2f, h - 150f, paint)
+                }
+            } else {
+                canvas.drawText("PUISSANCE: ATTENDEZ LA ZONE!", w/2f, h - 130f, paint)
+            }
         }
         
         private fun drawWindIndicator(canvas: Canvas, w: Int, h: Int) {
