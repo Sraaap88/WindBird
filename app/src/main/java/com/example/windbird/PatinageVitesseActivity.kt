@@ -50,6 +50,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     private var tiltX = 0f
     private var lastTiltDirection = 0 // -1 = gauche, 1 = droite, 0 = neutre
     private var expectingLeft = true // alternance obligatoire
+    private var currentTiltState = TiltState.CENTER // État d'inclinaison actuel
     
     // Performance et résultats
     private var raceTime = 0f
@@ -108,6 +109,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         tiltX = 0f
         lastTiltDirection = 0
         expectingLeft = true
+        currentTiltState = TiltState.CENTER
         raceTime = 0f
         playerFinished = false
         finalScore = 0
@@ -128,6 +130,13 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         if (event.sensor.type != Sensor.TYPE_GYROSCOPE) return
 
         tiltX = event.values[0]
+        
+        // Mise à jour de l'état d'inclinaison
+        currentTiltState = when {
+            tiltX < -0.4f -> TiltState.LEFT
+            tiltX > 0.4f -> TiltState.RIGHT
+            else -> TiltState.CENTER
+        }
 
         // Progression du jeu
         phaseTimer += 0.025f
@@ -388,8 +397,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     inner class PatinageVitesseView(context: Context) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         
-        // Images exactement comme Winter Games + image de préparation
-        private var skaterSpriteSheet: Bitmap? = null
+        // Images du patineur - TES 4 NOUVELLES IMAGES
         private var preparationBackground: Bitmap? = null
         
         // Images des drapeaux
@@ -399,13 +407,22 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         private var flagNorvegeBitmap: Bitmap? = null
         private var flagJapanBitmap: Bitmap? = null
         
+        // Nouvelles images du patineur (tes 4 images)
+        private var speedskatingLeftBitmap: Bitmap? = null
+        private var speedskatingRightBitmap: Bitmap? = null
+        private var speedskatingFrontLeftBitmap: Bitmap? = null
+        private var speedskatingFrontRightBitmap: Bitmap? = null
+        
         init {
-            // Utiliser directement les sprites créés en code pour voir le jeu de jambes
-            createFallbackSprites()
-            
-            // Charger l'image de préparation et les drapeaux
+            // Charger toutes les images
             try {
                 preparationBackground = BitmapFactory.decodeResource(resources, R.drawable.speekskating_preparation)
+                
+                // Charger tes 4 nouvelles images du patineur
+                speedskatingLeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.speedskating_left)
+                speedskatingRightBitmap = BitmapFactory.decodeResource(resources, R.drawable.speedskating_right)
+                speedskatingFrontLeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.speedskating_front_left)
+                speedskatingFrontRightBitmap = BitmapFactory.decodeResource(resources, R.drawable.speedskating_front_right)
                 
                 // Charger les drapeaux
                 flagCanadaBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_canada)
@@ -416,28 +433,6 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             } catch (e: Exception) {
                 // Les images ne sont pas trouvées, utiliser le fallback
                 preparationBackground = null
-            }
-        }
-        
-        private fun createFallbackSprites() {
-            // Créer une spritesheet de fallback simple
-            skaterSpriteSheet = Bitmap.createBitmap(320, 80, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(skaterSpriteSheet!!)
-            val tempPaint = Paint().apply {
-                color = Color.BLUE
-                style = Paint.Style.FILL
-            }
-            
-            // 8 frames d'animation simple
-            for (frame in 0..7) {
-                val x = frame * 40f
-                // Corps
-                canvas.drawRect(x + 15f, 20f, x + 25f, 50f, tempPaint)
-                // Tête
-                canvas.drawCircle(x + 20f, 15f, 8f, tempPaint)
-                // Jambes selon la frame
-                val legOffset = if (frame % 2 == 0) -8f else 8f
-                canvas.drawLine(x + 20f, 50f, x + 20f + legOffset, 70f, tempPaint)
             }
         }
 
@@ -566,9 +561,9 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             // CONSEILS SUPPLÉMENTAIRES
             paint.color = Color.parseColor("#006600") // VERT FONCÉ
             paint.textSize = 22f // LISIBLE
-            canvas.drawText("✓ Regardez les jambes du patineur", w/2f, h * 0.60f, paint)
-            canvas.drawText("✓ Rythme régulier = Plus rapide", w/2f, h * 0.64f, paint)
-            canvas.drawText("✓ Pas trop vite, pas trop lent!", w/2f, h * 0.68f, paint)
+            canvas.drawText("✓ Regardez la vue de face en haut à droite", w/2f, h * 0.60f, paint)
+            canvas.drawText("✓ Suivez le mouvement des jambes", w/2f, h * 0.64f, paint)
+            canvas.drawText("✓ Rythme régulier = Plus rapide", w/2f, h * 0.68f, paint)
         }
         
         private fun drawCountdown(canvas: Canvas, w: Int, h: Int) {
@@ -587,7 +582,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         
         private fun drawRace(canvas: Canvas, w: Int, h: Int) {
             drawRaceBackground(canvas, w, h)
-            drawSkaters(canvas, w, h)
+            drawSkaterOnTrack(canvas, w, h)  // Vue de profil PETITE sur la piste
+            drawFrontView(canvas, w, h)      // Vue de face GRANDE en haut à droite
             drawHUD(canvas, w, h)
         }
         
@@ -633,157 +629,141 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             }
         }
         
-        private fun drawSkaters(canvas: Canvas, w: Int, h: Int) {
-            // Position selon la distance parcourue - UN SEUL PATINEUR AU CENTRE
+        private fun drawSkaterOnTrack(canvas: Canvas, w: Int, h: Int) {
+            // Position selon la distance parcourue - PATINEUR PETIT sur la piste
             val playerX = w * 0.1f + (playerDistance / totalDistance) * (w * 0.8f)
+            val playerY = h * 0.65f
             
-            // Joueur au centre de son couloir
-            drawSkater(canvas, playerX, h * 0.65f, playerAnimFrame, Color.parseColor("#0066FF"), true)
-            
-            // Indicateur de rythme pour le joueur
-            if (gameState == GameState.RACE) {
-                drawRhythmIndicator(canvas, w, h)
+            // Choisir l'image selon l'inclinaison (vue de PROFIL)
+            val skaterImage = when (currentTiltState) {
+                TiltState.LEFT -> speedskatingLeftBitmap
+                TiltState.RIGHT -> speedskatingRightBitmap
+                else -> speedskatingLeftBitmap // Image par défaut
             }
-        }
-        
-        private fun drawSkater(canvas: Canvas, x: Float, y: Float, frame: Int, color: Int, isPlayer: Boolean) {
-            skaterSpriteSheet?.let { sprite ->
-                // Extraire la frame d'animation de la spritesheet
-                val frameWidth = sprite.width / 8
-                val srcRect = Rect(frame * frameWidth, 0, (frame + 1) * frameWidth, sprite.height)
-                val dstRect = RectF(x - 30f, y - 25f, x + 30f, y + 25f)
-                canvas.drawBitmap(sprite, srcRect, dstRect, paint)
+            
+            // Dessiner le patineur de profil PETIT sur la piste
+            skaterImage?.let { image ->
+                val scale = 0.4f // PETIT pour la piste
+                val imageWidth = image.width * scale
+                val imageHeight = image.height * scale
+                
+                val dstRect = RectF(
+                    playerX - imageWidth/2f,
+                    playerY - imageHeight/2f,
+                    playerX + imageWidth/2f,
+                    playerY + imageHeight/2f
+                )
+                canvas.drawBitmap(image, null, dstRect, paint)
             } ?: run {
-                // Fallback : patineur simplifié avec animation
-                val legPhase = sin(frame * PI / 4).toFloat()
-                
-                // Corps
-                paint.color = color
+                // Fallback si pas d'image
+                paint.color = Color.parseColor("#0066FF")
                 paint.style = Paint.Style.FILL
-                canvas.drawOval(x - 12f, y - 20f, x + 12f, y + 5f, paint)
-                
-                // Tête
-                paint.color = Color.parseColor("#FFDBAC")
-                canvas.drawCircle(x, y - 22f, 8f, paint)
-                
-                // Jambes en mouvement
-                paint.color = Color.BLACK
-                paint.strokeWidth = 6f
-                
-                // Jambe qui pousse (alternance)
-                val pushLegX = x + legPhase * 25f
-                canvas.drawLine(x, y + 5f, pushLegX, y + 30f, paint)
-                
-                // Jambe de glisse
-                val glideLegX = x - legPhase * 10f
-                canvas.drawLine(x, y + 5f, glideLegX, y + 25f, paint)
-                
-                // Bras en équilibre
-                paint.strokeWidth = 4f
-                canvas.drawLine(x - 15f, y - 10f, x - 25f + legPhase * 8f, y - 5f, paint)
-                canvas.drawLine(x + 15f, y - 10f, x + 25f - legPhase * 8f, y - 5f, paint)
-                
-                // Patins
-                paint.color = Color.BLACK
-                paint.strokeWidth = 3f
-                canvas.drawLine(pushLegX - 8f, y + 30f, pushLegX + 8f, y + 30f, paint)
-                canvas.drawLine(glideLegX - 8f, y + 25f, glideLegX + 8f, y + 25f, paint)
+                canvas.drawCircle(playerX, playerY, 20f, paint)
             }
             
             // Ombre sur la glace
             paint.color = Color.parseColor("#40000000")
             paint.style = Paint.Style.FILL
-            canvas.drawOval(x - 15f, y + 25f, x + 15f, y + 30f, paint)
+            canvas.drawOval(playerX - 15f, playerY + 25f, playerX + 15f, playerY + 30f, paint)
         }
         
-        private fun drawRhythmIndicator(canvas: Canvas, w: Int, h: Int) {
-            // Indicateur de rythme BEAUCOUP PLUS GROS
-            val indicatorX = w * 0.15f // Plus à droite
-            val indicatorY = h - 180f // Plus haut
-            val size = 80f // PLUS GROS
+        private fun drawFrontView(canvas: Canvas, w: Int, h: Int) {
+            // GRANDE fenêtre en haut à droite pour la vue de face
+            val viewWidth = w * 0.35f  // 35% de l'écran
+            val viewHeight = h * 0.45f // 45% de l'écran
+            val viewX = w - viewWidth - 20f
+            val viewY = 20f
             
-            // Fond noir
-            paint.color = Color.parseColor("#000000")
+            // Fond de la fenêtre
+            paint.color = Color.parseColor("#000066")
             paint.style = Paint.Style.FILL
-            canvas.drawRect(indicatorX - size/2f, indicatorY - size/2f, 
-                           indicatorX + size/2f, indicatorY + size/2f, paint)
+            canvas.drawRect(viewX, viewY, viewX + viewWidth, viewY + viewHeight, paint)
             
-            // Bordure
+            // Bordure de la fenêtre
             paint.color = Color.WHITE
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = 4f
-            canvas.drawRect(indicatorX - size/2f, indicatorY - size/2f, 
-                           indicatorX + size/2f, indicatorY + size/2f, paint)
+            canvas.drawRect(viewX, viewY, viewX + viewWidth, viewY + viewHeight, paint)
             paint.style = Paint.Style.FILL
             
-            // Barre de rythme
+            // Titre de la fenêtre
+            paint.color = Color.WHITE
+            paint.textSize = 16f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("VUE DE FACE", viewX + viewWidth/2f, viewY + 20f, paint)
+            
+            // Choisir l'image selon l'inclinaison (vue de FACE)
+            val frontImage = when (currentTiltState) {
+                TiltState.LEFT -> speedskatingFrontLeftBitmap
+                TiltState.RIGHT -> speedskatingFrontRightBitmap
+                else -> speedskatingFrontLeftBitmap // Image par défaut
+            }
+            
+            // Dessiner le patineur de face GRAND dans la fenêtre
+            frontImage?.let { image ->
+                val imageMargin = 20f
+                val availableWidth = viewWidth - imageMargin * 2f
+                val availableHeight = viewHeight - 50f // Espace pour le titre
+                
+                // Calculer le scale pour que l'image remplisse bien la fenêtre
+                val scaleX = availableWidth / image.width
+                val scaleY = availableHeight / image.height
+                val scale = minOf(scaleX, scaleY) * 0.8f // 80% pour laisser un peu d'espace
+                
+                val imageWidth = image.width * scale
+                val imageHeight = image.height * scale
+                
+                // Centrer l'image dans la fenêtre
+                val imageX = viewX + (viewWidth - imageWidth) / 2f
+                val imageY = viewY + 40f + (availableHeight - imageHeight) / 2f
+                
+                val dstRect = RectF(imageX, imageY, imageX + imageWidth, imageY + imageHeight)
+                canvas.drawBitmap(image, null, dstRect, paint)
+            } ?: run {
+                // Fallback si pas d'image
+                paint.color = Color.YELLOW
+                paint.style = Paint.Style.FILL
+                canvas.drawCircle(viewX + viewWidth/2f, viewY + viewHeight/2f, 30f, paint)
+            }
+            
+            // Indicateur de direction attendue
+            paint.color = Color.YELLOW
+            paint.textSize = 24f
+            paint.textAlign = Paint.Align.CENTER
+            val nextMove = if (expectingLeft) "⬅️ GAUCHE" else "➡️ DROITE"
+            canvas.drawText(nextMove, viewX + viewWidth/2f, viewY + viewHeight - 10f, paint)
+            
+            // Indicateur de rythme dans la fenêtre
             paint.color = if (playerRhythm > 0.7f) Color.GREEN 
                          else if (playerRhythm > 0.4f) Color.YELLOW 
                          else Color.RED
-            val rhythmHeight = playerRhythm * (size - 20f)
-            canvas.drawRect(indicatorX - size/2f + 10f, indicatorY + size/2f - 10f - rhythmHeight, 
-                           indicatorX + size/2f - 10f, indicatorY + size/2f - 10f, paint)
-            
-            // Label PLUS GROS
-            paint.color = Color.WHITE
-            paint.textSize = 16f // PLUS GROS
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("RYTHME", indicatorX, indicatorY - size/2f - 10f, paint)
-            canvas.drawText("${(playerRhythm * 100).toInt()}%", indicatorX, indicatorY + size/2f + 25f, paint)
-            
-            // Indication du prochain mouvement attendu - ÉNORME
-            val nextMove = if (expectingLeft) "⬅️" else "➡️"
-            paint.textSize = 48f // ÉNORME
-            paint.color = Color.YELLOW
-            canvas.drawText(nextMove, indicatorX, indicatorY + 10f, paint)
-            
-            // INSTRUCTIONS EN TEMPS RÉEL - PLUS GROSSES
-            paint.color = Color.CYAN
-            paint.textSize = 28f // BEAUCOUP PLUS GROS
-            paint.textAlign = Paint.Align.LEFT
-            val instruction = if (expectingLeft) "INCLINEZ À GAUCHE!" else "INCLINEZ À DROITE!"
-            canvas.drawText(instruction, indicatorX + size/2f + 20f, indicatorY - 20f, paint)
-            
-            paint.textSize = 22f
-            paint.color = Color.WHITE
-            canvas.drawText("Suivez le rythme des jambes", indicatorX + size/2f + 20f, indicatorY + 10f, paint)
-            
-            // Indicateur de qualité du dernier coup
-            if (strokeCount > 0) {
-                val lastStrokeQuality = if (perfectStrokes > strokeCount * 0.7f) "PARFAIT!" 
-                                       else if (playerRhythm > 0.6f) "BIEN" 
-                                       else "AMÉLIORE"
-                paint.textSize = 20f
-                paint.color = if (lastStrokeQuality == "PARFAIT!") Color.GREEN 
-                             else if (lastStrokeQuality == "BIEN") Color.YELLOW 
-                             else Color.RED
-                canvas.drawText(lastStrokeQuality, indicatorX + size/2f + 20f, indicatorY + 40f, paint)
-            }
+            paint.textSize = 14f
+            canvas.drawText("RYTHME: ${(playerRhythm * 100).toInt()}%", viewX + viewWidth/2f, viewY + viewHeight - 30f, paint)
         }
         
         private fun drawHUD(canvas: Canvas, w: Int, h: Int) {
-            // HUD BEAUCOUP PLUS VISIBLE
+            // HUD adapté pour laisser la place à la vue de face
             
-            // Distance restante - PLUS GROS
+            // Distance restante - EN BAS À GAUCHE
             paint.color = Color.WHITE
             paint.style = Paint.Style.FILL
-            paint.textSize = 32f // BEAUCOUP PLUS GROS
-            paint.textAlign = Paint.Align.RIGHT
-            canvas.drawText("${(totalDistance - playerDistance).toInt()}m restants", w - 30f, 50f, paint)
-            
-            // Temps - PLUS GROS
             paint.textSize = 28f
-            canvas.drawText("Temps: ${raceTime.toInt()}s", w - 30f, 90f, paint)
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("${(totalDistance - playerDistance).toInt()}m restants", 30f, h - 100f, paint)
             
-            // Coups parfaits - PLUS GROS
+            // Temps - EN BAS À GAUCHE
             paint.textSize = 24f
-            canvas.drawText("Parfaits: $perfectStrokes", w - 30f, 125f, paint)
+            canvas.drawText("Temps: ${raceTime.toInt()}s", 30f, h - 70f, paint)
             
-            // BARRE DE PROGRESSION VISUELLE - NOUVELLE
+            // Coups parfaits - EN BAS À GAUCHE
+            paint.textSize = 20f
+            canvas.drawText("Parfaits: $perfectStrokes", 30f, h - 40f, paint)
+            
+            // BARRE DE PROGRESSION EN BAS
             val progressBarX = 50f
-            val progressBarY = 50f
-            val progressBarWidth = w * 0.6f
-            val progressBarHeight = 30f
+            val progressBarY = h - 180f
+            val progressBarWidth = w * 0.5f // Plus petite pour laisser la place
+            val progressBarHeight = 25f
             
             // Fond de la barre
             paint.color = Color.parseColor("#333333")
@@ -807,7 +787,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             
             // Label de la barre
             paint.color = Color.WHITE
-            paint.textSize = 20f
+            paint.textSize = 16f
             paint.textAlign = Paint.Align.LEFT
             canvas.drawText("PROGRESSION: ${playerDistance.toInt()}m / ${totalDistance.toInt()}m", 
                            progressBarX, progressBarY - 10f, paint)
@@ -886,5 +866,9 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
 
     enum class GameState {
         PREPARATION, COUNTDOWN, RACE, RESULTS, FINISHED
+    }
+    
+    enum class TiltState {
+        LEFT, RIGHT, CENTER
     }
 }
