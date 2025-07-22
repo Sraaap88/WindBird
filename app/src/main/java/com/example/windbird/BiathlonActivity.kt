@@ -25,6 +25,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
 
     private var sensorManager: SensorManager? = null
     private var gyroscope: Sensor? = null
+    private var accelerometer: Sensor? = null
 
     private var playerOffset = 0f
     private var distance = 0f
@@ -65,6 +66,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+        accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         
         // MODIFIÉ : Charger et découper le sprite sheet
         loadSpriteSheet()
@@ -124,6 +126,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
     override fun onResume() {
         super.onResume()
         gyroscope?.let { sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        accelerometer?.let { sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
     }
 
     override fun onPause() {
@@ -132,79 +135,84 @@ class BiathlonActivity : Activity(), SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent) {
-        if (event.sensor.type != Sensor.TYPE_GYROSCOPE) return
+        when (event.sensor.type) {
+            Sensor.TYPE_GYROSCOPE -> {
+                val y = event.values[1]
+                val x = event.values[0]
+                val z = event.values[2]
 
-        val y = event.values[1]
-        val x = event.values[0]
-        val z = event.values[2]
+                if (gameState == GameState.SKIING) {
+                    // MODIFIÉ : Animation basée sur l'inclinaison
+                    playerOffset += x * 0.1f
+                    playerOffset = playerOffset.coerceIn(-1f, 1f)
+                    
+                    // Changer l'animation selon l'inclinaison
+                    updateAnimation(x)
 
-        if (gameState == GameState.SKIING) {
-            // MODIFIÉ : Animation basée sur l'inclinaison
-            playerOffset += x * 0.1f
-            playerOffset = playerOffset.coerceIn(-1f, 1f)
-            
-            // Changer l'animation selon l'inclinaison
-            updateAnimation(x)
-
-            val rotationDirection = when {
-                z > 1.0f -> 1
-                z < -1.0f -> -1
-                else -> 0
-            }
-            if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
-                distance += 25f
-                backgroundOffset -= 10f
-                previousGyroDirection = rotationDirection
-            }
-            
-            if (distance >= totalDistance * 0.5f) {
-                gameState = GameState.SHOOTING
-            }
-        }
-
-        if (gameState == GameState.SHOOTING) {
-            // CORRIGÉ : Système de visée plus intuitif
-            // Mouvement horizontal : incliner le téléphone gauche/droite (axe Y)
-            crosshair.x += y * 0.008f
-            
-            // Mouvement vertical : incliner le téléphone avant/arrière (axe X)
-            // Inverser le signe pour que pencher vers l'avant déplace vers le haut
-            crosshair.y -= x * 0.008f
-            
-            // Limiter la visée dans la zone de tir
-            crosshair.x = crosshair.x.coerceIn(0.1f, 0.9f)
-            crosshair.y = crosshair.y.coerceIn(0.2f, 0.6f)
-        }
-
-        if (gameState == GameState.FINAL_SKIING) {
-            // MODIFIÉ : Animation aussi dans le ski final
-            playerOffset += x * 0.1f
-            playerOffset = playerOffset.coerceIn(-1f, 1f)
-            
-            // Changer l'animation selon l'inclinaison
-            updateAnimation(x)
-
-            val rotationDirection = when {
-                z > 1.0f -> 1
-                z < -1.0f -> -1
-                else -> 0
-            }
-            if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
-                distance += 25f
-                backgroundOffset -= 10f
-                previousGyroDirection = rotationDirection
-            }
-            
-            if (distance >= totalDistance) {
-                gameState = GameState.FINISHED
-                
-                if (!practiceMode) {
-                    tournamentData.addScore(currentPlayerIndex, eventIndex, calculateScore())
+                    val rotationDirection = when {
+                        z > 1.0f -> 1
+                        z < -1.0f -> -1
+                        else -> 0
+                    }
+                    if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
+                        distance += 25f
+                        backgroundOffset -= 10f
+                        previousGyroDirection = rotationDirection
+                    }
+                    
+                    if (distance >= totalDistance * 0.5f) {
+                        gameState = GameState.SHOOTING
+                    }
                 }
-                
-                statusText.postDelayed({
-                    proceedToNextPlayerOrEvent()
-                }, 2000)
+
+                if (gameState == GameState.FINAL_SKIING) {
+                    // MODIFIÉ : Animation aussi dans le ski final
+                    playerOffset += x * 0.1f
+                    playerOffset = playerOffset.coerceIn(-1f, 1f)
+                    
+                    // Changer l'animation selon l'inclinaison
+                    updateAnimation(x)
+
+                    val rotationDirection = when {
+                        z > 1.0f -> 1
+                        z < -1.0f -> -1
+                        else -> 0
+                    }
+                    if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
+                        distance += 25f
+                        backgroundOffset -= 10f
+                        previousGyroDirection = rotationDirection
+                    }
+                    
+                    if (distance >= totalDistance) {
+                        gameState = GameState.FINISHED
+                        
+                        if (!practiceMode) {
+                            tournamentData.addScore(currentPlayerIndex, eventIndex, calculateScore())
+                        }
+                        
+                        statusText.postDelayed({
+                            proceedToNextPlayerOrEvent()
+                        }, 2000)
+                    }
+                }
+            }
+            
+            Sensor.TYPE_ACCELEROMETER -> {
+                if (gameState == GameState.SHOOTING) {
+                    val x = event.values[0]  // Inclinaison gauche/droite
+                    val y = event.values[1]  // Inclinaison avant/arrière
+                    
+                    // NOUVEAU : Système de bille - la visée roule selon l'inclinaison du téléphone
+                    // Inverser X pour que ça soit intuitif (incliner droite = bille va à droite)
+                    crosshair.x += -x * 0.008f
+                    // Inverser Y pour que ça soit intuitif (incliner avant = bille va vers le haut)
+                    crosshair.y += y * 0.008f
+                    
+                    // Limiter la visée dans la zone de tir
+                    crosshair.x = crosshair.x.coerceIn(0.1f, 0.9f)
+                    crosshair.y = crosshair.y.coerceIn(0.2f, 0.6f)
+                }
             }
         }
         
