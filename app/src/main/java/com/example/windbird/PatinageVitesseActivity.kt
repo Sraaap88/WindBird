@@ -34,9 +34,9 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     private val raceDuration = 30f // Course de 250m
     private val resultsDuration = 6f
     
-    // Variables de course - Style Winter Games SOLO
+    // Variables de course - Style Winter Games SOLO - DISTANCE AUGMENTÉE
     private var playerDistance = 0f
-    private val totalDistance = 250f // 250 mètres exactement comme Winter Games
+    private val totalDistance = 1500f // 1500 mètres - VRAIE COURSE LONGUE
     private var playerSpeed = 0f
     
     // Animation et rythme - CLÉ DE L'EXPÉRIENCE WINTER GAMES
@@ -80,7 +80,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         statusText = TextView(this).apply {
-            text = "⛸️ PATINAGE VITESSE 250M - ${tournamentData.playerNames[currentPlayerIndex]}"
+            text = "⛸️ PATINAGE VITESSE 1500M - ${tournamentData.playerNames[currentPlayerIndex]}"
             setTextColor(Color.WHITE)
             textSize = 24f
             setBackgroundColor(Color.parseColor("#000066"))
@@ -239,38 +239,39 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     }
     
     private fun calculateStrokeQuality(tilt: Float): Float {
-        // Qualité basée sur l'amplitude du mouvement - BEAUCOUP PLUS GÉNÉREUX
+        // Qualité basée sur l'amplitude du mouvement - ÉQUILIBRÉ ET PLUS TOLÉRANT
         val amplitude = abs(tilt)
         return when {
-            amplitude >= 0.5f -> 1f        // Excellent dès 0.5f
-            amplitude >= 0.3f -> 0.8f      // Bon dès 0.3f
-            else -> 0.6f                   // Au moins 60% même pour petits mouvements
+            amplitude >= 0.7f -> 1f        // Excellent pour gros mouvement
+            amplitude >= 0.5f -> 0.8f      // Bon pour mouvement moyen
+            amplitude >= 0.3f -> 0.6f      // Acceptable pour petit mouvement
+            else -> 0.4f                   // AUGMENTÉ - 40% pour très petits mouvements
         }
     }
     
     private fun updateRhythm(currentTime: Long): Float {
-        val idealInterval = 500L // Rythme idéal PLUS LENT
+        val idealInterval = 500L // Rythme idéal
         
         if (lastStrokeTime == 0L) {
-            // Premier coup - initialiser PLUS HAUT
+            // Premier coup - initialiser MODÉRÉMENT
             lastStrokeTime = currentTime
-            playerRhythm = 0.7f
-            return 0.7f
+            playerRhythm = 0.5f  // RÉDUIT à 50%
+            return 0.5f
         }
         
         val actualInterval = currentTime - lastStrokeTime
         
-        // Calcul BEAUCOUP plus généreux du rythme
+        // Calcul équilibré du rythme - Zone parfaite RÉDUITE
         val rhythmAccuracy = when {
-            actualInterval < 150L -> 0.5f   // Trop rapide mais acceptable
-            actualInterval < 300L -> 0.8f   // Bon
-            actualInterval <= 700L -> 1f    // PARFAIT - plage très large
-            actualInterval < 1000L -> 0.7f  // Acceptable
-            else -> 0.4f                    // Lent mais pas dramatique
-        }.coerceIn(0.4f, 1f) // Minimum 40%
+            actualInterval < 200L -> 0.3f   // Trop rapide
+            actualInterval < 325L -> 0.7f   // Bon mais pas parfait
+            actualInterval <= 625L -> 1f    // PARFAIT - zone réduite (325-625ms = 300ms)
+            actualInterval < 900L -> 0.6f   // Acceptable
+            else -> 0.2f                    // Trop lent
+        }.coerceIn(0.25f, 1f) // Minimum AUGMENTÉ à 25%
         
-        // Mise à jour TRÈS responsive du rythme
-        playerRhythm = (playerRhythm * 0.2f + rhythmAccuracy * 0.8f).coerceIn(0.4f, 1f)
+        // Mise à jour responsive du rythme
+        playerRhythm = (playerRhythm * 0.2f + rhythmAccuracy * 0.8f).coerceIn(0.25f, 1f)
         
         return playerRhythm
     }
@@ -303,13 +304,13 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     
     private fun calculateFinalScore() {
         if (!scoreCalculated) {
-            // Score basé sur la performance du temps
-            val timeBonus = maxOf(0, 150 - raceTime.toInt()) * 3 // Bonus pour temps rapide
-            val rhythmBonus = (playerRhythm * 100).toInt()
-            val perfectStrokeBonus = perfectStrokes * 10
-            val completionBonus = if (playerFinished) 50 else 0
+            // Score basé sur la performance du temps - AJUSTÉ POUR 1500M
+            val timeBonus = maxOf(0, 400 - raceTime.toInt()) * 2 // Bonus pour temps rapide (ajusté pour course plus longue)
+            val rhythmBonus = (playerRhythm * 120).toInt()
+            val perfectStrokeBonus = perfectStrokes * 8
+            val completionBonus = if (playerFinished) 80 else 0
             
-            finalScore = maxOf(100, timeBonus + rhythmBonus + perfectStrokeBonus + completionBonus)
+            finalScore = maxOf(120, timeBonus + rhythmBonus + perfectStrokeBonus + completionBonus)
             scoreCalculated = true
         }
     }
@@ -532,10 +533,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             
             // TITRE PRINCIPAL
             paint.color = Color.parseColor("#000066")
-            paint.textSize = 44f // PLUS GROS
+            paint.textSize = 44f
             paint.textAlign = Paint.Align.CENTER
             paint.style = Paint.Style.FILL
-            canvas.drawText("⛸️ PATINAGE VITESSE 250M ⛸️", w/2f, h * 0.08f, paint)
+            canvas.drawText("⛸️ PATINAGE VITESSE 1500M ⛸️", w/2f, h * 0.08f, paint)
             
             // INSTRUCTIONS PRINCIPALES - BEAUCOUP PLUS GROSSES
             paint.color = Color.parseColor("#FF0000") // ROUGE pour attirer l'attention
@@ -621,9 +622,9 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 if (x > -20f && x < w + 20f) {
                     canvas.drawLine(x, h * 0.3f, x, h.toFloat(), paint)
                     
-                    // Numéro de distance
-                    val distance = (playerDistance + i * 25f).toInt()
-                    if (distance >= 0 && distance <= 300) {
+                    // Numéro de distance - AJUSTÉ POUR 1500M
+                    val distance = (playerDistance + i * 150f).toInt() // Marques tous les 150m
+                    if (distance >= 0 && distance <= 1600) {
                         paint.textSize = 12f
                         paint.color = Color.BLACK
                         paint.textAlign = Paint.Align.CENTER
@@ -798,12 +799,12 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         }
         
         private fun drawResults(canvas: Canvas, w: Int, h: Int) {
-            // Fond selon la performance
+            // Fond selon la performance - TEMPS AJUSTÉS POUR 1500M
             val timeQuality = when {
-                raceTime < 25f -> "EXCELLENT"
-                raceTime < 30f -> "BON"
-                raceTime < 35f -> "MOYEN"
-                else -> "LENT"
+                raceTime < 90f -> "EXCELLENT"   // Moins de 1min30
+                raceTime < 120f -> "BON"        // Moins de 2min
+                raceTime < 150f -> "MOYEN"      // Moins de 2min30
+                else -> "LENT"                  // Plus de 2min30
             }
             
             val bgColor = when (timeQuality) {
@@ -843,11 +844,11 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             
             canvas.drawText("🏃 Coups totaux: $strokeCount", w/2f, h * 0.66f, paint)
             
-            // Classification du temps - PLUS GROS
+            // Classification du temps - AJUSTÉE POUR 1500M
             paint.textSize = 24f // LISIBLE
             paint.color = Color.parseColor("#666666")
-            canvas.drawText("< 25s: Excellent | 25-30s: Bon", w/2f, h * 0.78f, paint)
-            canvas.drawText("30-35s: Moyen | > 35s: Lent", w/2f, h * 0.83f, paint)
+            canvas.drawText("< 90s: Excellent | 90-120s: Bon", w/2f, h * 0.78f, paint)
+            canvas.drawText("120-150s: Moyen | > 150s: Lent", w/2f, h * 0.83f, paint)
             
             // Encouragement basé sur la performance
             paint.textSize = 28f
