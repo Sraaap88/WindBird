@@ -968,41 +968,21 @@ class BobsledActivity : Activity(), SensorEventListener {
             if (curveType != CurveType.STRAIGHT) {
                 // Fond plus grand et plus visible
                 paint.color = Color.argb(220, 0, 0, 0)
-                canvas.drawRoundRect(w/8f, 200f, w*7f/8f, 500f, 25f, 25f, paint)
-                
-                // Couleur du symbole selon l'intensité du virage
-                val symbolColor = when (curveType) {
-                    CurveType.STRONG_LEFT, CurveType.STRONG_RIGHT -> Color.RED
-                    CurveType.MEDIUM_LEFT, CurveType.MEDIUM_RIGHT -> Color.rgb(255, 165, 0) // Orange
-                    else -> Color.WHITE
-                }
+                canvas.drawRoundRect(w/8f, 200f, w*7f/8f, 420f, 25f, 25f, paint)
                 
                 // Symbole ÉNORME avec flèche et intensité
-                paint.color = symbolColor
                 paint.textSize = 200f // BEAUCOUP PLUS GROS
                 paint.textAlign = Paint.Align.CENTER
                 
                 val directionSymbol = when (curveType) {
                     CurveType.STRONG_LEFT -> "⬅️🔴"     // Rouge pour FORT
-                    CurveType.MEDIUM_LEFT -> "⬅️🟠"     // Orange pour MOYEN
+                    CurveType.MEDIUM_LEFT -> "⬅️🟡"     // Jaune pour MOYEN
                     CurveType.STRONG_RIGHT -> "🔴➡️"    // Rouge pour FORT
-                    CurveType.MEDIUM_RIGHT -> "🟠➡️"    // Orange pour MOYEN
+                    CurveType.MEDIUM_RIGHT -> "🟡➡️"    // Jaune pour MOYEN
                     else -> ""
                 }
                 
                 canvas.drawText(directionSymbol, w/2f, 320f, paint)
-                
-                // Instructions selon le type de virage
-                paint.color = Color.WHITE
-                paint.textSize = 90f // PLUS GROS
-                val instruction = when (curveType) {
-                    CurveType.STRONG_LEFT -> "PENCHEZ FORT GAUCHE (90°)"
-                    CurveType.MEDIUM_LEFT -> "PENCHEZ MOYEN GAUCHE (45°)"
-                    CurveType.STRONG_RIGHT -> "PENCHEZ FORT DROITE (90°)"
-                    CurveType.MEDIUM_RIGHT -> "PENCHEZ MOYEN DROITE (45°)"
-                    else -> ""
-                }
-                canvas.drawText(instruction, w/2f, 400f, paint)
                 
                 // Performance avec couleur selon la qualité
                 paint.textSize = 100f
@@ -1011,7 +991,7 @@ class BobsledActivity : Activity(), SensorEventListener {
                     playerReactionAccuracy > 0.6f -> Color.YELLOW
                     else -> Color.RED
                 }
-                canvas.drawText("${(playerReactionAccuracy * 100).toInt()}%", w/2f, 470f, paint)
+                canvas.drawText("${(playerReactionAccuracy * 100).toInt()}%", w/2f, 390f, paint)
             }
         }
         
