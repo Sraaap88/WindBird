@@ -472,6 +472,9 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         private var flagNorvegeBitmap: Bitmap? = null
         private var flagJapanBitmap: Bitmap? = null
         
+        // Image de préparation
+        private var preparationBitmap: Bitmap? = null
+        
         init {
             try {
                 skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_approach)
@@ -480,6 +483,9 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 skierLand1Bitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_land1)
                 skierLand2Bitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_land2)
                 skierLand3Bitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_land3)
+                
+                // Charger l'image de préparation
+                preparationBitmap = BitmapFactory.decodeResource(resources, R.drawable.ski_jump_preparation)
                 
                 // Charger les drapeaux
                 flagCanadaBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_canada)
@@ -491,6 +497,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             } catch (e: Exception) {
                 createFallbackSkierBitmaps()
                 createFallbackFlagBitmaps()
+                createFallbackPreparationBitmap()
             }
         }
         
@@ -501,6 +508,32 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             flagFranceBitmap = createFallbackFlag(Color.BLUE, Color.WHITE, Color.RED)
             flagNorvegeBitmap = createFallbackFlag(Color.RED, Color.WHITE, Color.BLUE)
             flagJapanBitmap = createFallbackFlag(Color.WHITE, Color.RED)
+        }
+        
+        private fun createFallbackPreparationBitmap() {
+            preparationBitmap = Bitmap.createBitmap(800, 600, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(preparationBitmap!!)
+            val tempPaint = Paint().apply { style = Paint.Style.FILL }
+            
+            // Fond de montagne simple
+            tempPaint.color = Color.parseColor("#87CEEB")
+            canvas.drawRect(0f, 0f, 800f, 600f, tempPaint)
+            
+            // Tremplin simple
+            tempPaint.color = Color.WHITE
+            val path = Path()
+            path.moveTo(50f, 500f)
+            path.lineTo(200f, 300f)
+            path.lineTo(700f, 400f)
+            path.lineTo(750f, 500f)
+            path.lineTo(750f, 600f)
+            path.lineTo(50f, 600f)
+            path.close()
+            canvas.drawPath(path, tempPaint)
+            
+            // Rectangle blanc pour le drapeau (en haut à droite)
+            tempPaint.color = Color.WHITE
+            canvas.drawRect(600f, 50f, 750f, 150f, tempPaint)
         }
         
         private fun createFallbackFlag(vararg colors: Int): Bitmap {
@@ -625,111 +658,56 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         }
         
         private fun drawPreparation(canvas: Canvas, w: Int, h: Int) {
-            paint.color = Color.parseColor("#87CEEB")
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            // Afficher l'image de préparation en fond
+            preparationBitmap?.let { prep ->
+                val dstRect = RectF(0f, 0f, w.toFloat(), h.toFloat())
+                canvas.drawBitmap(prep, null, dstRect, paint)
+            }
             
-            paint.color = Color.parseColor("#DDDDDD")
-            val path = Path()
-            path.moveTo(0f, h * 0.4f)
-            path.lineTo(w * 0.3f, h * 0.2f)
-            path.lineTo(w * 0.7f, h * 0.3f)
-            path.lineTo(w.toFloat(), h * 0.1f)
-            path.lineTo(w.toFloat(), h.toFloat())
-            path.lineTo(0f, h.toFloat())
-            path.close()
-            canvas.drawPath(path, paint)
+            // Calculer la position du rectangle blanc (en haut à droite de l'image originale)
+            // Rectangle proportionnel à l'écran
+            val flagRectWidth = w * 0.19f  // ~19% de la largeur
+            val flagRectHeight = h * 0.17f // ~17% de la hauteur
+            val flagRectX = w * 0.75f      // À 75% vers la droite
+            val flagRectY = h * 0.08f      // À 8% du haut
             
-            drawTrees(canvas, w, h)
-            drawCrowd(canvas, w, h)
-            
-            // Afficher le drapeau image au lieu de l'emoji
+            // Afficher le drapeau centré dans ce rectangle
             val flagBitmap = getPlayerFlagBitmap()
             flagBitmap?.let { flag ->
-                val flagWidth = 200f
-                val flagHeight = 133f // Ratio 3:2 typique des drapeaux
-                val flagX = w/2f - flagWidth/2f
-                val flagY = h * 0.1f
+                val flagWidth = flagRectWidth * 0.9f  // Légèrement plus petit que le rectangle
+                val flagHeight = flagRectHeight * 0.9f
+                val flagX = flagRectX + (flagRectWidth - flagWidth) / 2f
+                val flagY = flagRectY + (flagRectHeight - flagHeight) / 2f
                 
-                val dstRect = RectF(flagX, flagY, flagX + flagWidth, flagY + flagHeight)
-                canvas.drawBitmap(flag, null, dstRect, paint)
-                
-                // Bordure autour du drapeau
-                paint.color = Color.WHITE
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 4f
-                canvas.drawRect(dstRect, paint)
-                paint.style = Paint.Style.FILL
+                val flagDstRect = RectF(flagX, flagY, flagX + flagWidth, flagY + flagHeight)
+                canvas.drawBitmap(flag, null, flagDstRect, paint)
             }
             
             val playerCountry = tournamentData.playerCountries[currentPlayerIndex]
             
+            // Textes informatifs
             paint.color = Color.WHITE
             paint.textSize = 48f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText(playerCountry.uppercase(), w/2f, h * 0.3f, paint)
+            canvas.drawText(playerCountry.uppercase(), w/2f, h * 0.35f, paint)
             
             paint.textSize = 56f
-            canvas.drawText("🎿 SAUT À SKI 🎿", w/2f, h * 0.38f, paint)
+            canvas.drawText("🎿 SAUT À SKI 🎿", w/2f, h * 0.43f, paint)
             
             paint.textSize = 40f
-            canvas.drawText("Préparez-vous...", w/2f, h * 0.45f, paint)
+            canvas.drawText("Préparez-vous...", w/2f, h * 0.5f, paint)
             
             paint.textSize = 36f
             paint.color = Color.YELLOW
-            canvas.drawText("Dans ${(preparationDuration - phaseTimer).toInt() + 1} secondes", w/2f, h * 0.52f, paint)
+            canvas.drawText("Dans ${(preparationDuration - phaseTimer).toInt() + 1} secondes", w/2f, h * 0.57f, paint)
             
             paint.textSize = 40f
             paint.color = Color.CYAN
-            canvas.drawText("📱 Penchez vers VOUS pour accélérer", w/2f, h * 0.7f, paint)
-            canvas.drawText("📱 Penchez vers l'AVANT puis COUP DE FOUET", w/2f, h * 0.75f, paint)
-            canvas.drawText("📱 Compensez le vent en vol", w/2f, h * 0.8f, paint)
+            canvas.drawText("📱 Penchez vers VOUS pour accélérer", w/2f, h * 0.75f, paint)
+            canvas.drawText("📱 Penchez vers l'AVANT puis COUP DE FOUET", w/2f, h * 0.8f, paint)
+            canvas.drawText("📱 Compensez le vent en vol", w/2f, h * 0.85f, paint)
         }
-        
-        private fun drawTrees(canvas: Canvas, w: Int, h: Int) {
-            paint.color = Color.parseColor("#228B22")
-            
-            for (i in 1..3) {
-                val treeX = w * 0.1f
-                val treeY = h * (0.4f + i * 0.15f)
-                drawTree(canvas, treeX, treeY, 60f)
-            }
-            
-            for (i in 1..3) {
-                val treeX = w * 0.9f
-                val treeY = h * (0.4f + i * 0.15f)
-                drawTree(canvas, treeX, treeY, 60f)
-            }
-        }
-        
-        private fun drawTree(canvas: Canvas, x: Float, y: Float, size: Float) {
-            paint.color = Color.parseColor("#8B4513")
-            canvas.drawRect(x - size/4, y, x + size/4, y + size/2, paint)
-            
-            paint.color = Color.parseColor("#228B22")
-            val path = Path()
-            path.moveTo(x, y - size/2)
-            path.lineTo(x - size/1.5f, y)
-            path.lineTo(x + size/1.5f, y)
-            path.close()
-            canvas.drawPath(path, paint)
-        }
-        
-        private fun drawCrowd(canvas: Canvas, w: Int, h: Int) {
-            paint.color = Color.parseColor("#444444")
-            
-            for (i in 1..15) {
-                val crowdX = w * 0.15f + i * (w * 0.7f / 15f)
-                val crowdY = h * 0.9f
-                
-                canvas.drawCircle(crowdX, crowdY - 30f, 15f, paint)
-                canvas.drawRect(crowdX - 12f, crowdY - 15f, crowdX + 12f, crowdY, paint)
-                
-                if (i % 2 == 0) {
-                    canvas.drawCircle(crowdX - 20f, crowdY - 40f, 8f, paint)
-                    canvas.drawCircle(crowdX + 20f, crowdY - 40f, 8f, paint)
-                }
-            }
-        }
+
         
         private fun drawApproach(canvas: Canvas, w: Int, h: Int) {
             paint.color = Color.parseColor("#87CEEB")
