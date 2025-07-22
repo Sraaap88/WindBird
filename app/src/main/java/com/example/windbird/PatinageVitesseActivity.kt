@@ -131,10 +131,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
 
         tiltX = event.values[0]
         
-        // Mise à jour de l'état d'inclinaison
+        // Mise à jour de l'état d'inclinaison - SEUILS PLUS BAS
         currentTiltState = when {
-            tiltX < -0.4f -> TiltState.LEFT
-            tiltX > 0.4f -> TiltState.RIGHT
+            tiltX < -0.3f -> TiltState.LEFT  // PLUS FACILE
+            tiltX > 0.3f -> TiltState.RIGHT  // PLUS FACILE
             else -> TiltState.CENTER
         }
 
@@ -191,22 +191,22 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     
     private fun handleRhythmicSkating() {
         val currentTime = System.currentTimeMillis()
-        val minInterval = 300L // Minimum entre coups
+        val minInterval = 200L // RÉDUIT - Plus facile
         
-        // Détection du mouvement rythmé gauche-droite
+        // Détection du mouvement rythmé gauche-droite - SEUILS PLUS BAS
         if (currentTime - lastStrokeTime > minInterval) {
             var strokeDetected = false
             var strokeQuality = 0f
             
-            // Gauche attendu
-            if (expectingLeft && tiltX < -0.8f) {
+            // Gauche attendu - SEUIL PLUS BAS
+            if (expectingLeft && tiltX < -0.5f) {
                 strokeDetected = true
                 strokeQuality = calculateStrokeQuality(tiltX)
                 expectingLeft = false
                 lastTiltDirection = -1
                 
-            // Droite attendu  
-            } else if (!expectingLeft && tiltX > 0.8f) {
+            // Droite attendu - SEUIL PLUS BAS
+            } else if (!expectingLeft && tiltX > 0.5f) {
                 strokeDetected = true
                 strokeQuality = calculateStrokeQuality(tiltX)
                 expectingLeft = true
@@ -222,51 +222,55 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 
                 // Calcul de la vitesse selon le rythme - CRITIQUE
                 val rhythmBonus = updateRhythm(currentTime)
-                val speedGain = strokeQuality * rhythmBonus * 1.2f
+                val speedGain = strokeQuality * rhythmBonus * 1.5f // PLUS GÉNÉREUX
                 
                 playerSpeed += speedGain
                 playerSpeed = playerSpeed.coerceAtMost(8f) // Vitesse max réaliste
                 
-                // Bonus pour coups parfaits
-                if (strokeQuality > 0.8f && rhythmBonus > 0.8f) {
+                // Bonus pour coups parfaits - SEUIL PLUS BAS
+                if (strokeQuality > 0.6f && rhythmBonus > 0.6f) {
                     perfectStrokes++
                 }
             }
         }
         
-        // Décélération naturelle
-        playerSpeed *= 0.95f
+        // Décélération naturelle - PLUS LENTE
+        playerSpeed *= 0.97f
     }
     
     private fun calculateStrokeQuality(tilt: Float): Float {
-        // Qualité basée sur l'amplitude du mouvement
+        // Qualité basée sur l'amplitude du mouvement - BEAUCOUP PLUS GÉNÉREUX
         val amplitude = abs(tilt)
-        return (amplitude - 0.8f).coerceIn(0f, 0.7f) / 0.7f
+        return when {
+            amplitude >= 0.5f -> 1f        // Excellent dès 0.5f
+            amplitude >= 0.3f -> 0.8f      // Bon dès 0.3f
+            else -> 0.6f                   // Au moins 60% même pour petits mouvements
+        }
     }
     
     private fun updateRhythm(currentTime: Long): Float {
-        val idealInterval = 450L // Rythme idéal Winter Games
+        val idealInterval = 500L // Rythme idéal PLUS LENT
         
         if (lastStrokeTime == 0L) {
-            // Premier coup - initialiser
+            // Premier coup - initialiser PLUS HAUT
             lastStrokeTime = currentTime
-            playerRhythm = 0.5f
-            return 0.5f
+            playerRhythm = 0.7f
+            return 0.7f
         }
         
         val actualInterval = currentTime - lastStrokeTime
         
-        // Calcul plus généreux du rythme
+        // Calcul BEAUCOUP plus généreux du rythme
         val rhythmAccuracy = when {
-            actualInterval < 200L -> 0.2f // Trop rapide
-            actualInterval < 350L -> 0.6f + (350L - actualInterval) / 150f * 0.3f // Bon
-            actualInterval <= 550L -> 1f - abs(actualInterval - idealInterval) / 100f // Parfait
-            actualInterval < 800L -> 0.6f - (actualInterval - 550L) / 250f * 0.4f // Acceptable
-            else -> 0.1f // Trop lent
-        }.coerceIn(0f, 1f)
+            actualInterval < 150L -> 0.5f   // Trop rapide mais acceptable
+            actualInterval < 300L -> 0.8f   // Bon
+            actualInterval <= 700L -> 1f    // PARFAIT - plage très large
+            actualInterval < 1000L -> 0.7f  // Acceptable
+            else -> 0.4f                    // Lent mais pas dramatique
+        }.coerceIn(0.4f, 1f) // Minimum 40%
         
-        // Mise à jour plus responsive du rythme
-        playerRhythm = (playerRhythm * 0.3f + rhythmAccuracy * 0.7f).coerceIn(0f, 1f)
+        // Mise à jour TRÈS responsive du rythme
+        playerRhythm = (playerRhythm * 0.2f + rhythmAccuracy * 0.8f).coerceIn(0.4f, 1f)
         
         return playerRhythm
     }
@@ -416,7 +420,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         init {
             // Charger toutes les images
             try {
-                preparationBackground = BitmapFactory.decodeResource(resources, R.drawable.speedskating_preparation)
+                preparationBackground = BitmapFactory.decodeResource(resources, R.drawable.speekskating_preparation)
                 
                 // Charger tes 4 nouvelles images du patineur
                 speedskatingLeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.speedskating_left)
