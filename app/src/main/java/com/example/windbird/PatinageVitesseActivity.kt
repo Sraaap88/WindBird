@@ -240,10 +240,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 
                 // Gain de vitesse
                 val combinedQuality = (strokeQuality * 0.6f + rhythmQuality * 0.4f)
-                val speedGain = combinedQuality * 2f
+                val speedGain = combinedQuality * 1.5f // AUGMENTÉ de 1.2f à 1.5f
                 
                 playerSpeed += speedGain
-                playerSpeed = playerSpeed.coerceAtMost(8f)
+                playerSpeed = playerSpeed.coerceAtMost(7f) // AUGMENTÉ de 6f à 7f
                 
                 // Historique de performance pour la bande
                 val overallPerformance = (strokeQuality + rhythmQuality) / 2f
@@ -260,7 +260,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         }
         
         // Décélération naturelle
-        playerSpeed *= 0.98f
+        playerSpeed *= 0.995f // MOINS de décélération (était 0.98f)
     }
     
     private fun calculateStrokeQuality(tilt: Float): Float {
@@ -289,7 +289,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     
     private fun updatePositions() {
         if (!playerFinished) {
-            playerDistance += playerSpeed * 0.025f * 60f
+            // CORRECTION : 25% plus rapide pour éviter l'ennui (9 épreuves au total)
+            playerDistance += playerSpeed * 0.025f * 20f // AUGMENTÉ de 15f à 20f
         }
     }
     
@@ -315,7 +316,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     
     private fun calculateFinalScore() {
         if (!scoreCalculated) {
-            val timeBonus = maxOf(0, 400 - raceTime.toInt()) * 2
+            val timeBonus = maxOf(0, 450 - raceTime.toInt()) * 1 // AJUSTÉ : 450s (1.5-2min optimal)
             val rhythmBonus = (playerRhythm * 120).toInt()
             val perfectStrokeBonus = perfectStrokes * 8
             val completionBonus = if (playerFinished) 80 else 0
@@ -528,8 +529,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             paint.textSize = 32f
             canvas.drawText("TESTEZ VOTRE RYTHME:", w/2f, h * 0.36f, paint)
             
-            // Bande de test pendant la préparation - CORRECTION ICI
-            drawPerformanceBand(canvas, w.toFloat() * 0.2f, h.toFloat() * 0.42f, w.toFloat() * 0.6f, 30f, true)
+            // Bande de test pendant la préparation
+            drawPerformanceBand(canvas, w, h * 0.42f, w * 0.6f, 30f, true)
             
             val countdown = (preparationDuration - phaseTimer).toInt() + 1
             paint.textSize = 60f
@@ -555,8 +556,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             drawFrontView(canvas, w, h)
             drawHUD(canvas, w, h)
             
-            // NOUVELLE bande de performance en temps réel - CORRECTION ICI AUSSI
-            drawPerformanceBand(canvas, 50f, h.toFloat() - 200f, w.toFloat() * 0.5f, 40f, false)
+            // NOUVELLE bande de performance en temps réel
+            drawPerformanceBand(canvas, 50f, h - 200f, w * 0.5f, 40f, false)
         }
         
         // NOUVELLE fonction pour la bande de performance en temps réel - SANS HISTORIQUE
@@ -814,10 +815,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         
         private fun drawResults(canvas: Canvas, w: Int, h: Int) {
             val timeQuality = when {
-                raceTime < 90f -> "EXCELLENT"
-                raceTime < 120f -> "BON"
-                raceTime < 150f -> "MOYEN"
-                else -> "LENT"
+                raceTime < 90f -> "EXCELLENT"   // Moins de 1.5 minutes
+                raceTime < 120f -> "BON"        // 1.5-2 minutes  
+                raceTime < 150f -> "MOYEN"      // 2-2.5 minutes
+                else -> "LENT"                  // Plus de 2.5 minutes
             }
             
             val bgColor = when (timeQuality) {
@@ -853,8 +854,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             
             paint.textSize = 24f
             paint.color = Color.parseColor("#666666")
-            canvas.drawText("< 90s: Excellent | 90-120s: Bon", w/2f, h * 0.78f, paint)
-            canvas.drawText("120-150s: Moyen | > 150s: Lent", w/2f, h * 0.83f, paint)
+            canvas.drawText("< 1.5min: Excellent | 1.5-2min: Bon", w/2f, h * 0.78f, paint)
+            canvas.drawText("2-2.5min: Moyen | > 2.5min: Lent", w/2f, h * 0.83f, paint)
             
             paint.textSize = 28f
             paint.color = when (timeQuality) {
