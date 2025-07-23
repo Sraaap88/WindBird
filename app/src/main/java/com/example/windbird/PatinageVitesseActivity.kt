@@ -560,63 +560,39 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             drawPerformanceBand(canvas, 50f, h - 200f, w * 0.5f, 40f, false)
         }
         
-        // NOUVELLE fonction pour la bande de performance en temps réel - SANS HISTORIQUE
+        // FONCTION pour la bande de performance en temps réel - SEULEMENT PENDANT LA COURSE
         private fun drawPerformanceBand(canvas: Canvas, x: Float, y: Float, width: Float, height: Float, isPrep: Boolean) {
             // Fond de la bande
             paint.color = Color.parseColor("#333333")
             paint.style = Paint.Style.FILL
             canvas.drawRect(x, y, x + width, y + height, paint)
             
-            if (isPrep) {
-                // Pendant la préparation - montrer les zones
-                val zoneWidth = width / 5f
-                val colors = arrayOf("#FF0000", "#FF8800", "#FFFF00", "#88FF00", "#00FF00") // Rouge à vert
-                val labels = arrayOf("Très lent", "Lent", "Moyen", "Bon", "Parfait")
-                
-                for (i in 0..4) {
-                    paint.color = Color.parseColor(colors[i])
-                    canvas.drawRect(x + i * zoneWidth, y, x + (i + 1) * zoneWidth, y + height, paint)
-                    
-                    paint.color = Color.BLACK
-                    paint.textSize = 12f
-                    paint.textAlign = Paint.Align.CENTER
-                    canvas.drawText(labels[i], x + i * zoneWidth + zoneWidth/2f, y + height/2f + 4f, paint)
-                }
-                
-                paint.color = Color.WHITE
-                paint.textSize = 16f
-                canvas.drawText("ZONES DE PERFORMANCE", x + width/2f, y - 10f, paint)
-                
-            } else {
-                // Pendant la course - performance en temps réel SEULEMENT
-                
-                // Performance actuelle - on utilise toute la largeur maintenant
-                val currentWidth = width
-                val currentX = x
-                
-                // Qualité du coup actuel (moitié gauche)
-                val strokeColor = getPerformanceColor(currentStrokeQuality)
-                paint.color = strokeColor
-                canvas.drawRect(currentX, y, currentX + currentWidth/2f, y + height, paint)
-                
-                // Qualité du rythme actuel (moitié droite)
-                val rhythmColor = getPerformanceColor(currentRhythmQuality)
-                paint.color = rhythmColor
-                canvas.drawRect(currentX + currentWidth/2f, y, currentX + currentWidth, y + height, paint)
-                
-                // Labels
-                paint.color = Color.WHITE
-                paint.textSize = 14f
-                paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("COUP", currentX + currentWidth/4f, y - 5f, paint)
-                canvas.drawText("RYTHME", currentX + 3*currentWidth/4f, y - 5f, paint)
-                
-                // Valeurs numériques
-                paint.color = Color.BLACK
-                paint.textSize = 12f
-                canvas.drawText("${(currentStrokeQuality * 100).toInt()}%", currentX + currentWidth/4f, y + height/2f + 4f, paint)
-                canvas.drawText("${(currentRhythmQuality * 100).toInt()}%", currentX + 3*currentWidth/4f, y + height/2f + 4f, paint)
-            }
+            // SEULEMENT performance en temps réel (plus de mode préparation)
+            val currentWidth = width
+            val currentX = x
+            
+            // Qualité du coup actuel (moitié gauche)
+            val strokeColor = getPerformanceColor(currentStrokeQuality)
+            paint.color = strokeColor
+            canvas.drawRect(currentX, y, currentX + currentWidth/2f, y + height, paint)
+            
+            // Qualité du rythme actuel (moitié droite)
+            val rhythmColor = getPerformanceColor(currentRhythmQuality)
+            paint.color = rhythmColor
+            canvas.drawRect(currentX + currentWidth/2f, y, currentX + currentWidth, y + height, paint)
+            
+            // Labels
+            paint.color = Color.WHITE
+            paint.textSize = 14f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("COUP", currentX + currentWidth/4f, y - 5f, paint)
+            canvas.drawText("RYTHME", currentX + 3*currentWidth/4f, y - 5f, paint)
+            
+            // Valeurs numériques
+            paint.color = Color.BLACK
+            paint.textSize = 12f
+            canvas.drawText("${(currentStrokeQuality * 100).toInt()}%", currentX + currentWidth/4f, y + height/2f + 4f, paint)
+            canvas.drawText("${(currentRhythmQuality * 100).toInt()}%", currentX + 3*currentWidth/4f, y + height/2f + 4f, paint)
             
             // Bordure
             paint.color = Color.WHITE
