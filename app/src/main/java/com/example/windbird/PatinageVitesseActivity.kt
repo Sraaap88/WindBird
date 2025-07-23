@@ -529,8 +529,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             paint.textSize = 32f
             canvas.drawText("TESTEZ VOTRE RYTHME:", w.toFloat()/2f, h.toFloat() * 0.36f, paint)
             
-            // Bande de test pendant la préparation
-            drawPerformanceBand(canvas, w, h * 0.42f, w * 0.6f, 30f, true)
+            // SUPPRIMÉ DÉFINITIVEMENT - Pas de bande pendant la préparation
             
             val countdown = (preparationDuration - phaseTimer).toInt() + 1
             paint.textSize = 60f
@@ -560,8 +559,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             drawPerformanceBand(canvas, 50f, h - 200f, w * 0.5f, 40f, false)
         }
         
-        // FONCTION pour la bande de performance en temps réel - SEULEMENT PENDANT LA COURSE
-        private fun drawPerformanceBand(canvas: Canvas, x: Float, y: Float, width: Float, height: Float, isPrep: Boolean) {
+        // FONCTION pour la bande de performance en temps réel - PARAMÈTRE RETIRÉ
+        private fun drawPerformanceBand(canvas: Canvas, x: Float, y: Float, width: Float, height: Float) {
             // Fond de la bande
             paint.color = Color.parseColor("#333333")
             paint.style = Paint.Style.FILL
