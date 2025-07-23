@@ -2,6 +2,7 @@ package com.example.windbird
 
 import android.content.Context
 import android.graphics.*
+import android.view.MotionEvent
 import android.view.View
 import kotlin.math.*
 
@@ -15,10 +16,8 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
     private var skierLand2Bitmap: Bitmap? = null
     private var skierLand3Bitmap: Bitmap? = null
     
-    // Image de préparation
     private var preparationBitmap: Bitmap? = null
     
-    // Drapeaux des pays
     private var flagCanadaBitmap: Bitmap? = null
     private var flagUsaBitmap: Bitmap? = null
     private var flagFranceBitmap: Bitmap? = null
@@ -34,10 +33,8 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
             skierLand2Bitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_land2)
             skierLand3Bitmap = BitmapFactory.decodeResource(resources, R.drawable.skier_land3)
             
-            // Charger l'image de préparation
             preparationBitmap = BitmapFactory.decodeResource(resources, R.drawable.ski_jump_preparation)
             
-            // Charger les drapeaux
             flagCanadaBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_canada)
             flagUsaBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_usa)
             flagFranceBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_france)
@@ -51,8 +48,16 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         }
     }
     
+    // Gestion des taps sur l'écran
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.action == MotionEvent.ACTION_DOWN) {
+            activity.handleScreenTap()
+            return true
+        }
+        return super.onTouchEvent(event)
+    }
+    
     private fun createFallbackFlagBitmaps() {
-        // Créer des drapeaux de fallback si les images ne sont pas trouvées
         flagCanadaBitmap = createFallbackFlag(Color.RED, Color.WHITE)
         flagUsaBitmap = createFallbackFlag(Color.BLUE, Color.RED, Color.WHITE)
         flagFranceBitmap = createFallbackFlag(Color.BLUE, Color.WHITE, Color.RED)
@@ -65,11 +70,9 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         val canvas = Canvas(preparationBitmap!!)
         val tempPaint = Paint().apply { style = Paint.Style.FILL }
         
-        // Fond de montagne simple
         tempPaint.color = Color.parseColor("#87CEEB")
         canvas.drawRect(0f, 0f, 800f, 600f, tempPaint)
         
-        // Tremplin simple
         tempPaint.color = Color.WHITE
         val path = Path()
         path.moveTo(50f, 500f)
@@ -81,7 +84,6 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         path.close()
         canvas.drawPath(path, tempPaint)
         
-        // Rectangle blanc pour le drapeau (en haut à droite)
         tempPaint.color = Color.WHITE
         canvas.drawRect(600f, 50f, 750f, 150f, tempPaint)
     }
@@ -191,7 +193,6 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
     }
     
     private fun getPlayerFlagBitmap(): Bitmap? {
-        // En mode pratique, toujours prendre le drapeau du Canada
         if (activity.getPracticeMode()) {
             return flagCanadaBitmap
         }
@@ -203,24 +204,21 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
             "FRANCE" -> flagFranceBitmap
             "NORVÈGE", "NORWAY" -> flagNorvegeBitmap
             "JAPON", "JAPAN" -> flagJapanBitmap
-            else -> flagCanadaBitmap // Drapeau par défaut
+            else -> flagCanadaBitmap
         }
     }
     
     private fun drawPreparation(canvas: Canvas, w: Int, h: Int) {
-        // Afficher l'image de préparation en fond
         preparationBitmap?.let { prep ->
             val dstRect = RectF(0f, 0f, w.toFloat(), h.toFloat())
             canvas.drawBitmap(prep, null, dstRect, paint)
         }
         
-        // Calculer la position du rectangle blanc (en haut à droite de l'image originale)
         val flagRectWidth = w * 0.19f
         val flagRectHeight = h * 0.17f
         val flagRectX = w * 0.75f
         val flagRectY = h * 0.08f
         
-        // Afficher le drapeau centré dans ce rectangle
         val flagBitmap = getPlayerFlagBitmap()
         flagBitmap?.let { flag ->
             val flagWidth = flagRectWidth * 0.9f
@@ -234,7 +232,6 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         
         val playerCountry = activity.getTournamentData().playerCountries[activity.getCurrentPlayerIndex()]
         
-        // Textes informatifs
         paint.color = Color.WHITE
         paint.textSize = 48f
         paint.textAlign = Paint.Align.CENTER
@@ -252,9 +249,9 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         
         paint.textSize = 40f
         paint.color = Color.CYAN
-        canvas.drawText("📱 2 POUSSÉES puis PENCHER vers l'avant", w/2f, h * 0.75f, paint)
-        canvas.drawText("📱 COUP DE FOUET au moment du saut", w/2f, h * 0.8f, paint)
-        canvas.drawText("📱 Compensez le vent en vol", w/2f, h * 0.85f, paint)
+        canvas.drawText("📱 2 TAPS sur l'écran pour démarrer", w/2f, h * 0.75f, paint)
+        canvas.drawText("📱 SUIVEZ la zone verte qui descend", w/2f, h * 0.8f, paint)
+        canvas.drawText("📱 COUP DE FOUET au moment du saut", w/2f, h * 0.85f, paint)
     }
     
     private fun drawApproach(canvas: Canvas, w: Int, h: Int) {
@@ -285,6 +282,9 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         }
         paint.style = Paint.Style.FILL
         
+        // NOUVELLE BARRE DE CONTRÔLE D'ANGLE (à gauche)
+        drawAngleControlBar(canvas, w, h)
+        
         // Position du skieur avec PERSPECTIVE
         val approachProgress = activity.getPhaseTimer() / activity.getApproachDuration()
         val speedProgress = activity.getSpeed() / activity.getMaxSpeed()
@@ -294,7 +294,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         val skierX = w / 2f
         
         // PERSPECTIVE - gros au début, petit à la fin
-        val scale = 0.12f - combinedProgress * 0.06f // De 0.12f à 0.06f
+        val scale = 0.12f - combinedProgress * 0.06f
         
         skierBitmap?.let { bmp ->
             val dstRect = RectF(
@@ -306,45 +306,95 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
             canvas.drawBitmap(bmp, null, dstRect, paint)
         }
         
-        // INSTRUCTIONS GÉANTES selon la phase
-        val approachProgress2 = activity.getPhaseTimer() / activity.getApproachDuration()
-        when {
-            approachProgress2 < 0.2f && activity.getPushCount() < 2 -> {
-                paint.color = Color.RED
-                paint.textSize = 120f
-                paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("🚀 POUSSEZ 2 FOIS! 🚀", w/2f, h * 0.15f, paint)
-                
-                paint.color = Color.YELLOW
-                paint.textSize = 80f
-                canvas.drawText("TIREZ VERS VOUS (${activity.getPushCount()}/2)", w/2f, h * 0.25f, paint)
-            }
+        // INSTRUCTIONS selon la phase
+        if (activity.getTapCount() < 2) {
+            paint.color = Color.RED
+            paint.textSize = 120f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("👆 TAPPEZ L'ÉCRAN! 👆", w/2f, h * 0.15f, paint)
             
-            approachProgress2 < 0.53f && activity.getPushCount() >= 2 -> {
-                paint.color = Color.BLUE
-                paint.textSize = 110f
-                paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("📐 PENCHEZ VERS L'AVANT!", w/2f, h * 0.15f, paint)
-                
-                paint.color = if (activity.getIsLeaningForward()) Color.GREEN else Color.YELLOW
-                paint.textSize = 70f
-                val anglePercent = ((activity.getCurrentLeanAngle() / activity.getTargetLeanAngle()) * 100).toInt()
-                canvas.drawText("Angle: ${anglePercent}% ${if (activity.getMaintainAngle()) "✅" else ""}", w/2f, h * 0.25f, paint)
-            }
+            paint.color = Color.YELLOW
+            paint.textSize = 80f
+            canvas.drawText("Poussées: ${activity.getTapCount()}/2", w/2f, h * 0.25f, paint)
             
-            else -> {
-                paint.color = Color.GREEN
-                paint.textSize = 100f
-                paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("💪 MAINTENEZ L'ANGLE!", w/2f, h * 0.15f, paint)
-                
-                paint.color = if (activity.getCurrentLeanAngle() >= activity.getTargetLeanAngle() * 0.7f) Color.GREEN else Color.RED
-                paint.textSize = 80f
-                canvas.drawText("${activity.getSpeed().toInt()} KM/H", w/2f, h * 0.25f, paint)
+            if (activity.getTapCount() == 1) {
+                paint.color = Color.CYAN
+                paint.textSize = 60f
+                canvas.drawText("ENCORE UNE FOIS!", w/2f, h * 0.32f, paint)
             }
+        } else {
+            paint.color = Color.BLUE
+            paint.textSize = 110f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("📐 SUIVEZ LA ZONE VERTE!", w/2f, h * 0.15f, paint)
+            
+            paint.color = if (activity.getInTargetZone()) Color.GREEN else Color.RED
+            paint.textSize = 70f
+            canvas.drawText("${activity.getSpeed().toInt()} KM/H ${if (activity.getInTargetZone()) "✅" else "❌"}", w/2f, h * 0.25f, paint)
         }
         
         drawSpeedMeter(canvas, w, h)
+    }
+    
+    // NOUVELLE FONCTION : Barre de contrôle d'angle
+    private fun drawAngleControlBar(canvas: Canvas, w: Int, h: Int) {
+        val barWidth = 80f
+        val barHeight = h * 0.6f
+        val barX = 50f
+        val barY = h * 0.2f
+        
+        // Fond de la barre
+        paint.color = Color.parseColor("#333333")
+        paint.style = Paint.Style.FILL
+        canvas.drawRect(barX, barY, barX + barWidth, barY + barHeight, paint)
+        
+        // Zone verte qui bouge
+        val zoneCenter = activity.getTargetZoneCenter()
+        val zoneSize = activity.getTargetZoneSize()
+        
+        // Convertir les angles en positions sur la barre
+        val maxAngle = 50f // Angle maximum affiché
+        val zoneCenterPos = (zoneCenter / maxAngle) * barHeight
+        val zoneSizePos = (zoneSize / maxAngle) * barHeight
+        
+        val zoneTop = barY + zoneCenterPos - zoneSizePos / 2f
+        val zoneBottom = barY + zoneCenterPos + zoneSizePos / 2f
+        
+        // Dessiner la zone verte
+        paint.color = if (activity.getInTargetZone()) Color.GREEN else Color.parseColor("#006600")
+        canvas.drawRect(barX + 5f, zoneTop, barX + barWidth - 5f, zoneBottom, paint)
+        
+        // Position actuelle du téléphone
+        val currentAngle = activity.getCurrentTiltAngle().coerceIn(0f, maxAngle)
+        val currentPos = (currentAngle / maxAngle) * barHeight
+        
+        paint.color = if (activity.getInTargetZone()) Color.YELLOW else Color.RED
+        val indicatorY = barY + currentPos
+        canvas.drawRect(barX, indicatorY - 8f, barX + barWidth, indicatorY + 8f, paint)
+        
+        // Contour de la barre
+        paint.color = Color.WHITE
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 3f
+        canvas.drawRect(barX, barY, barX + barWidth, barY + barHeight, paint)
+        paint.style = Paint.Style.FILL
+        
+        // Texte explicatif
+        paint.color = Color.WHITE
+        paint.textSize = 24f
+        paint.textAlign = Paint.Align.LEFT
+        canvas.drawText("ANGLE", barX, barY - 20f, paint)
+        canvas.drawText("${currentAngle.toInt()}°", barX, barY + barHeight + 30f, paint)
+        
+        // Indication des degrés sur la barre
+        paint.textSize = 18f
+        paint.color = Color.CYAN
+        for (i in 0..4) {
+            val angle = i * 10f
+            val pos = (angle / maxAngle) * barHeight
+            val y = barY + pos
+            canvas.drawText("${angle.toInt()}°", barX + barWidth + 10f, y + 6f, paint)
+        }
     }
     
     private fun drawTakeoff(canvas: Canvas, w: Int, h: Int) {
@@ -370,7 +420,6 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         // Animation CONTINUE avec PERSPECTIVE
         val skierX = w * (0.1f + takeoffProgress * 0.7f)
         
-        // Suivi de piste précis
         val skierY = when {
             takeoffProgress < 0.7f -> {
                 val rampProgress = takeoffProgress / 0.7f
@@ -387,7 +436,6 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
             }
         }
         
-        // Rotation selon la piste
         val rotation = when {
             takeoffProgress < 0.7f -> -takeoffProgress * 12f
             takeoffProgress < 0.85f -> -8.4f
@@ -399,9 +447,8 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         canvas.rotate(rotation)
         
         // PERSPECTIVE - de gros à petit
-        val scale = 0.4f - takeoffProgress * 0.15f // De 0.4f à 0.25f
+        val scale = 0.4f - takeoffProgress * 0.15f
         
-        // Changement d'image selon l'action
         val currentBitmap = if (criticalZone && userIsPulling) {
             skierFlightBitmap
         } else {
@@ -420,7 +467,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         
         canvas.restore()
         
-        // INSTRUCTIONS GÉANTES
+        // INSTRUCTIONS
         if (criticalZone) {
             paint.color = Color.RED
             paint.textSize = 140f
@@ -472,9 +519,8 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         val flightProgress = activity.getPhaseTimer() / activity.getFlightDuration()
         val skierX = w * (-0.1f + flightProgress * 1.2f)
         
-        // Contrôle d'angle de vol
         val baseY = h * 0.4f
-        val verticalOffset = activity.getTiltY() * 80f // Contrôle plus fin
+        val verticalOffset = activity.getTiltY() * 80f
         val skierY = baseY + verticalOffset
         
         canvas.save()
@@ -483,7 +529,6 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         val skierRotation = activity.getTiltY() * 15f
         canvas.rotate(skierRotation)
         
-        // Effet du vent avec transition
         val windEffect = activity.getWindDirection() * activity.getWindStrength() * activity.getWindTransition()
         canvas.rotate(windEffect * 8f)
         
@@ -512,7 +557,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         }
         paint.alpha = 255
         
-        // INSTRUCTIONS GÉANTES selon l'angle
+        // INSTRUCTIONS selon l'angle
         val optimalAngle = 0.1f
         val currentAngle = activity.getTiltY()
         val angleError = abs(currentAngle - optimalAngle)
@@ -562,7 +607,6 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         
         val landingProgress = activity.getPhaseTimer() / activity.getLandingDuration()
         
-        // Position selon la phase avec PERSPECTIVE
         val skierX: Float
         val skierY: Float
         val currentBitmap: Bitmap?
@@ -574,14 +618,14 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
                 skierX = w * (0.2f + descentProgress * 0.3f)
                 skierY = h * (0.3f + descentProgress * 0.45f)
                 currentBitmap = skierLand1Bitmap
-                scale = 0.9f - descentProgress * 0.3f // PERSPECTIVE - devient plus petit
+                scale = 0.9f - descentProgress * 0.3f // PERSPECTIVE
             }
             landingProgress < 0.82f -> {
                 val impactProgress = (landingProgress - 0.3f) / 0.52f
                 skierX = w * (0.5f + impactProgress * 0.1f)
                 skierY = h * 0.75f
                 currentBitmap = skierLand2Bitmap
-                scale = 0.6f // Taille normale à l'atterrissage
+                scale = 0.6f
                 
                 // Explosion de neige
                 paint.color = Color.WHITE
@@ -599,7 +643,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
                 skierX = w * (0.6f + standingProgress * 0.1f)
                 skierY = h * 0.75f
                 currentBitmap = skierLand3Bitmap
-                scale = 0.65f // Légèrement plus grand pour célébration
+                scale = 0.65f
             }
         }
         
@@ -620,7 +664,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         paint.textAlign = Paint.Align.CENTER
         canvas.drawText("${activity.getJumpDistance().toInt()}m", w/2f, h * 0.15f, paint)
         
-        // INSTRUCTIONS GÉANTES selon la phase
+        // INSTRUCTIONS selon la phase
         when (activity.getLandingPhase()) {
             0 -> {
                 paint.color = Color.BLUE
@@ -685,6 +729,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         canvas.drawText("⚖️ Stabilité: ${(activity.getStability() * 100).toInt()}%", w/2f, h * 0.6f, paint)
         canvas.drawText("🎯 Atterrissage: ${activity.getLandingBonus().toInt()} pts", w/2f, h * 0.65f, paint)
         canvas.drawText("🏁 Finition: ${(activity.getLandingStability() * 50).toInt()}%", w/2f, h * 0.7f, paint)
+        canvas.drawText("👆 Bonus Taps: ${(activity.getTapBonus() * 15).toInt()} pts", w/2f, h * 0.75f, paint)
         
         paint.color = Color.YELLOW
         for (i in 1..10) {
@@ -700,7 +745,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         canvas.drawRect(w - 110f, 140f, w - 30f, h - 140f, paint)
         
         paint.color = when {
-            activity.getSpeed() > 100f -> Color.parseColor("#00FF00") // Vert brillant
+            activity.getSpeed() > 100f -> Color.parseColor("#00FF00")
             activity.getSpeed() > 70f -> Color.GREEN
             activity.getSpeed() > 40f -> Color.YELLOW
             else -> Color.RED
@@ -721,15 +766,14 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         paint.style = Paint.Style.FILL
         canvas.drawRect(140f, h - 120f, w - 140f, h - 30f, paint)
         
-        // La barre ne bouge que dans la zone critique
         if (criticalZone) {
             paint.color = when {
-                activity.getTakeoffPower() > 100f -> Color.parseColor("#00FF00") // Vert brillant pour 120%
+                activity.getTakeoffPower() > 100f -> Color.parseColor("#00FF00")
                 activity.getTakeoffPower() > 70f -> Color.GREEN
                 activity.getTakeoffPower() > 40f -> Color.YELLOW
                 else -> Color.RED
             }
-            val powerWidth = (activity.getTakeoffPower() / 120f) * (w - 280f) // Échelle jusqu'à 120%
+            val powerWidth = (activity.getTakeoffPower() / 120f) * (w - 280f)
             canvas.drawRect(140f, h - 115f, 140f + powerWidth, h - 35f, paint)
         }
         
@@ -740,7 +784,6 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         if (criticalZone) {
             canvas.drawText("PUISSANCE: ${activity.getTakeoffPower().toInt()}%", w/2f, h - 130f, paint)
             
-            // Indicateur de zone parfaite
             if (activity.getTakeoffPower() > 100f) {
                 paint.color = Color.parseColor("#00FF00")
                 paint.textSize = 24f
@@ -759,7 +802,6 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         paint.style = Paint.Style.FILL
         canvas.drawRect(windX - 80f, windY - 60f, windX + 80f, windY + 60f, paint)
         
-        // Indicateur de vent avec transition
         val currentWind = activity.getWindDirection() * activity.getWindTransition()
         
         paint.color = when {
