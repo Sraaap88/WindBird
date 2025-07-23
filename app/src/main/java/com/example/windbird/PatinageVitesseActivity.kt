@@ -513,21 +513,21 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#000066")
             paint.textSize = 44f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("⛸️ PATINAGE VITESSE 1500M ⛸️", w/2f, h * 0.08f, paint)
+            canvas.drawText("⛸️ PATINAGE VITESSE 1500M ⛸️", w.toFloat()/2f, h.toFloat() * 0.08f, paint)
             
             paint.color = Color.parseColor("#FF0000")
             paint.textSize = 36f
-            canvas.drawText("📱 ALTERNEZ GAUCHE-DROITE", w/2f, h * 0.15f, paint)
+            canvas.drawText("📱 ALTERNEZ GAUCHE-DROITE", w.toFloat()/2f, h.toFloat() * 0.15f, paint)
             
             paint.color = Color.parseColor("#0000FF")
             paint.textSize = 28f
-            canvas.drawText("⏱️ RYTHME IDÉAL: 1 poussée toutes les 0.5 secondes", w/2f, h * 0.22f, paint)
-            canvas.drawText("💪 FORT + RÉGULIER = Plus rapide!", w/2f, h * 0.28f, paint)
+            canvas.drawText("⏱️ RYTHME IDÉAL: 1 poussée toutes les 0.5 secondes", w.toFloat()/2f, h.toFloat() * 0.22f, paint)
+            canvas.drawText("💪 FORT + RÉGULIER = Plus rapide!", w.toFloat()/2f, h.toFloat() * 0.28f, paint)
             
             // Indicateur de rythme en temps réel pendant la préparation
             paint.color = Color.parseColor("#FF6600")
             paint.textSize = 32f
-            canvas.drawText("TESTEZ VOTRE RYTHME:", w/2f, h * 0.36f, paint)
+            canvas.drawText("TESTEZ VOTRE RYTHME:", w.toFloat()/2f, h.toFloat() * 0.36f, paint)
             
             // Bande de test pendant la préparation
             drawPerformanceBand(canvas, w, h * 0.42f, w * 0.6f, 30f, true)
@@ -535,7 +535,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             val countdown = (preparationDuration - phaseTimer).toInt() + 1
             paint.textSize = 60f
             paint.color = Color.RED
-            canvas.drawText("DÉBUT DANS ${countdown}s", w/2f, h * 0.55f, paint)
+            canvas.drawText("DÉBUT DANS ${countdown}s", w.toFloat()/2f, h.toFloat() * 0.55f, paint)
         }
         
         private fun drawCountdown(canvas: Canvas, w: Int, h: Int) {
@@ -547,7 +547,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             paint.textAlign = Paint.Align.CENTER
             
             val countText = if (count > 0) count.toString() else "GO!"
-            canvas.drawText(countText, w/2f, h/2f, paint)
+            canvas.drawText(countText, w.toFloat()/2f, h.toFloat()/2f, paint)
         }
         
         private fun drawRace(canvas: Canvas, w: Int, h: Int) {
