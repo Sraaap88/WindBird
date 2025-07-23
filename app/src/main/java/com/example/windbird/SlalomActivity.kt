@@ -24,29 +24,35 @@ class SlalomActivity : Activity(), SensorEventListener {
     private var sensorManager: SensorManager? = null
     private var gyroscope: Sensor? = null
 
-    // Variables de gameplay SLALOM - RALLENTI
+    // Variables de gameplay SLALOM
     private var gameState = GameState.PREPARATION
     private var phaseTimer = 0f
     
-    // Phases avec durées TRÈS réalistes
-    private val preparationDuration = 8f // AUGMENTÉ de 4f
-    private val raceDuration = 40f // AUGMENTÉ de 25f
-    private val resultsDuration = 8f // AUGMENTÉ de 5f
+    // Phases avec durées réalistes
+    private val preparationDuration = 8f
+    private val raceDuration = 40f
+    private val resultsDuration = 8f
     
     // Variables de course
     private var speed = 0f
-    private var maxSpeed = 50f // RÉDUIT de 65 km/h à 50 km/h
+    private var maxSpeed = 55f // Zone rouge à partir de 50
     private var skierX = 0.5f // Position horizontale (0.0 = gauche, 1.0 = droite)
     private var distance = 0f
     private var totalDistance = 1400f
     private var raceTime = 0f
     
-    // Contrôles gyroscope - MOINS SENSIBLE
+    // Contrôles gyroscope - LÉGERS AJUSTEMENTS
     private var tiltX = 0f
     private var tiltY = 0f
     private var tiltZ = 0f
     
-    // Système de portes de slalom
+    // NOUVEAU - Système de carving/dérapage
+    private var carvingQuality = 1f // 1.0 = parfait carving, 0.0 = pur dérapage
+    private var lastTurnAngle = 0f
+    private var turnSmoothness = 1f
+    private var gForce = 0f // Intensité du virage
+    
+    // Système de portes de slalom AMÉLIORÉ
     private val gates = mutableListOf<SlalomGate>()
     private var nextGateIndex = 0
     private var gatesPassed = 0
@@ -54,11 +60,19 @@ class SlalomActivity : Activity(), SensorEventListener {
     private var perfectGates = 0
     private var timePenalty = 0f
     
+    // NOUVEAU - Ligne fantôme (trajectoire optimale)
+    private val optimalPath = mutableListOf<PathPoint>()
+    private var showGhostLine = true
+    
     // Performance et style
     private var technique = 100f
     private var rhythm = 0f
     private var lastTurn = 0L
     private var consecutivePerfectTurns = 0
+    
+    // NOUVEAU - Bonus/malus de carving
+    private var carvingBonus = 0f
+    private var carvingBonusTimer = 0f
     
     // Effets visuels
     private var cameraShake = 0f
@@ -94,9 +108,9 @@ class SlalomActivity : Activity(), SensorEventListener {
         statusText = TextView(this).apply {
             text = "⛷️ SLALOM - ${tournamentData.playerNames[currentPlayerIndex]}"
             setTextColor(Color.WHITE)
-            textSize = 22f // AUGMENTÉ de 18f
+            textSize = 22f
             setBackgroundColor(Color.parseColor("#000033"))
-            setPadding(25, 20, 25, 20) // AUGMENTÉ
+            setPadding(25, 20, 25, 20)
         }
 
         gameView = SlalomView(this)
@@ -132,33 +146,69 @@ class SlalomActivity : Activity(), SensorEventListener {
         scoreCalculated = false
         lastTrailTime = 0L
         
+        // NOUVEAU - Variables de carving
+        carvingQuality = 1f
+        lastTurnAngle = 0f
+        turnSmoothness = 1f
+        gForce = 0f
+        carvingBonus = 0f
+        carvingBonusTimer = 0f
+        
         gates.clear()
         snowSpray.clear()
         skiTrails.clear()
+        optimalPath.clear()
         
         generateSlalomCourse()
+        generateOptimalPath()
     }
     
     private fun generateSlalomCourse() {
-        // Générer un parcours de slalom avec 25 portes (nombre réduit)
+        // Générer un parcours de slalom avec COULEURS ALTERNÉES
         var currentDistance = 120f
         var currentSide = true // true = droite, false = gauche
         
-        repeat(25) { i -> // 25 portes au lieu de 28
+        repeat(25) { i ->
             val gateX = if (currentSide) 0.7f else 0.3f
-            val gateType = if (currentSide) SlalomGate.Type.RED else SlalomGate.Type.BLUE
+            val gateType = if (i % 2 == 0) SlalomGate.Type.RED else SlalomGate.Type.BLUE // ALTERNANCE
             
             gates.add(SlalomGate(
                 x = gateX,
                 distance = currentDistance,
                 type = gateType,
                 number = i + 1,
-                passed = false
+                passed = false,
+                side = if (currentSide) "DROITE" else "GAUCHE" // NOUVEAU
             ))
             
-            currentDistance += 55f + kotlin.random.Random.nextFloat() * 10f // AUGMENTÉ l'espacement
+            currentDistance += 55f + kotlin.random.Random.nextFloat() * 10f
             currentSide = !currentSide
         }
+    }
+    
+    // NOUVEAU - Génération de la ligne fantôme
+    private fun generateOptimalPath() {
+        optimalPath.clear()
+        
+        // Créer une trajectoire optimale entre les portes
+        for (i in 0 until gates.size - 1) {
+            val currentGate = gates[i]
+            val nextGate = gates[i + 1]
+            
+            // Points intermédiaires pour une courbe lisse
+            val steps = 10
+            for (j in 0..steps) {
+                val t = j.toFloat() / steps
+                val x = lerp(currentGate.x, nextGate.x, t)
+                val distance = lerp(currentGate.distance, nextGate.distance, t)
+                
+                optimalPath.add(PathPoint(x, distance))
+            }
+        }
+    }
+    
+    private fun lerp(start: Float, end: Float, t: Float): Float {
+        return start + (end - start) * t
     }
 
     override fun onResume() {
@@ -178,8 +228,8 @@ class SlalomActivity : Activity(), SensorEventListener {
         tiltY = event.values[1]
         tiltZ = event.values[2]
 
-        // Progression du jeu - PLUS LENT
-        phaseTimer += 0.025f // RÉDUIT de 0.05f
+        // Progression du jeu
+        phaseTimer += 0.025f
         if (gameState == GameState.RACE) {
             raceTime += 0.025f
         }
@@ -200,7 +250,7 @@ class SlalomActivity : Activity(), SensorEventListener {
         if (phaseTimer >= preparationDuration) {
             gameState = GameState.RACE
             phaseTimer = 0f
-            speed = 20f // VITESSE DE DÉPART PLUS LENTE
+            speed = 20f
         }
     }
     
@@ -217,6 +267,9 @@ class SlalomActivity : Activity(), SensorEventListener {
         // Gestion de la technique et du rythme
         updateTechnique()
         
+        // NOUVEAU - Mise à jour du carving
+        updateCarving()
+        
         // Fin de course
         if (distance >= totalDistance) {
             calculateFinalScore()
@@ -226,47 +279,52 @@ class SlalomActivity : Activity(), SensorEventListener {
     }
     
     private fun handleSkierMovement() {
-        // Mouvement latéral basé sur l'inclinaison gauche/droite - MOINS SENSIBLE
-        val steeringInput = tiltX * 0.5f // RÉDUIT de 0.8f
-        skierX += steeringInput * 0.008f // RÉDUIT de 0.015f
+        // Mouvement latéral basé sur l'inclinaison gauche/droite - CONTRÔLES LÉGERS
+        val steeringInput = tiltX * 0.6f // Légèrement plus réactif
+        val previousX = skierX
+        skierX += steeringInput * 0.01f // Légèrement plus fluide
         skierX = skierX.coerceIn(0.1f, 0.9f)
         
-        // Vitesse basée sur l'inclinaison avant/arrière - MOINS SENSIBLE
+        // NOUVEAU - Calcul de la G-Force pour les virages
+        val turnRate = abs(skierX - previousX)
+        gForce = turnRate * speed * 2f // Plus on va vite, plus les virages sont intenses
+        
+        // Vitesse basée sur l'inclinaison avant/arrière - CONTRÔLES LÉGERS
         when {
-            tiltY < -0.5f -> { // AUGMENTÉ de -0.3f
+            tiltY < -0.4f -> { // Légèrement plus sensible
                 // Incliner vers l'avant = accélération
-                speed += 1f // RÉDUIT de 1.5f
-                technique += 0.01f // RÉDUIT de 0.02f
+                speed += 1.2f // Légèrement plus réactif
+                technique += 0.015f
             }
-            tiltY > 0.5f -> { // AUGMENTÉ de 0.3f
+            tiltY > 0.4f -> { // Légèrement plus sensible
                 // Incliner vers l'arrière = freinage
-                speed -= 0.8f // RÉDUIT de 1.2f
-                technique -= 0.005f // RÉDUIT de 0.01f
+                speed -= 1f // Légèrement plus réactif
+                technique -= 0.008f
             }
             else -> {
                 // Position neutre = maintien vitesse
-                speed += 0.1f // RÉDUIT de 0.2f
+                speed += 0.15f
             }
         }
         
-        // Limites de vitesse
-        speed = speed.coerceIn(15f, maxSpeed) // VITESSE MIN AUGMENTÉE
+        // Limites de vitesse avec ZONE ROUGE
+        speed = speed.coerceIn(15f, maxSpeed)
         
-        // Pénalité pour mouvement excessif - MOINS SENSIBLE
-        if (abs(steeringInput) > 1.5f) { // AUGMENTÉ de 1.2f
-            speed *= 0.99f // RÉDUIT de 0.98f
-            technique -= 0.03f // RÉDUIT de 0.05f
+        // Pénalité pour mouvement excessif
+        if (abs(steeringInput) > 1.5f) {
+            speed *= 0.99f
+            technique -= 0.03f
         }
         
-        // Bonus de stabilité - MOINS SENSIBLE
-        if (abs(tiltZ) < 0.3f) { // AUGMENTÉ de 0.2f
-            technique += 0.005f // RÉDUIT de 0.01f
+        // Bonus de stabilité
+        if (abs(tiltZ) < 0.3f) {
+            technique += 0.005f
         }
         
         technique = technique.coerceIn(60f, 120f)
         
         // Génération d'effets selon la vitesse
-        if (speed > 35f) { // AUGMENTÉ de 50f
+        if (speed > 35f) {
             generateSnowSpray()
         }
         
@@ -274,13 +332,49 @@ class SlalomActivity : Activity(), SensorEventListener {
         addSkiTrail()
     }
     
+    // NOUVEAU - Système de carving
+    private fun updateCarving() {
+        val turnAngle = tiltX
+        val angleChange = abs(turnAngle - lastTurnAngle)
+        
+        // Calculer la qualité du carving
+        // Bon carving = changements d'angle fluides et progressifs
+        if (angleChange < 0.5f) {
+            // Virage fluide
+            turnSmoothness = min(1f, turnSmoothness + 0.02f)
+            carvingQuality = min(1f, carvingQuality + 0.01f)
+        } else {
+            // Virage brusque = dérapage
+            turnSmoothness = max(0f, turnSmoothness - 0.05f)
+            carvingQuality = max(0f, carvingQuality - 0.03f)
+        }
+        
+        // Bonus/malus basé sur le carving
+        if (carvingQuality > 0.8f && gForce > 1f) {
+            // Excellent carving dans un virage intense
+            carvingBonus += 0.5f
+            carvingBonusTimer = 60f // 60 frames d'affichage
+            speed += 0.3f // Bonus de vitesse
+        } else if (carvingQuality < 0.3f) {
+            // Dérapage = perte de vitesse
+            speed *= 0.98f
+        }
+        
+        // Réduction du timer du bonus
+        if (carvingBonusTimer > 0f) {
+            carvingBonusTimer -= 1f
+        }
+        
+        lastTurnAngle = turnAngle
+    }
+    
     private fun updateRaceProgress() {
-        // Progression basée sur la vitesse - PLUS LENT
-        distance += speed * 0.06f // RÉDUIT de 0.10f
+        // Progression basée sur la vitesse
+        distance += speed * 0.06f
         
         // Effets de caméra selon la vitesse
-        if (speed > 45f) { // AUGMENTÉ de 60f
-            cameraShake = 0.15f // RÉDUIT de 0.2f
+        if (speed > 45f) {
+            cameraShake = 0.15f
         }
     }
     
@@ -291,16 +385,16 @@ class SlalomActivity : Activity(), SensorEventListener {
         val gateDistance = currentGate.distance
         
         // Vérifier si on approche de la porte
-        if (distance >= gateDistance - 30f && distance <= gateDistance + 30f) { // ZONE ÉLARGIE
+        if (distance >= gateDistance - 30f && distance <= gateDistance + 30f) {
             val distanceToGate = abs(skierX - currentGate.x)
             
-            if (distanceToGate < 0.2f && !currentGate.passed) { // ZONE ÉLARGIE de 0.15f
+            if (distanceToGate < 0.2f && !currentGate.passed) {
                 // Porte passée correctement !
                 currentGate.passed = true
                 gatesPassed++
                 
                 // Évaluation de la précision
-                if (distanceToGate < 0.1f) { // ZONE ÉLARGIE de 0.08f
+                if (distanceToGate < 0.1f) {
                     perfectGates++
                     consecutivePerfectTurns++
                     generatePerfectGateEffect()
@@ -315,27 +409,27 @@ class SlalomActivity : Activity(), SensorEventListener {
                 // Porte manquée !
                 gatesMissed++
                 timePenalty += 2f
-                speed *= 0.85f // MOINS DE PÉNALITÉ de 0.8f
+                speed *= 0.85f
                 consecutivePerfectTurns = 0
                 nextGateIndex++
                 
-                cameraShake = 0.4f // RÉDUIT de 0.5f
+                cameraShake = 0.4f
             }
         }
     }
     
     private fun updateTechnique() {
-        // Dégradation naturelle de la technique - PLUS LENTE
-        technique -= 0.005f // RÉDUIT de 0.008f
+        // Dégradation naturelle de la technique
+        technique -= 0.005f
         
         // Bonus pour vitesse optimale
-        if (speed > 30f && speed < 45f) { // ADAPTÉ aux nouvelles vitesses
-            technique += 0.015f // RÉDUIT de 0.02f
+        if (speed > 30f && speed < 45f) {
+            technique += 0.015f
         }
         
         // Bonus pour enchaînement parfait
         if (consecutivePerfectTurns > 3) {
-            technique += 0.03f // RÉDUIT de 0.05f
+            technique += 0.03f
         }
     }
     
@@ -344,7 +438,7 @@ class SlalomActivity : Activity(), SensorEventListener {
         val timeSinceLastTurn = currentTime - lastTurn
         
         if (lastTurn > 0) {
-            val idealInterval = 3000L // AUGMENTÉ de 2500L - Temps idéal entre portes
+            val idealInterval = 3000L
             val rhythmAccuracy = 1f - abs(timeSinceLastTurn - idealInterval) / idealInterval.toFloat()
             rhythm = (rhythm * 0.7f + rhythmAccuracy.coerceIn(0f, 1f) * 0.3f)
         }
@@ -353,24 +447,24 @@ class SlalomActivity : Activity(), SensorEventListener {
     }
     
     private fun generateSnowSpray() {
-        repeat(2) { // RÉDUIT de 3
+        repeat(2) {
             snowSpray.add(SnowParticle(
                 x = kotlin.random.Random.nextFloat() * 800f + 100f,
                 y = kotlin.random.Random.nextFloat() * 600f + 400f,
-                vx = (kotlin.random.Random.nextFloat() - 0.5f) * 4f, // RÉDUIT de 6f
-                vy = kotlin.random.Random.nextFloat() * -3f - 1f, // RÉDUIT de -4f -2f
+                vx = (kotlin.random.Random.nextFloat() - 0.5f) * 4f,
+                vy = kotlin.random.Random.nextFloat() * -3f - 1f,
                 life = 1f
             ))
         }
     }
     
     private fun generatePerfectGateEffect() {
-        repeat(6) { // RÉDUIT de 8
+        repeat(6) {
             snowSpray.add(SnowParticle(
                 x = kotlin.random.Random.nextFloat() * 200f + 300f,
                 y = kotlin.random.Random.nextFloat() * 100f + 300f,
-                vx = (kotlin.random.Random.nextFloat() - 0.5f) * 6f, // RÉDUIT de 8f
-                vy = kotlin.random.Random.nextFloat() * -4f - 2f, // RÉDUIT de -6f -3f
+                vx = (kotlin.random.Random.nextFloat() - 0.5f) * 6f,
+                vy = kotlin.random.Random.nextFloat() * -4f - 2f,
                 life = 1.5f
             ))
         }
@@ -378,7 +472,7 @@ class SlalomActivity : Activity(), SensorEventListener {
     
     private fun addSkiTrail() {
         val currentTime = System.currentTimeMillis()
-        if (currentTime - lastTrailTime > 80) { // AUGMENTÉ de 50
+        if (currentTime - lastTrailTime > 80) {
             skiTrails.add(SkiTrail(
                 x = kotlin.random.Random.nextFloat() * 800f + 100f,
                 y = kotlin.random.Random.nextFloat() * 600f + 200f,
@@ -393,15 +487,15 @@ class SlalomActivity : Activity(), SensorEventListener {
         snowSpray.removeAll { particle ->
             particle.x += particle.vx
             particle.y += particle.vy
-            particle.life -= 0.015f // RÉDUIT de 0.02f
+            particle.life -= 0.015f
             particle.life <= 0f || particle.y > 1000f
         }
         
         // Mise à jour des traces de ski
         val currentTime = System.currentTimeMillis()
-        skiTrails.removeAll { currentTime - it.timestamp > 4000 } // AUGMENTÉ de 3000
+        skiTrails.removeAll { currentTime - it.timestamp > 4000 }
         
-        cameraShake = maxOf(0f, cameraShake - 0.02f) // RÉDUIT de 0.03f
+        cameraShake = maxOf(0f, cameraShake - 0.02f)
     }
     
     private fun handleResults() {
@@ -420,15 +514,17 @@ class SlalomActivity : Activity(), SensorEventListener {
     
     private fun calculateFinalScore() {
         if (!scoreCalculated) {
-            val timeBonus = maxOf(0, 150 - raceTime.toInt()) * 2 // AUGMENTÉ de 100
+            val timeBonus = maxOf(0, 150 - raceTime.toInt()) * 2
             val speedBonus = (speed / maxSpeed * 40).toInt()
             val gatesBonus = gatesPassed * 15
             val perfectBonus = perfectGates * 25
             val techniqueBonus = ((technique - 100f) * 2).toInt()
             val rhythmBonus = (rhythm * 30).toInt()
+            val carvingBonusPoints = (carvingBonus * 5).toInt() // NOUVEAU
             val penalty = (gatesMissed * 30) + (timePenalty * 10).toInt()
             
-            finalScore = maxOf(50, timeBonus + speedBonus + gatesBonus + perfectBonus + techniqueBonus + rhythmBonus - penalty)
+            finalScore = maxOf(50, timeBonus + speedBonus + gatesBonus + perfectBonus + 
+                             techniqueBonus + rhythmBonus + carvingBonusPoints - penalty)
             scoreCalculated = true
         }
     }
@@ -488,7 +584,7 @@ class SlalomActivity : Activity(), SensorEventListener {
     private fun updateStatus() {
         statusText.text = when (gameState) {
             GameState.PREPARATION -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Préparation... ${(preparationDuration - phaseTimer).toInt() + 1}s"
-            GameState.RACE -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Portes: $gatesPassed/25 | ${speed.toInt()} km/h | Parfaites: $perfectGates"
+            GameState.RACE -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Portes: $gatesPassed/25 | ${speed.toInt()} km/h | Carving: ${(carvingQuality * 100).toInt()}%"
             GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | Temps: ${raceTime.toInt()}s | Score: ${finalScore}"
             GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Course terminée!"
         }
@@ -552,28 +648,28 @@ class SlalomActivity : Activity(), SensorEventListener {
             pistePath.close()
             canvas.drawPath(pistePath, paint)
             
-            // Aperçu des portes de slalom - PLUS GROSSES
+            // Aperçu des portes de slalom AVEC COULEURS ALTERNÉES
             paint.color = Color.RED
-            canvas.drawRect(w * 0.6f, h * 0.2f, w * 0.64f, h * 0.35f, paint) // PLUS LARGE
+            canvas.drawRect(w * 0.6f, h * 0.2f, w * 0.64f, h * 0.35f, paint)
             paint.color = Color.BLUE
             canvas.drawRect(w * 0.36f, h * 0.4f, w * 0.4f, h * 0.55f, paint)
             paint.color = Color.RED
             canvas.drawRect(w * 0.65f, h * 0.6f, w * 0.69f, h * 0.75f, paint)
             
-            // Instructions - TEXTE PLUS GROS
+            // Instructions
             paint.color = Color.parseColor("#000033")
-            paint.textSize = 44f // AUGMENTÉ de 32f
+            paint.textSize = 44f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("⛷️ SLALOM GÉANT ⛷️", w/2f, h * 0.15f, paint)
             
-            paint.textSize = 28f // AUGMENTÉ de 20f
+            paint.textSize = 28f
             paint.color = Color.parseColor("#0066CC")
-            canvas.drawText("Préparez-vous pour la descente...", w/2f, h * 0.8f, paint)
+            canvas.drawText("Suivez la ligne fantôme pour la trajectoire optimale", w/2f, h * 0.8f, paint)
             
-            paint.textSize = 22f // AUGMENTÉ de 16f
+            paint.textSize = 22f
             paint.color = Color.parseColor("#666666")
-            canvas.drawText("📱 Inclinez gauche/droite pour tourner", w/2f, h * 0.85f, paint)
-            canvas.drawText("📱 Inclinez avant/arrière pour vitesse", w/2f, h * 0.9f, paint)
+            canvas.drawText("📱 Tournez comme un volant", w/2f, h * 0.85f, paint)
+            canvas.drawText("📱 Avant/arrière pour vitesse", w/2f, h * 0.9f, paint)
         }
         
         private fun drawRace(canvas: Canvas, w: Int, h: Int) {
@@ -584,7 +680,10 @@ class SlalomActivity : Activity(), SensorEventListener {
             // Piste avec perspective dynamique
             drawSlopePerspective(canvas, w, h)
             
-            // Portes de slalom
+            // NOUVEAU - Ligne fantôme
+            drawOptimalPath(canvas, w, h)
+            
+            // Portes de slalom AMÉLIORÉES
             drawSlalomGates(canvas, w, h)
             
             // Skieur
@@ -593,25 +692,123 @@ class SlalomActivity : Activity(), SensorEventListener {
             // Traces et effets
             drawSkiTrails(canvas, w, h)
             
-            // Interface de course
+            // Interface de course AMÉLIORÉE
             drawRaceInterface(canvas, w, h)
             
-            // Instructions en temps réel - TEXTE PLUS GROS
-            paint.color = Color.parseColor("#000033")
-            paint.textSize = 24f // AUGMENTÉ de 18f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("📱 INCLINEZ POUR ZIGZAGUER ENTRE LES PORTES", w/2f, 50f, paint)
+            // NOUVEAU - Barre de carving et flèche directionnelle
+            drawCarvingIndicator(canvas, w, h)
+            drawDirectionalArrow(canvas, w, h)
             
-            // Indication de direction pour la prochaine porte - TEXTE PLUS GROS
-            if (nextGateIndex < gates.size) {
-                val nextGate = gates[nextGateIndex]
-                val direction = if (nextGate.x > 0.5f) "DROITE →" else "← GAUCHE"
-                val gateColor = if (nextGate.type == SlalomGate.Type.RED) Color.RED else Color.BLUE
-                
-                paint.color = gateColor
-                paint.textSize = 32f // AUGMENTÉ de 24f
-                canvas.drawText("PROCHAINE: $direction", w/2f, h - 40f, paint)
+            // Bonus de carving
+            if (carvingBonusTimer > 0f) {
+                paint.color = Color.parseColor("#FFD700")
+                paint.textSize = 32f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("🏆 CARVING PARFAIT! 🏆", w/2f, h * 0.3f, paint)
             }
+        }
+        
+        // NOUVEAU - Ligne fantôme
+        private fun drawOptimalPath(canvas: Canvas, w: Int, h: Int) {
+            if (!showGhostLine) return
+            
+            paint.color = Color.parseColor("#88FFFF00") // Jaune transparent
+            paint.strokeWidth = 8f
+            paint.style = Paint.Style.STROKE
+            
+            var lastScreenX = 0f
+            var lastScreenY = 0f
+            
+            for (i in optimalPath.indices) {
+                val point = optimalPath[i]
+                val pointDistance = point.distance - distance
+                
+                if (pointDistance > -50f && pointDistance < 300f) {
+                    val screenY = h * 0.2f + (pointDistance * 1f)
+                    val screenX = w * point.x
+                    
+                    if (i > 0 && lastScreenY > 0) {
+                        canvas.drawLine(lastScreenX, lastScreenY, screenX, screenY, paint)
+                    }
+                    
+                    lastScreenX = screenX
+                    lastScreenY = screenY
+                }
+            }
+            
+            paint.style = Paint.Style.FILL
+        }
+        
+        // NOUVEAU - Indicateur de carving
+        private fun drawCarvingIndicator(canvas: Canvas, w: Int, h: Int) {
+            val barX = w - 200f
+            val barY = h - 300f
+            val barWidth = 30f
+            val barHeight = 120f
+            
+            // Fond de la barre
+            paint.color = Color.parseColor("#333333")
+            canvas.drawRect(barX, barY, barX + barWidth, barY + barHeight, paint)
+            
+            // Niveau de carving
+            val carvingLevel = carvingQuality * barHeight
+            val carvingColor = when {
+                carvingQuality > 0.8f -> Color.parseColor("#00FF00") // Vert
+                carvingQuality > 0.5f -> Color.parseColor("#FFFF00") // Jaune
+                else -> Color.parseColor("#FF0000") // Rouge
+            }
+            
+            paint.color = carvingColor
+            canvas.drawRect(barX, barY + barHeight - carvingLevel, 
+                           barX + barWidth, barY + barHeight, paint)
+            
+            // Label
+            paint.color = Color.WHITE
+            paint.textSize = 16f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("CARVING", barX + barWidth/2f, barY - 10f, paint)
+            
+            // Zones
+            paint.color = Color.WHITE
+            paint.strokeWidth = 1f
+            paint.style = Paint.Style.STROKE
+            canvas.drawLine(barX, barY + barHeight * 0.2f, barX + barWidth, barY + barHeight * 0.2f, paint) // Zone verte
+            canvas.drawLine(barX, barY + barHeight * 0.5f, barX + barWidth, barY + barHeight * 0.5f, paint) // Zone jaune
+            paint.style = Paint.Style.FILL
+        }
+        
+        // NOUVEAU - Flèche directionnelle
+        private fun drawDirectionalArrow(canvas: Canvas, w: Int, h: Int) {
+            if (nextGateIndex >= gates.size) return
+            
+            val nextGate = gates[nextGateIndex]
+            val direction = if (nextGate.x > skierX) 1f else -1f
+            val arrowX = w/2f + direction * 100f
+            val arrowY = h * 0.4f
+            
+            // Couleur selon l'approche
+            val approachQuality = 1f - abs(skierX - nextGate.x) * 2f
+            val arrowColor = when {
+                approachQuality > 0.7f -> Color.parseColor("#00FF00")
+                approachQuality > 0.4f -> Color.parseColor("#FFFF00")
+                else -> Color.parseColor("#FF0000")
+            }
+            
+            paint.color = arrowColor
+            
+            // Dessiner la flèche
+            val arrowPath = Path()
+            arrowPath.moveTo(arrowX, arrowY - 20f)
+            arrowPath.lineTo(arrowX + direction * 30f, arrowY)
+            arrowPath.lineTo(arrowX, arrowY + 20f)
+            arrowPath.lineTo(arrowX + direction * 10f, arrowY)
+            arrowPath.close()
+            canvas.drawPath(arrowPath, paint)
+            
+            // Texte d'indication
+            paint.textSize = 18f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("PORTE ${nextGate.number}", arrowX, arrowY + 50f, paint)
         }
         
         private fun drawResults(canvas: Canvas, w: Int, h: Int) {
@@ -623,28 +820,29 @@ class SlalomActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#FFD700")
             canvas.drawRect(0f, 0f, w.toFloat(), h * 0.4f, paint)
             
-            // Score final énorme - TEXTE PLUS GROS
+            // Score final énorme
             paint.color = Color.parseColor("#000033")
-            paint.textSize = 80f // AUGMENTÉ de 64f
+            paint.textSize = 80f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("${finalScore}", w/2f, h * 0.2f, paint)
             
-            paint.textSize = 32f // AUGMENTÉ de 24f
+            paint.textSize = 32f
             canvas.drawText("POINTS", w/2f, h * 0.3f, paint)
             
-            // Détails de performance - TEXTE PLUS GROS
+            // Détails de performance
             paint.color = Color.parseColor("#333333")
-            paint.textSize = 24f // AUGMENTÉ de 18f
+            paint.textSize = 24f
             canvas.drawText("⏱️ Temps: ${raceTime.toInt()}s", w/2f, h * 0.5f, paint)
             canvas.drawText("🚪 Portes passées: $gatesPassed/25", w/2f, h * 0.55f, paint)
             canvas.drawText("⭐ Portes parfaites: $perfectGates", w/2f, h * 0.6f, paint)
             canvas.drawText("❌ Portes manquées: $gatesMissed", w/2f, h * 0.65f, paint)
             canvas.drawText("⚡ Vitesse max: ${speed.toInt()} km/h", w/2f, h * 0.7f, paint)
-            canvas.drawText("🎯 Technique: ${technique.toInt()}%", w/2f, h * 0.75f, paint)
+            canvas.drawText("🏂 Carving: ${(carvingQuality * 100).toInt()}%", w/2f, h * 0.75f, paint)
+            canvas.drawText("🏆 Bonus carving: ${carvingBonus.toInt()}", w/2f, h * 0.8f, paint)
             
             if (timePenalty > 0f) {
                 paint.color = Color.RED
-                canvas.drawText("⏰ Pénalité: +${timePenalty.toInt()}s", w/2f, h * 0.8f, paint)
+                canvas.drawText("⏰ Pénalité: +${timePenalty.toInt()}s", w/2f, h * 0.85f, paint)
             }
         }
         
@@ -652,7 +850,7 @@ class SlalomActivity : Activity(), SensorEventListener {
             // Piste en perspective avec effet de vitesse
             paint.color = Color.WHITE
             val slopeWidth = w * 0.6f
-            val perspectiveOffset = speed * 0.4f // RÉDUIT de 0.8f
+            val perspectiveOffset = speed * 0.4f
             
             val slopePath = Path()
             slopePath.moveTo((w - slopeWidth) / 2f - perspectiveOffset, 0f)
@@ -662,13 +860,13 @@ class SlalomActivity : Activity(), SensorEventListener {
             slopePath.close()
             canvas.drawPath(slopePath, paint)
             
-            // Lignes de perspective pour effet de vitesse - PLUS LENTES
+            // Lignes de perspective pour effet de vitesse
             paint.color = Color.parseColor("#EEEEEE")
             paint.strokeWidth = 2f
             paint.style = Paint.Style.STROKE
             
             for (i in 1..4) {
-                val lineY = (i * h / 5f + (distance * 1f) % (h / 5f)) // RÉDUIT de 2f
+                val lineY = (i * h / 5f + (distance * 1f) % (h / 5f))
                 val lineLeft = w * 0.15f + (i * 0.1f * w)
                 val lineRight = w * 0.85f - (i * 0.1f * w)
                 canvas.drawLine(lineLeft, lineY, lineRight, lineY, paint)
@@ -678,55 +876,53 @@ class SlalomActivity : Activity(), SensorEventListener {
         }
         
         private fun drawSlalomGates(canvas: Canvas, w: Int, h: Int) {
-            // Dessiner les portes visibles
+            // Dessiner les portes visibles AVEC AMÉLIORATIONS
             for (gate in gates) {
                 val gateScreenDistance = gate.distance - distance
                 
                 // Seulement dessiner les portes proches
-                if (gateScreenDistance > -50f && gateScreenDistance < 500f) { // ZONE ÉLARGIE
-                    val screenY = h * 0.2f + (gateScreenDistance * 1f) // RÉDUIT de 1.5f
-                    val perspectiveFactor = 1f - (gateScreenDistance / 500f) // ADAPTÉ
-                    val gateWidth = 20f * perspectiveFactor.coerceIn(0.3f, 1f) // PLUS LARGE de 15f
-                    val gateHeight = 100f * perspectiveFactor.coerceIn(0.3f, 1f) // PLUS HAUT de 80f
+                if (gateScreenDistance > -50f && gateScreenDistance < 500f) {
+                    val screenY = h * 0.2f + (gateScreenDistance * 1f)
+                    val perspectiveFactor = 1f - (gateScreenDistance / 500f)
+                    val gateWidth = 20f * perspectiveFactor.coerceIn(0.3f, 1f)
+                    val gateHeight = 100f * perspectiveFactor.coerceIn(0.3f, 1f)
                     
-                    // Position X basée sur la perspective
                     val screenX = w * gate.x
                     
-                    // Couleur de la porte
-                    paint.color = if (gate.type == SlalomGate.Type.RED) Color.RED else Color.BLUE
+                    // COULEURS ALTERNÉES plus contrastées
+                    paint.color = if (gate.type == SlalomGate.Type.RED) 
+                        Color.parseColor("#FF0000") else Color.parseColor("#0044FF")
                     
-                    // Dessiner le piquet - PLUS GROS
+                    // Dessiner le piquet
                     canvas.drawRect(
                         screenX - gateWidth/2, screenY,
                         screenX + gateWidth/2, screenY + gateHeight,
                         paint
                     )
                     
-                    // Numéro de porte - TEXTE PLUS GROS
+                    // NOUVEAU - Zone de passage visible
+                    if (gate == gates.getOrNull(nextGateIndex)) {
+                        paint.color = Color.parseColor("#44FFFFFF")
+                        canvas.drawCircle(screenX, screenY + gateHeight/2, 60f, paint)
+                    }
+                    
+                    // NOUVEAU - Flèche directionnelle sur la porte
                     if (perspectiveFactor > 0.6f) {
                         paint.color = Color.WHITE
-                        paint.textSize = 20f * perspectiveFactor // AUGMENTÉ de 16f
+                        val arrowDirection = if (gate.side == "DROITE") "→" else "←"
+                        paint.textSize = 24f * perspectiveFactor
                         paint.textAlign = Paint.Align.CENTER
+                        canvas.drawText(arrowDirection, screenX, screenY - 10f, paint)
+                        
+                        // Numéro de porte
+                        paint.textSize = 20f * perspectiveFactor
                         canvas.drawText("${gate.number}", screenX, screenY + gateHeight/2 + 8f, paint)
                     }
                     
                     // Effet spécial pour porte passée
                     if (gate.passed) {
                         paint.color = Color.parseColor("#44FFFF00")
-                        canvas.drawCircle(screenX, screenY + gateHeight/2, gateHeight/2 + 15f, paint) // PLUS GROS
-                    }
-                    
-                    // Surbrillance pour prochaine porte
-                    if (gate == gates.getOrNull(nextGateIndex)) {
-                        paint.color = Color.parseColor("#44FFFFFF")
-                        paint.strokeWidth = 6f // PLUS ÉPAIS de 4f
-                        paint.style = Paint.Style.STROKE
-                        canvas.drawRect(
-                            screenX - gateWidth/2 - 8f, screenY - 8f,
-                            screenX + gateWidth/2 + 8f, screenY + gateHeight + 8f,
-                            paint
-                        )
-                        paint.style = Paint.Style.FILL
+                        canvas.drawCircle(screenX, screenY + gateHeight/2, gateHeight/2 + 15f, paint)
                     }
                 }
             }
@@ -736,26 +932,26 @@ class SlalomActivity : Activity(), SensorEventListener {
             val skierScreenX = skierX * w
             val skierScreenY = h * 0.75f
             
-            // Corps du skieur - PLUS GROS
+            // Corps du skieur
             paint.color = Color.parseColor("#FF6600")
-            canvas.drawCircle(skierScreenX, skierScreenY, 25f, paint) // AUGMENTÉ de 20f
+            canvas.drawCircle(skierScreenX, skierScreenY, 25f, paint)
             
-            // Skis avec angle selon l'inclinaison - PLUS GROS
+            // Skis avec angle selon l'inclinaison
             paint.color = Color.YELLOW
-            paint.strokeWidth = 10f // AUGMENTÉ de 8f
+            paint.strokeWidth = 10f
             paint.style = Paint.Style.STROKE
             
             canvas.save()
             canvas.translate(skierScreenX, skierScreenY)
-            canvas.rotate(tiltX * 20f) // RÉDUIT de 30f - Rotation moins intense
+            canvas.rotate(tiltX * 20f)
             
             // Skis
-            canvas.drawLine(-20f, 30f, -20f, 55f, paint) // PLUS LONG
+            canvas.drawLine(-20f, 30f, -20f, 55f, paint)
             canvas.drawLine(20f, 30f, 20f, 55f, paint)
             
-            // Bâtons - PLUS GROS
+            // Bâtons
             paint.color = Color.parseColor("#8B4513")
-            paint.strokeWidth = 6f // AUGMENTÉ de 4f
+            paint.strokeWidth = 6f
             canvas.drawLine(-30f, -15f, -40f, 25f, paint)
             canvas.drawLine(30f, -15f, 40f, 25f, paint)
             
@@ -763,10 +959,10 @@ class SlalomActivity : Activity(), SensorEventListener {
             paint.style = Paint.Style.FILL
             
             // Effet de vitesse derrière le skieur
-            if (speed > 30f) { // ADAPTÉ
+            if (speed > 30f) {
                 paint.color = Color.parseColor("#66FFFFFF")
                 for (i in 1..3) {
-                    canvas.drawCircle(skierScreenX, skierScreenY + i * 20f, 20f - i * 4f, paint) // PLUS GROS
+                    canvas.drawCircle(skierScreenX, skierScreenY + i * 20f, 20f - i * 4f, paint)
                 }
             }
         }
@@ -777,22 +973,22 @@ class SlalomActivity : Activity(), SensorEventListener {
             val currentTime = System.currentTimeMillis()
             
             for (trail in skiTrails) {
-                val alpha = ((4000 - (currentTime - trail.timestamp)) / 4000f * 150).toInt() // ADAPTÉ
+                val alpha = ((4000 - (currentTime - trail.timestamp)) / 4000f * 150).toInt()
                 paint.alpha = maxOf(0, alpha)
-                canvas.drawCircle(trail.x, trail.y, 6f, paint) // PLUS GROS de 4f
+                canvas.drawCircle(trail.x, trail.y, 6f, paint)
             }
             paint.alpha = 255
         }
         
         private fun drawRaceInterface(canvas: Canvas, w: Int, h: Int) {
-            val baseY = h - 180f // PLUS BAS
+            val baseY = h - 180f
             
-            // Vitesse
-            drawSpeedometer(canvas, w - 150f, 100f, speed, maxSpeed) // PLUS GROS
+            // NOUVEAU - Speedomètre analogique avec zone rouge
+            drawAnalogSpeedometer(canvas, w - 120f, 120f, speed, maxSpeed)
             
-            // Progression des portes - TEXTE PLUS GROS
+            // Progression des portes
             paint.color = Color.parseColor("#000033")
-            paint.textSize = 20f // AUGMENTÉ de 16f
+            paint.textSize = 20f
             paint.textAlign = Paint.Align.LEFT
             canvas.drawText("Portes: $gatesPassed/25", 30f, baseY, paint)
             canvas.drawText("Parfaites: $perfectGates", 30f, baseY + 30f, paint)
@@ -804,57 +1000,99 @@ class SlalomActivity : Activity(), SensorEventListener {
             // Indicateur de rythme
             drawProgressBar(canvas, 250f, baseY + 40f, 220f, rhythm, "RYTHME", Color.parseColor("#00AAAA"))
             
-            // Enchaînement parfait - TEXTE PLUS GROS
+            // Enchaînement parfait
             if (consecutivePerfectTurns > 2) {
                 paint.color = Color.parseColor("#FF6600")
-                paint.textSize = 26f // AUGMENTÉ de 20f
+                paint.textSize = 26f
                 paint.textAlign = Paint.Align.CENTER
                 canvas.drawText("🔥 COMBO x$consecutivePerfectTurns 🔥", w/2f, baseY - 40f, paint)
             }
         }
         
-        private fun drawSpeedometer(canvas: Canvas, centerX: Float, centerY: Float, currentSpeed: Float, maxSpeed: Float) {
-            // Cadran de vitesse - PLUS GROS
+        // NOUVEAU - Speedomètre analogique avec zone rouge
+        private fun drawAnalogSpeedometer(canvas: Canvas, centerX: Float, centerY: Float, 
+                                        currentSpeed: Float, maxSpeed: Float) {
+            val radius = 60f
+            
+            // Cadran
             paint.color = Color.parseColor("#333333")
-            canvas.drawCircle(centerX, centerY, 50f, paint) // AUGMENTÉ de 40f
+            canvas.drawCircle(centerX, centerY, radius, paint)
             
             paint.color = Color.WHITE
-            canvas.drawCircle(centerX, centerY, 45f, paint) // AUGMENTÉ de 35f
+            canvas.drawCircle(centerX, centerY, radius - 5f, paint)
             
-            // Aiguille
-            val speedAngle = (currentSpeed / maxSpeed) * 180f - 90f
-            paint.color = Color.RED
-            paint.strokeWidth = 5f // AUGMENTÉ de 4f
+            // ZONE ROUGE (50-55 km/h)
+            paint.color = Color.parseColor("#FFAAAA")
+            val redZoneStart = 240f + (50f / maxSpeed) * 240f
+            val redZoneEnd = 240f + (maxSpeed / maxSpeed) * 240f
+            
+            val redZonePath = Path()
+            redZonePath.addArc(centerX - radius + 10f, centerY - radius + 10f, 
+                              centerX + radius - 10f, centerY + radius - 10f, 
+                              redZoneStart, redZoneEnd - redZoneStart)
+            paint.strokeWidth = 20f
+            paint.style = Paint.Style.STROKE
+            canvas.drawPath(redZonePath, paint)
+            paint.style = Paint.Style.FILL
+            
+            // Graduations
+            paint.color = Color.BLACK
+            paint.strokeWidth = 2f
             paint.style = Paint.Style.STROKE
             
-            val needleX = centerX + cos(Math.toRadians(speedAngle.toDouble())).toFloat() * 40f // ADAPTÉ
-            val needleY = centerY + sin(Math.toRadians(speedAngle.toDouble())).toFloat() * 40f
+            for (i in 0..6) {
+                val angle = 240f + i * 40f
+                val startRadius = radius - 15f
+                val endRadius = radius - 5f
+                
+                val startX = centerX + cos(Math.toRadians(angle.toDouble())).toFloat() * startRadius
+                val startY = centerY + sin(Math.toRadians(angle.toDouble())).toFloat() * startRadius
+                val endX = centerX + cos(Math.toRadians(angle.toDouble())).toFloat() * endRadius
+                val endY = centerY + sin(Math.toRadians(angle.toDouble())).toFloat() * endRadius
+                
+                canvas.drawLine(startX, startY, endX, endY, paint)
+            }
+            
+            // Aiguille
+            val speedAngle = 240f + (currentSpeed / maxSpeed) * 240f
+            val needleColor = if (currentSpeed >= 50f) Color.RED else Color.parseColor("#00AA00")
+            paint.color = needleColor
+            paint.strokeWidth = 6f
+            
+            val needleX = centerX + cos(Math.toRadians(speedAngle.toDouble())).toFloat() * (radius - 10f)
+            val needleY = centerY + sin(Math.toRadians(speedAngle.toDouble())).toFloat() * (radius - 10f)
             canvas.drawLine(centerX, centerY, needleX, needleY, paint)
             
             paint.style = Paint.Style.FILL
             
-            // Valeur numérique - TEXTE PLUS GROS
+            // Centre de l'aiguille
             paint.color = Color.BLACK
-            paint.textSize = 16f // AUGMENTÉ de 12f
+            canvas.drawCircle(centerX, centerY, 8f, paint)
+            
+            // Valeur numérique
+            paint.color = if (currentSpeed >= 50f) Color.RED else Color.BLACK
+            paint.textSize = 18f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("${currentSpeed.toInt()}", centerX, centerY + 60f, paint)
-            canvas.drawText("km/h", centerX, centerY + 80f, paint)
+            canvas.drawText("${currentSpeed.toInt()}", centerX, centerY + 80f, paint)
+            
+            paint.textSize = 12f
+            canvas.drawText("km/h", centerX, centerY + 95f, paint)
         }
         
         private fun drawProgressBar(canvas: Canvas, x: Float, y: Float, width: Float, 
                                    value: Float, label: String, color: Int) {
             // Fond
             paint.color = Color.parseColor("#333333")
-            canvas.drawRect(x, y, x + width, y + 25f, paint) // PLUS HAUT de 20f
+            canvas.drawRect(x, y, x + width, y + 25f, paint)
             
             // Barre de progression
             paint.color = color
             val filledWidth = value.coerceIn(0f, 1f) * width
             canvas.drawRect(x, y, x + filledWidth, y + 25f, paint)
             
-            // Label - TEXTE PLUS GROS
+            // Label
             paint.color = Color.WHITE
-            paint.textSize = 16f // AUGMENTÉ de 12f
+            paint.textSize = 16f
             paint.textAlign = Paint.Align.LEFT
             canvas.drawText("$label: ${(value * 100).toInt()}%", x, y - 8f, paint)
         }
@@ -864,7 +1102,7 @@ class SlalomActivity : Activity(), SensorEventListener {
             paint.color = Color.WHITE
             for (particle in snowSpray) {
                 paint.alpha = (particle.life * 255).toInt()
-                canvas.drawCircle(particle.x, particle.y, particle.life * 5f, paint) // PLUS GROS de 4f
+                canvas.drawCircle(particle.x, particle.y, particle.life * 5f, paint)
             }
             paint.alpha = 255
         }
@@ -875,7 +1113,8 @@ class SlalomActivity : Activity(), SensorEventListener {
         val distance: Float,
         val type: Type,
         val number: Int,
-        var passed: Boolean
+        var passed: Boolean,
+        val side: String // NOUVEAU
     ) {
         enum class Type { RED, BLUE }
     }
@@ -892,6 +1131,12 @@ class SlalomActivity : Activity(), SensorEventListener {
         val x: Float,
         val y: Float,
         val timestamp: Long
+    )
+    
+    // NOUVEAU
+    data class PathPoint(
+        val x: Float,
+        val distance: Float
     )
 
     enum class GameState {
