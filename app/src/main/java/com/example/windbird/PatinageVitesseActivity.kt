@@ -529,7 +529,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             canvas.drawText("TESTEZ VOTRE RYTHME:", w/2f, h * 0.36f, paint)
             
             // Bande de test pendant la préparation - CORRECTION ICI
-            drawPerformanceBand(canvas, w, (h * 0.42f), (w * 0.6f), 30f, true)
+            drawPerformanceBand(canvas, w.toFloat(), (h * 0.42f), (w * 0.6f), 30f, true)
             
             val countdown = (preparationDuration - phaseTimer).toInt() + 1
             paint.textSize = 60f
@@ -556,7 +556,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             drawHUD(canvas, w, h)
             
             // NOUVELLE bande de performance en temps réel - CORRECTION ICI AUSSI
-            drawPerformanceBand(canvas, 50f, (h - 200f), (w * 0.5f), 40f, false)
+            drawPerformanceBand(canvas, 50f, (h.toFloat() - 200f), (w * 0.5f), 40f, false)
         }
         
         // NOUVELLE fonction pour la bande de performance en temps réel - SANS HISTORIQUE
