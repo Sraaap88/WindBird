@@ -559,7 +559,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             drawPerformanceBand(canvas, 50f, h - 200f, w * 0.5f, 40f, false)
         }
         
-        // FONCTION pour la bande de performance en temps réel - PARAMÈTRE RETIRÉ
+        // FONCTION pour la bande de performance - SIGNATURE SIMPLIFIÉE
         private fun drawPerformanceBand(canvas: Canvas, x: Float, y: Float, width: Float, height: Float) {
             // Fond de la bande
             paint.color = Color.parseColor("#333333")
