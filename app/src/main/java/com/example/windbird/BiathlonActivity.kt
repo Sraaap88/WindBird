@@ -1,6 +1,5 @@
-// BiathlonActivity.kt — version avec animation sprite basée sur skidefond_sprite.png
 package com.example.windbird
- 
+
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -27,13 +26,19 @@ class BiathlonActivity : Activity(), SensorEventListener {
     private var gyroscope: Sensor? = null
     private var accelerometer: Sensor? = null
 
-    private var playerOffset = 0f
+    // Variables de gameplay AMÉLIORÉES
     private var distance = 0f
     private val totalDistance = 3000f
-    private var previousGyroDirection = 0
     private var backgroundOffset = 0f
-
-    // MODIFIÉ : Sprite sheet avec 2 frames d'animation
+    private var currentSection = 0 // 0=Forêt, 1=Montagne, 2=Vallée, 3=Arrivée
+    
+    // NOUVEAU - Système de poussées rythmées
+    private var pushDirection = 0 // -1=gauche, 0=neutre, 1=droite
+    private var lastPushTime = 0L
+    private var rhythmBonus = 1f
+    private var pushCount = 0
+    
+    // Sprite animation
     private lateinit var spriteSheet: Bitmap
     private lateinit var leftFrame: Bitmap
     private lateinit var rightFrame: Bitmap
@@ -41,12 +46,15 @@ class BiathlonActivity : Activity(), SensorEventListener {
     private var animationTimer = 0L
     private var useLeftFrame = true
 
+    // Variables de tir AMÉLIORÉES
     private var gameState = GameState.SKIING
     private var targetsHit = 0
     private var shotsFired = 0
+    private var totalScore = 0
     private var crosshair = PointF(0.5f, 0.4f)
-    private val targetPositions = List(5) { PointF(0.2f + it * 0.15f, 0.4f) }
+    private val targetPositions = List(5) { PointF(0.15f + it * 0.175f, 0.4f) }
     private val targetHitStatus = BooleanArray(5) { false }
+    private val targetScores = IntArray(5) { 0 } // Score pour chaque cible
 
     private lateinit var tournamentData: TournamentData
     private var eventIndex: Int = 0
@@ -68,16 +76,16 @@ class BiathlonActivity : Activity(), SensorEventListener {
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
         accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         
-        // MODIFIÉ : Charger et découper le sprite sheet
         loadSpriteSheet()
 
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         statusText = TextView(this).apply {
-            text = "Joueur: ${tournamentData.playerNames[currentPlayerIndex]} | Distance: 0m"
+            text = "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | ${getSectionName()} | Distance: 0m"
             setTextColor(Color.WHITE)
-            textSize = 16f
-            setPadding(20, 10, 20, 10)
+            textSize = 18f
+            setBackgroundColor(Color.parseColor("#001122"))
+            setPadding(20, 15, 20, 15)
         }
 
         gameView = BiathlonView(this)
@@ -87,35 +95,36 @@ class BiathlonActivity : Activity(), SensorEventListener {
         setContentView(layout)
     }
 
-    // AJOUTÉ : Fonction pour charger et découper le sprite sheet
+    private fun getSectionName(): String {
+        return when (currentSection) {
+            0 -> "🌲 Forêt"
+            1 -> "🏔️ Montagne" 
+            2 -> "🏞️ Vallée"
+            3 -> "🏁 Arrivée"
+            else -> "Ski"
+        }
+    }
+
     private fun loadSpriteSheet() {
         try {
             spriteSheet = BitmapFactory.decodeResource(resources, R.drawable.skidefond_sprite)
             
-            // CORRIGÉ : Calculer les dimensions en tenant compte des bordures
-            // Cadre de 5px + séparation de 5px entre les images
             val totalWidth = spriteSheet.width
             val totalHeight = spriteSheet.height
+            val frameWidth = (totalWidth - 5 - 5 - 5) / 2
+            val frameHeight = totalHeight - 5 - 5
             
-            // Largeur de chaque frame = (largeur totale - cadre gauche - cadre droit - séparation) / 2
-            val frameWidth = (totalWidth - 5 - 5 - 5) / 2  // -15px au total
-            val frameHeight = totalHeight - 5 - 5  // -10px (cadre haut + bas)
-            
-            // Découper en enlevant les bordures
             leftFrame = Bitmap.createBitmap(spriteSheet, 5, 5, frameWidth, frameHeight)
             rightFrame = Bitmap.createBitmap(spriteSheet, 5 + frameWidth + 5, 5, frameWidth, frameHeight)
             
-            // AJOUTÉ : Redimensionner à 1/3 de la taille
             val newWidth = frameWidth / 3
             val newHeight = frameHeight / 3
             
             leftFrame = Bitmap.createScaledBitmap(leftFrame, newWidth, newHeight, true)
             rightFrame = Bitmap.createScaledBitmap(rightFrame, newWidth, newHeight, true)
             
-            // Frame par défaut
             currentFrame = leftFrame
         } catch (e: Exception) {
-            // Fallback au skieur_pixel si le sprite sheet n'existe pas
             val fallback = BitmapFactory.decodeResource(resources, R.drawable.skieur_pixel)
             val scaledWidth = fallback.width / 3
             val scaledHeight = fallback.height / 3
@@ -137,112 +146,154 @@ class BiathlonActivity : Activity(), SensorEventListener {
     override fun onSensorChanged(event: SensorEvent) {
         when (event.sensor.type) {
             Sensor.TYPE_GYROSCOPE -> {
-                val y = event.values[1]
-                val x = event.values[0]
-                val z = event.values[2]
+                val x = event.values[0] // Gauche/Droite
+                val z = event.values[2] // Rotation
 
-                if (gameState == GameState.SKIING) {
-                    // MODIFIÉ : Animation basée sur l'inclinaison
-                    playerOffset += x * 0.1f
-                    playerOffset = playerOffset.coerceIn(-1f, 1f)
-                    
-                    // Changer l'animation selon l'inclinaison
-                    updateAnimation(x)
-
-                    val rotationDirection = when {
-                        z > 1.0f -> 1
-                        z < -1.0f -> -1
-                        else -> 0
-                    }
-                    if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
-                        distance += 25f
-                        backgroundOffset -= 10f
-                        previousGyroDirection = rotationDirection
-                    }
-                    
-                    if (distance >= totalDistance * 0.5f) {
-                        gameState = GameState.SHOOTING
-                    }
-                }
-
-                if (gameState == GameState.FINAL_SKIING) {
-                    // MODIFIÉ : Animation aussi dans le ski final
-                    playerOffset += x * 0.1f
-                    playerOffset = playerOffset.coerceIn(-1f, 1f)
-                    
-                    // Changer l'animation selon l'inclinaison
-                    updateAnimation(x)
-
-                    val rotationDirection = when {
-                        z > 1.0f -> 1
-                        z < -1.0f -> -1
-                        else -> 0
-                    }
-                    if (rotationDirection != 0 && rotationDirection != previousGyroDirection) {
-                        distance += 25f
-                        backgroundOffset -= 10f
-                        previousGyroDirection = rotationDirection
-                    }
-                    
-                    if (distance >= totalDistance) {
-                        gameState = GameState.FINISHED
-                        
-                        if (!practiceMode) {
-                            tournamentData.addScore(currentPlayerIndex, eventIndex, calculateScore())
-                        }
-                        
-                        statusText.postDelayed({
-                            proceedToNextPlayerOrEvent()
-                        }, 2000)
-                    }
+                if (gameState == GameState.SKIING || gameState == GameState.FINAL_SKIING) {
+                    handleSkiingInput(x, z)
                 }
             }
             
             Sensor.TYPE_ACCELEROMETER -> {
                 if (gameState == GameState.SHOOTING) {
-                    val x = event.values[0]  // Inclinaison gauche/droite
-                    val y = event.values[1]  // Inclinaison avant/arrière
+                    val x = event.values[0]
+                    val y = event.values[1]
                     
-                    // CORRIGÉ : Axes inversés pour le mode paysage
-                    // En paysage : Y devient horizontal, X devient vertical
-                    crosshair.x += y * 0.012f  // Utiliser Y pour mouvement horizontal
-                    crosshair.y += x * 0.012f  // Utiliser X pour mouvement vertical
+                    // Mouvement de la mire - plus sensible
+                    crosshair.x += y * 0.015f
+                    crosshair.y += x * 0.015f
                     
-                    // Limiter la visée dans la zone de tir
-                    crosshair.x = crosshair.x.coerceIn(0.1f, 0.9f)
-                    crosshair.y = crosshair.y.coerceIn(0.2f, 0.6f)
+                    crosshair.x = crosshair.x.coerceIn(0.05f, 0.95f)
+                    crosshair.y = crosshair.y.coerceIn(0.25f, 0.65f)
                 }
             }
         }
         
+        // Transitions d'état
+        if (gameState == GameState.SKIING && distance >= totalDistance * 0.5f) {
+            gameState = GameState.SHOOTING
+        }
+        
         if (gameState == GameState.SHOOTING && shotsFired >= 5) {
             statusText.postDelayed({
-                distance = totalDistance * 0.5f
                 gameState = GameState.FINAL_SKIING
-            }, 1000)
+            }, 1500)
+        }
+        
+        if (gameState == GameState.FINAL_SKIING && distance >= totalDistance) {
+            gameState = GameState.FINISHED
+            
+            if (!practiceMode) {
+                tournamentData.addScore(currentPlayerIndex, eventIndex, calculateScore())
+            }
+            
+            statusText.postDelayed({
+                proceedToNextPlayerOrEvent()
+            }, 2000)
         }
 
         updateStatus()
         gameView.invalidate()
     }
 
-    // AJOUTÉ : Fonction pour mettre à jour l'animation selon l'inclinaison
-    private fun updateAnimation(tiltX: Float) {
+    // NOUVEAU - Système de ski amélioré
+    private fun handleSkiingInput(tiltX: Float, rotationZ: Float) {
         val currentTime = System.currentTimeMillis()
         
-        // Changer de frame toutes les 200ms quand il y a du mouvement
-        if (abs(tiltX) > 0.1f && currentTime - animationTimer > 200) {
-            animationTimer = currentTime
+        // Détection des poussées gauche/droite
+        val newDirection = when {
+            rotationZ > 1.5f -> 1  // Droite
+            rotationZ < -1.5f -> -1 // Gauche
+            else -> 0
+        }
+        
+        // Si changement de direction (poussée)
+        if (newDirection != 0 && newDirection != pushDirection) {
+            val timeSinceLastPush = currentTime - lastPushTime
             
-            // Choisir la frame selon l'inclinaison
-            currentFrame = when {
-                tiltX < -0.1f -> leftFrame  // Inclinaison vers la gauche
-                tiltX > 0.1f -> rightFrame  // Inclinaison vers la droite
-                else -> if (useLeftFrame) leftFrame else rightFrame // Alternance par défaut
+            // Calculer le bonus de rythme (optimal: 400-800ms entre poussées)
+            rhythmBonus = when {
+                timeSinceLastPush in 400..800 -> 1.5f // Excellent rythme
+                timeSinceLastPush in 300..1000 -> 1.2f // Bon rythme
+                else -> 0.8f // Rythme moins bon
             }
             
-            useLeftFrame = !useLeftFrame
+            // Avancer selon le rythme
+            val advancement = 35f * rhythmBonus
+            distance += advancement
+            backgroundOffset -= advancement * 0.3f
+            
+            pushCount++
+            lastPushTime = currentTime
+            
+            // Animation selon la direction
+            currentFrame = if (newDirection == -1) leftFrame else rightFrame
+            
+            // Mettre à jour la section selon la distance
+            val progressRatio = distance / totalDistance
+            currentSection = when {
+                progressRatio < 0.25f -> 0 // Forêt
+                progressRatio < 0.5f -> 1  // Montagne
+                progressRatio < 0.75f -> 2 // Vallée
+                else -> 3 // Arrivée
+            }
         }
+        
+        pushDirection = newDirection
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.action == MotionEvent.ACTION_DOWN && gameState == GameState.SHOOTING && shotsFired < 5) {
+            shotsFired++
+            
+            // Calculer le score selon la précision
+            for (i in targetPositions.indices) {
+                if (!targetHitStatus[i]) {
+                    val dx = crosshair.x - targetPositions[i].x
+                    val dy = crosshair.y - targetPositions[i].y
+                    val distance = sqrt(dx * dx + dy * dy)
+                    
+                    val score = when {
+                        distance < 0.03f -> 10 // Centre (rouge)
+                        distance < 0.05f -> 8  // Cercle 2
+                        distance < 0.07f -> 6  // Cercle 3
+                        distance < 0.09f -> 4  // Cercle 4
+                        distance < 0.11f -> 2  // Cercle 5
+                        else -> 0 // Raté
+                    }
+                    
+                    if (score > 0) {
+                        targetHitStatus[i] = true
+                        targetScores[i] = score
+                        targetsHit++
+                        totalScore += score
+                        break
+                    }
+                }
+            }
+            
+            updateStatus()
+            gameView.invalidate()
+            return true
+        }
+        return super.onTouchEvent(event)
+    }
+
+    private fun updateStatus() {
+        statusText.text = when (gameState) {
+            GameState.SKIING -> "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | ${getSectionName()} | ${distance.toInt()}m/${totalDistance.toInt()}m | Rythme: ${(rhythmBonus * 100).toInt()}%"
+            GameState.SHOOTING -> "🎯 ${tournamentData.playerNames[currentPlayerIndex]} | Tir ${shotsFired}/5 | Score: ${totalScore} pts"
+            GameState.FINAL_SKIING -> "🏁 ${tournamentData.playerNames[currentPlayerIndex]} | ${getSectionName()} | Sprint final: ${distance.toInt()}m/${totalDistance.toInt()}m"
+            GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Score final: ${calculateScore()} points"
+        }
+    }
+
+    private fun calculateScore(): Int {
+        val shootingScore = totalScore
+        val distanceBonus = (distance / totalDistance * 100).toInt()
+        val rhythmBonus = (pushCount * 2).coerceAtMost(50) // Bonus pour les poussées
+        val penaltyForMissedShots = (5 - targetsHit) * 15
+        return maxOf(50, shootingScore + distanceBonus + rhythmBonus - penaltyForMissedShots)
     }
 
     private fun proceedToNextPlayerOrEvent() {
@@ -296,274 +347,284 @@ class BiathlonActivity : Activity(), SensorEventListener {
     }
     
     private fun generateAIScore(): Int {
-        val aiAccuracy = (1..4).random()
-        val aiDistance = (4000..5000).random()
-        val accuracyBonus = aiAccuracy * 50
-        val distanceBonus = (aiDistance / totalDistance * 100).toInt()
-        val penalty = (5 - aiAccuracy) * 20
-        return maxOf(50, accuracyBonus + distanceBonus - penalty)
+        val aiAccuracy = (2..8).random()
+        val aiTotalScore = (15..45).random()
+        return maxOf(80, aiTotalScore + (150..200).random())
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-    
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (event.action == MotionEvent.ACTION_DOWN && gameState == GameState.SHOOTING && shotsFired < 5) {
-            shotsFired++
-            
-            for (i in targetPositions.indices) {
-                val dx = crosshair.x - targetPositions[i].x
-                val dy = crosshair.y - targetPositions[i].y
-                if (!targetHitStatus[i] && sqrt(dx * dx + dy * dy) < 0.08f) {
-                    targetHitStatus[i] = true
-                    targetsHit++
-                    break
-                }
-            }
-            
-            updateStatus()
-            gameView.invalidate()
-            return true
-        }
-        return super.onTouchEvent(event)
-    }
-
-    private fun updateStatus() {
-        statusText.text = when (gameState) {
-            GameState.SKIING -> "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | Distance: ${distance.toInt()}m / ${totalDistance.toInt()}m"
-            GameState.SHOOTING -> "🎯 ${tournamentData.playerNames[currentPlayerIndex]} | Tir ${shotsFired}/5 — Touchés: $targetsHit"
-            GameState.FINAL_SKIING -> "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | Sprint final: ${distance.toInt()}m / ${totalDistance.toInt()}m"
-            GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Score final: ${calculateScore()} points"
-        }
-    }
-
-    private fun calculateScore(): Int {
-        val accuracyBonus = targetsHit * 50
-        val distanceBonus = (distance / totalDistance * 100).toInt()
-        val penaltyForMissedShots = (5 - targetsHit) * 20
-        return maxOf(0, accuracyBonus + distanceBonus - penaltyForMissedShots)
-    }
 
     inner class BiathlonView(context: Context) : View(context) {
         private val paint = Paint()
-        private val bgPaint = Paint().apply { color = Color.parseColor("#87CEEB") }
-        private val snowPaint = Paint().apply { color = Color.WHITE }
-        private val trackPaint = Paint().apply { color = Color.LTGRAY }
-        private val treePaint = Paint().apply { color = Color.parseColor("#0F5132") }
-        private val mountainPaint = Paint().apply { color = Color.parseColor("#6C757D") }
-        private val cloudPaint = Paint().apply { color = Color.parseColor("#F8F9FA") }
 
         override fun onDraw(canvas: Canvas) {
             val w = canvas.width
             val h = canvas.height
             
-            // AMÉLIORÉ : Ciel dégradé
-            val skyGradient = LinearGradient(
-                0f, 0f, 0f, h * 0.4f,
-                Color.parseColor("#87CEEB"), Color.parseColor("#B0E0E6"),
-                Shader.TileMode.CLAMP
-            )
-            bgPaint.shader = skyGradient
-            canvas.drawRect(0f, 0f, w.toFloat(), h * 0.4f, bgPaint)
-            bgPaint.shader = null
-            
-            // AJOUTÉ : Montagnes en arrière-plan
-            mountainPaint.color = Color.parseColor("#A0A0A0")
-            for (i in 0..4) {
-                val mountainX = (backgroundOffset * 0.3f + i * w * 0.5f) % (w + w * 0.5f) - w * 0.25f
-                canvas.drawPath(createMountainPath(mountainX, h * 0.15f, w * 0.4f, h * 0.25f), mountainPaint)
+            if (gameState == GameState.SHOOTING) {
+                drawShootingRange(canvas, w, h)
+            } else {
+                drawSkiingSection(canvas, w, h)
+            }
+        }
+        
+        private fun drawSkiingSection(canvas: Canvas, w: Int, h: Int) {
+            // Couleurs selon la section
+            val (skyColor, groundColor, accentColor) = when (currentSection) {
+                0 -> Triple("#87CEEB", "#F0F8FF", "#228B22") // Forêt: bleu ciel, neige, vert
+                1 -> Triple("#B0C4DE", "#FFFAFA", "#696969") // Montagne: gris-bleu, neige pure, gris foncé
+                2 -> Triple("#87CEFA", "#F5FFFA", "#4682B4") // Vallée: bleu clair, neige menthe, bleu acier
+                3 -> Triple("#FFD700", "#FFFFFF", "#FF6347") // Arrivée: or, blanc pur, rouge tomate
+                else -> Triple("#87CEEB", "#F0F8FF", "#228B22")
             }
             
-            mountainPaint.color = Color.parseColor("#707070")
-            for (i in 0..3) {
-                val mountainX = (backgroundOffset * 0.5f + i * w * 0.7f) % (w + w * 0.7f) - w * 0.35f
-                canvas.drawPath(createMountainPath(mountainX, h * 0.2f, w * 0.5f, h * 0.2f), mountainPaint)
-            }
+            // Ciel
+            paint.color = Color.parseColor(skyColor)
+            canvas.drawRect(0f, 0f, w.toFloat(), h * 0.5f, paint)
             
-            // AJOUTÉ : Nuages
-            cloudPaint.alpha = 180
-            for (i in 0..3) {
-                val cloudX = (backgroundOffset * 0.2f + i * w * 0.8f) % (w + w * 0.8f) - w * 0.4f
-                drawCloud(canvas, cloudX, h * 0.1f + i * 30f, 80f)
-            }
-            cloudPaint.alpha = 255
+            // Sol
+            paint.color = Color.parseColor(groundColor)
+            canvas.drawRect(0f, h * 0.5f, w.toFloat(), h.toFloat(), paint)
             
-            // AJOUTÉ : Forêt d'arrière-plan
-            for (i in 0..15) {
-                val treeX = (backgroundOffset * 0.7f + i * 80) % (w + 160) - 80
-                drawTree(canvas, treeX, h * 0.4f, 60f, h * 0.2f)
-            }
-            
-            // Sol de neige avec dégradé
-            val snowGradient = LinearGradient(
-                0f, h * 0.6f, 0f, h.toFloat(),
-                Color.parseColor("#FFFFFF"), Color.parseColor("#F0F8FF"),
-                Shader.TileMode.CLAMP
-            )
-            snowPaint.shader = snowGradient
-            canvas.drawRect(0f, h * 0.6f, w.toFloat(), h.toFloat(), snowPaint)
-            snowPaint.shader = null
-            
-            // AJOUTÉ : Traces de ski et empreintes
-            paint.color = Color.parseColor("#E0E0E0")
-            paint.strokeWidth = 3f
-            for (i in 0..20) {
-                val traceX = (backgroundOffset + i * 50) % (w + 100) - 50
-                canvas.drawLine(traceX, h * 0.6f, traceX + 40, h.toFloat(), paint)
-                canvas.drawLine(traceX + 10, h * 0.6f, traceX + 50, h.toFloat(), paint)
+            // Éléments de décor selon la section
+            when (currentSection) {
+                0 -> drawForestDecor(canvas, w, h, accentColor)
+                1 -> drawMountainDecor(canvas, w, h, accentColor)
+                2 -> drawValleyDecor(canvas, w, h, accentColor)
+                3 -> drawFinishDecor(canvas, w, h, accentColor)
             }
             
             // Piste principale
-            trackPaint.color = Color.parseColor("#DCDCDC")
-            canvas.drawRect(0f, h * 0.75f, w.toFloat(), h.toFloat(), trackPaint)
+            paint.color = Color.parseColor("#DCDCDC")
+            canvas.drawRect(0f, h * 0.75f, w.toFloat(), h.toFloat(), paint)
             
-            // AJOUTÉ : Bordures de piste
-            paint.color = Color.parseColor("#FF6B6B")
-            paint.strokeWidth = 8f
-            for (i in 0..10) {
-                val flagX = (backgroundOffset + i * 150) % (w + 300) - 150
-                canvas.drawLine(flagX, h * 0.73f, flagX, h * 0.77f, paint)
-                canvas.drawLine(flagX, h * 0.73f, flagX + 20, h * 0.74f, paint)
-            }
-            
-            // CORRIGÉ : Le skieur avance et ne recule jamais
+            // Skieur
             val progressRatio = distance / totalDistance
-            val skierX = (w * 0.1f) + (progressRatio * w * 0.6f) + playerOffset * 100f
-            val skierY = h * 0.75f - (currentFrame?.height ?: 50)
+            val skierX = w * 0.1f + (progressRatio * w * 0.8f)
+            val skierY = h * 0.7f
             
             currentFrame?.let { frame ->
                 val destX = skierX - frame.width / 2f
                 canvas.drawBitmap(frame, destX, skierY, null)
             }
-
-            if (gameState == GameState.SHOOTING || gameState == GameState.FINISHED) {
-                paint.color = Color.parseColor("#1a1a2e")
-                canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
-                
-                paint.color = Color.WHITE
-                paint.textSize = 40f
-                paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("🎯 ZONE DE TIR 🎯", w/2f, 60f, paint)
-                
-                paint.textSize = 24f
-                canvas.drawText("Téléphone à PLAT • Inclinez : droite→droite, haut→haut, comme une bille !", w/2f, 100f, paint)
-                
-                if (shotsFired >= 5) {
-                    paint.color = Color.GREEN
-                    paint.textSize = 30f
-                    canvas.drawText("TIR TERMINÉ - Passage au ski final...", w/2f, 140f, paint)
-                }
-                
-                for (i in targetPositions.indices) {
-                    val px = targetPositions[i].x * w
-                    val py = targetPositions[i].y * h + 50
-                    
-                    if (targetHitStatus[i]) {
-                        paint.color = Color.parseColor("#00ff00")
-                        canvas.drawCircle(px, py, 35f, paint)
-                        paint.color = Color.parseColor("#004400")
-                        canvas.drawCircle(px, py, 30f, paint)
-                        paint.color = Color.GREEN
-                        paint.strokeWidth = 8f
-                        paint.style = Paint.Style.STROKE
-                        canvas.drawLine(px-15, py-15, px+15, py+15, paint)
-                        canvas.drawLine(px+15, py-15, px-15, py+15, paint)
-                        paint.style = Paint.Style.FILL
-                        
-                        paint.color = Color.WHITE
-                        paint.textSize = 16f
-                        paint.textAlign = Paint.Align.CENTER
-                        canvas.drawText("+50", px, py + 60f, paint)
-                    } else {
-                        paint.color = Color.WHITE
-                        canvas.drawCircle(px, py, 35f, paint)
-                        paint.color = Color.BLACK
-                        canvas.drawCircle(px, py, 28f, paint)
-                        paint.color = Color.WHITE
-                        canvas.drawCircle(px, py, 21f, paint)
-                        paint.color = Color.BLACK
-                        canvas.drawCircle(px, py, 14f, paint)
-                        paint.color = Color.RED
-                        canvas.drawCircle(px, py, 7f, paint)
-                        
-                        paint.color = Color.WHITE
-                        paint.textSize = 20f
-                        paint.textAlign = Paint.Align.CENTER
-                        canvas.drawText("${i+1}", px, py + 60f, paint)
-                    }
-                }
-                
-                val crossX = crosshair.x * w
-                val crossY = crosshair.y * h + 50
-                
+            
+            // Instructions GÉANTES
+            if (pushCount < 3) { // Afficher au début
                 paint.color = Color.BLACK
-                paint.strokeWidth = 8f
-                paint.style = Paint.Style.STROKE
-                canvas.drawLine(crossX - 30, crossY, crossX + 30, crossY, paint)
-                canvas.drawLine(crossX, crossY - 30, crossX, crossY + 30, paint)
-                canvas.drawCircle(crossX, crossY, 20f, paint)
+                paint.textSize = 60f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("🎿 TOURNEZ COMME UN VOLANT", w/2f, h * 0.15f, paint)
                 
                 paint.color = Color.RED
-                paint.strokeWidth = 4f
-                canvas.drawLine(crossX - 25, crossY, crossX + 25, crossY, paint)
-                canvas.drawLine(crossX, crossY - 25, crossX, crossY + 25, paint)
-                
-                paint.color = Color.YELLOW
-                paint.style = Paint.Style.FILL
-                canvas.drawCircle(crossX, crossY, 6f, paint)
-                paint.color = Color.RED
-                canvas.drawCircle(crossX, crossY, 12f, paint)
-                paint.style = Paint.Style.FILL
-                
-                paint.color = Color.WHITE
-                paint.textSize = 24f
-                paint.textAlign = Paint.Align.LEFT
-                canvas.drawText("🔫 Munitions: ${5-shotsFired}/5", 30f, h - 80f, paint)
-                canvas.drawText("🎯 Touchés: $targetsHit/5", 30f, h - 50f, paint)
-                
-                for (i in 0 until 5) {
-                    paint.color = if (i < shotsFired) Color.GRAY else Color.YELLOW
-                    canvas.drawRect(w - 200f + i * 35f, h - 60f, w - 175f + i * 35f, h - 40f, paint)
-                }
+                paint.textSize = 50f
+                canvas.drawText("+ ALTERNEZ GAUCHE-DROITE!", w/2f, h * 0.22f, paint)
             }
             
-            // Barre de progression
-            paint.color = Color.BLACK
-            canvas.drawRect(w * 0.1f, 20f, w * 0.9f, 40f, paint)
-            paint.color = Color.GREEN
-            canvas.drawRect(w * 0.1f, 20f, w * 0.1f + (progressRatio * w * 0.8f), 40f, paint)
+            // Barre de progression avec sections
+            drawProgressBar(canvas, w, h, progressRatio)
         }
         
-        // AJOUTÉ : Fonction pour dessiner une montagne
-        private fun createMountainPath(startX: Float, startY: Float, width: Float, height: Float): Path {
-            val path = Path()
-            path.moveTo(startX, startY + height)
-            path.lineTo(startX + width * 0.3f, startY + height * 0.7f)
-            path.lineTo(startX + width * 0.5f, startY)
-            path.lineTo(startX + width * 0.7f, startY + height * 0.6f)
-            path.lineTo(startX + width, startY + height)
-            path.close()
-            return path
+        private fun drawForestDecor(canvas: Canvas, w: Int, h: Int, accentColor: String) {
+            paint.color = Color.parseColor(accentColor)
+            // Arbres simples
+            for (i in 0..8) {
+                val treeX = (backgroundOffset * 0.5f + i * 100) % (w + 200) - 100
+                canvas.drawRect(treeX, h * 0.35f, treeX + 15f, h * 0.5f, paint)
+                canvas.drawCircle(treeX + 7.5f, h * 0.35f, 20f, paint)
+            }
         }
         
-        // AJOUTÉ : Fonction pour dessiner un nuage
-        private fun drawCloud(canvas: Canvas, x: Float, y: Float, size: Float) {
-            canvas.drawCircle(x, y, size * 0.6f, cloudPaint)
-            canvas.drawCircle(x + size * 0.5f, y, size * 0.5f, cloudPaint)
-            canvas.drawCircle(x - size * 0.3f, y, size * 0.4f, cloudPaint)
-            canvas.drawCircle(x + size * 0.2f, y - size * 0.3f, size * 0.4f, cloudPaint)
+        private fun drawMountainDecor(canvas: Canvas, w: Int, h: Int, accentColor: String) {
+            paint.color = Color.parseColor(accentColor)
+            // Montagnes simples
+            for (i in 0..4) {
+                val mountainX = (backgroundOffset * 0.3f + i * 200) % (w + 400) - 200
+                val path = Path()
+                path.moveTo(mountainX, h * 0.5f)
+                path.lineTo(mountainX + 100f, h * 0.1f)
+                path.lineTo(mountainX + 200f, h * 0.5f)
+                path.close()
+                canvas.drawPath(path, paint)
+            }
         }
         
-        // AJOUTÉ : Fonction pour dessiner un arbre
-        private fun drawTree(canvas: Canvas, x: Float, baseY: Float, width: Float, height: Float) {
-            // Tronc
-            treePaint.color = Color.parseColor("#8B4513")
-            canvas.drawRect(x - width * 0.1f, baseY, x + width * 0.1f, baseY + height * 0.3f, treePaint)
+        private fun drawValleyDecor(canvas: Canvas, w: Int, h: Int, accentColor: String) {
+            paint.color = Color.parseColor(accentColor)
+            // Rivière gelée
+            canvas.drawRect(0f, h * 0.45f, w.toFloat(), h * 0.5f, paint)
+            // Quelques buissons
+            for (i in 0..6) {
+                val bushX = (backgroundOffset * 0.4f + i * 150) % (w + 300) - 150
+                canvas.drawCircle(bushX, h * 0.45f, 15f, paint)
+            }
+        }
+        
+        private fun drawFinishDecor(canvas: Canvas, w: Int, h: Int, accentColor: String) {
+            paint.color = Color.parseColor(accentColor)
+            // Drapeaux d'arrivée
+            for (i in 0..10) {
+                val flagX = (backgroundOffset * 0.6f + i * 80) % (w + 160) - 80
+                canvas.drawRect(flagX, h * 0.3f, flagX + 5f, h * 0.5f, paint)
+                canvas.drawRect(flagX, h * 0.3f, flagX + 30f, h * 0.35f, paint)
+            }
             
-            // Feuillage
-            treePaint.color = Color.parseColor("#0F5132")
-            canvas.drawCircle(x, baseY + height * 0.2f, width * 0.4f, treePaint)
-            treePaint.color = Color.parseColor("#228B22")
-            canvas.drawCircle(x, baseY, width * 0.3f, treePaint)
+            // Ligne d'arrivée si proche de la fin
+            if (distance > totalDistance * 0.9f) {
+                paint.color = Color.BLACK
+                paint.strokeWidth = 8f
+                for (i in 0..20) {
+                    val y = h * 0.75f + i * 10f
+                    val color = if (i % 2 == 0) Color.BLACK else Color.WHITE
+                    paint.color = color
+                    canvas.drawRect(w * 0.9f, y, w.toFloat(), y + 10f, paint)
+                }
+            }
+        }
+        
+        private fun drawProgressBar(canvas: Canvas, w: Int, h: Int, progress: Float) {
+            // Fond de la barre
+            paint.color = Color.BLACK
+            canvas.drawRect(w * 0.1f, 20f, w * 0.9f, 45f, paint)
+            
+            // Sections colorées
+            val sectionWidth = w * 0.8f / 4f
+            val colors = arrayOf("#228B22", "#696969", "#4682B4", "#FF6347")
+            
+            for (i in 0..3) {
+                paint.color = Color.parseColor(colors[i])
+                val startX = w * 0.1f + i * sectionWidth
+                val endX = startX + sectionWidth
+                canvas.drawRect(startX, 22f, endX, 43f, paint)
+            }
+            
+            // Progression actuelle
+            paint.color = Color.YELLOW
+            canvas.drawRect(w * 0.1f, 20f, w * 0.1f + (progress * w * 0.8f), 45f, paint)
+            
+            // Marqueurs de section
+            paint.color = Color.WHITE
+            paint.strokeWidth = 3f
+            for (i in 1..3) {
+                val x = w * 0.1f + i * sectionWidth
+                canvas.drawLine(x, 20f, x, 45f, paint)
+            }
+        }
+        
+        private fun drawShootingRange(canvas: Canvas, w: Int, h: Int) {
+            // Fond sombre
+            paint.color = Color.parseColor("#1a1a2e")
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            
+            // Instructions GÉANTES
+            paint.color = Color.WHITE
+            paint.textSize = 70f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("🎯 ZONE DE TIR 🎯", w/2f, 80f, paint)
+            
+            paint.textSize = 40f
+            paint.color = Color.YELLOW
+            canvas.drawText("TÉLÉPHONE À PLAT", w/2f, 130f, paint)
+            canvas.drawText("VISEZ LE CENTRE ROUGE!", w/2f, 170f, paint)
+            
+            if (shotsFired >= 5) {
+                paint.color = Color.GREEN
+                paint.textSize = 50f
+                canvas.drawText("TIR TERMINÉ - Sprint final...", w/2f, 220f, paint)
+            }
+            
+            // Cibles avec cercles concentriques
+            for (i in targetPositions.indices) {
+                val px = targetPositions[i].x * w
+                val py = targetPositions[i].y * h + 100
+                
+                drawTarget(canvas, px, py, i)
+            }
+            
+            // Mire
+            drawCrosshair(canvas, w, h)
+            
+            // Interface
+            drawShootingUI(canvas, w, h)
+        }
+        
+        private fun drawTarget(canvas: Canvas, px: Float, py: Float, index: Int) {
+            if (targetHitStatus[index]) {
+                // Cible touchée
+                paint.color = Color.parseColor("#00aa00")
+                canvas.drawCircle(px, py, 50f, paint)
+                
+                // Afficher le score
+                paint.color = Color.WHITE
+                paint.textSize = 30f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("+${targetScores[index]}", px, py + 10f, paint)
+                
+                paint.textSize = 20f
+                canvas.drawText("TOUCHÉ", px, py + 70f, paint)
+            } else {
+                // Cible intacte avec cercles concentriques
+                // Cercle 5 (extérieur) - 2 points
+                paint.color = Color.parseColor("#FFFFFF")
+                canvas.drawCircle(px, py, 50f, paint)
+                
+                // Cercle 4 - 4 points  
+                paint.color = Color.parseColor("#000000")
+                canvas.drawCircle(px, py, 40f, paint)
+                
+                // Cercle 3 - 6 points
+                paint.color = Color.parseColor("#FFFFFF")
+                canvas.drawCircle(px, py, 30f, paint)
+                
+                // Cercle 2 - 8 points
+                paint.color = Color.parseColor("#000000")
+                canvas.drawCircle(px, py, 20f, paint)
+                
+                // Centre - 10 points
+                paint.color = Color.parseColor("#FF0000")
+                canvas.drawCircle(px, py, 10f, paint)
+                
+                paint.color = Color.WHITE
+                paint.textSize = 16f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("${index + 1}", px, py + 70f, paint)
+            }
+        }
+        
+        private fun drawCrosshair(canvas: Canvas, w: Int, h: Int) {
+            val crossX = crosshair.x * w
+            val crossY = crosshair.y * h + 100
+            
+            // Croix noire épaisse
+            paint.color = Color.BLACK
+            paint.strokeWidth = 6f
+            canvas.drawLine(crossX - 25, crossY, crossX + 25, crossY, paint)
+            canvas.drawLine(crossX, crossY - 25, crossX, crossY + 25, paint)
+            
+            // Croix rouge fine
+            paint.color = Color.RED
+            paint.strokeWidth = 2f
+            canvas.drawLine(crossX - 20, crossY, crossX + 20, crossY, paint)
+            canvas.drawLine(crossX, crossY - 20, crossX, crossY + 20, paint)
+            
+            // Point central
+            paint.style = Paint.Style.FILL
+            paint.color = Color.YELLOW
+            canvas.drawCircle(crossX, crossY, 3f, paint)
+        }
+        
+        private fun drawShootingUI(canvas: Canvas, w: Int, h: Int) {
+            paint.style = Paint.Style.FILL
+            paint.color = Color.WHITE
+            paint.textSize = 30f
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("🔫 Munitions: ${5-shotsFired}/5", 30f, h - 100f, paint)
+            canvas.drawText("🎯 Score: $totalScore pts", 30f, h - 60f, paint)
+            
+            // Munitions restantes
+            for (i in 0 until 5) {
+                paint.color = if (i < shotsFired) Color.GRAY else Color.YELLOW
+                canvas.drawRect(w - 250f + i * 40f, h - 70f, w - 220f + i * 40f, h - 40f, paint)
+            }
         }
     }
 
