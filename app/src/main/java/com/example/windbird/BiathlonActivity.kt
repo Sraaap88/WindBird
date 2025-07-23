@@ -32,11 +32,17 @@ class BiathlonActivity : Activity(), SensorEventListener {
     private var backgroundOffset = 0f
     private var currentSection = 0 // 0=Forêt, 1=Montagne, 2=Vallée, 3=Arrivée
     
-    // NOUVEAU - Système de poussées rythmées
+    // NOUVEAU - Système de poussées rythmées avec performance
     private var pushDirection = 0 // -1=gauche, 0=neutre, 1=droite
     private var lastPushTime = 0L
+    private var previousPushTime = 0L // AJOUTÉ pour calculer l'intervalle
     private var rhythmBonus = 1f
     private var pushCount = 0
+    
+    // NOUVEAU - Variables pour la bande de performance
+    private var currentPushQuality = 0f
+    private var currentRhythmQuality = 0f
+    private var performanceHistory = mutableListOf<Float>() // Historique des performances
     
     // Sprite animation
     private lateinit var spriteSheet: Bitmap
@@ -196,7 +202,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
         gameView.invalidate()
     }
 
-    // NOUVEAU - Système de ski amélioré
+    // NOUVEAU - Système de ski amélioré avec performance
     private fun handleSkiingInput(tiltX: Float, rotationZ: Float) {
         val currentTime = System.currentTimeMillis()
         
@@ -209,22 +215,44 @@ class BiathlonActivity : Activity(), SensorEventListener {
         
         // Si changement de direction (poussée)
         if (newDirection != 0 && newDirection != pushDirection) {
-            val timeSinceLastPush = currentTime - lastPushTime
+            // CORRECTION : Calculer l'intervalle avec la poussée PRÉCÉDENTE
+            val intervalSinceLastPush = if (previousPushTime > 0) {
+                currentTime - previousPushTime
+            } else {
+                600L // Première poussée - intervalle par défaut
+            }
+            
+            // Calculer la qualité de la poussée (selon l'amplitude)
+            val pushAmplitude = abs(rotationZ)
+            currentPushQuality = calculatePushQuality(pushAmplitude)
+            
+            // Calculer la qualité du rythme
+            currentRhythmQuality = calculateRhythmQuality(intervalSinceLastPush)
             
             // Calculer le bonus de rythme (optimal: 400-800ms entre poussées)
             rhythmBonus = when {
-                timeSinceLastPush in 400..800 -> 1.5f // Excellent rythme
-                timeSinceLastPush in 300..1000 -> 1.2f // Bon rythme
+                intervalSinceLastPush in 400..800 -> 1.5f // Excellent rythme
+                intervalSinceLastPush in 300..1000 -> 1.2f // Bon rythme
                 else -> 0.8f // Rythme moins bon
             }
             
-            // Avancer selon le rythme
-            val advancement = 35f * rhythmBonus
+            // Avancer selon la qualité combinée
+            val combinedQuality = (currentPushQuality * 0.4f + currentRhythmQuality * 0.6f)
+            val advancement = 25f + (combinedQuality * 15f) // 25-40m par poussée
             distance += advancement
             backgroundOffset -= advancement * 0.3f
             
-            pushCount++
+            // Mettre à jour les temps
+            previousPushTime = lastPushTime
             lastPushTime = currentTime
+            pushCount++
+            
+            // Historique de performance
+            val overallPerformance = (currentPushQuality + currentRhythmQuality) / 2f
+            performanceHistory.add(overallPerformance)
+            if (performanceHistory.size > 15) {
+                performanceHistory.removeAt(0)
+            }
             
             // Animation selon la direction
             currentFrame = if (newDirection == -1) leftFrame else rightFrame
@@ -240,6 +268,30 @@ class BiathlonActivity : Activity(), SensorEventListener {
         }
         
         pushDirection = newDirection
+    }
+    
+    // NOUVEAU - Calcul de la qualité de poussée
+    private fun calculatePushQuality(amplitude: Float): Float {
+        return when {
+            amplitude >= 3.0f -> 1f        // Excellent - gros mouvement
+            amplitude >= 2.5f -> 0.85f     // Très bon
+            amplitude >= 2.0f -> 0.7f      // Bon
+            amplitude >= 1.5f -> 0.5f      // Moyen
+            else -> 0.3f                   // Faible
+        }.coerceIn(0f, 1f)
+    }
+    
+    // NOUVEAU - Calcul de la qualité du rythme
+    private fun calculateRhythmQuality(intervalMs: Long): Float {
+        // Rythme idéal : 400-800ms entre les poussées (comme le patinage mais ajusté)
+        return when {
+            intervalMs < 300L -> 0.2f      // Trop rapide
+            intervalMs < 400L -> 0.6f      // Un peu rapide
+            intervalMs in 400L..800L -> 1f  // PARFAIT
+            intervalMs < 1200L -> 0.7f     // Un peu lent
+            intervalMs < 1600L -> 0.4f     // Trop lent
+            else -> 0.1f                   // Beaucoup trop lent
+        }.coerceIn(0f, 1f)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -418,10 +470,94 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 paint.color = Color.RED
                 paint.textSize = 50f
                 canvas.drawText("+ ALTERNEZ GAUCHE-DROITE!", w/2f, h * 0.22f, paint)
+                
+                // NOUVEAU - Instructions pour la barre de performance
+                paint.color = Color.parseColor("#FF6600")
+                paint.textSize = 30f
+                canvas.drawText("REGARDEZ LA BARRE DE PERFORMANCE:", w/2f, h * 0.29f, paint)
+            }
+            
+            // NOUVELLE - Barre de performance en temps réel (seulement pendant le ski)
+            if (gameState == GameState.SKIING || gameState == GameState.FINAL_SKIING) {
+                drawPerformanceBand(canvas, 50f, h - 180f, w * 0.6f, 35f)
             }
             
             // Barre de progression avec sections
             drawProgressBar(canvas, w, h, progressRatio)
+        }
+        
+        // NOUVELLE - Barre de performance pour le biathlon
+        private fun drawPerformanceBand(canvas: Canvas, x: Float, y: Float, width: Float, height: Float) {
+            // Fond de la bande
+            paint.color = Color.parseColor("#333333")
+            paint.style = Paint.Style.FILL
+            canvas.drawRect(x, y, x + width, y + height, paint)
+            
+            if (pushCount < 2) {
+                // Au début - montrer les zones d'explication
+                val zoneWidth = width / 5f
+                val colors = arrayOf("#FF0000", "#FF8800", "#FFFF00", "#88FF00", "#00FF00") // Rouge à vert
+                val labels = arrayOf("Lent", "Faible", "Moyen", "Bon", "Parfait")
+                
+                for (i in 0..4) {
+                    paint.color = Color.parseColor(colors[i])
+                    canvas.drawRect(x + i * zoneWidth, y, x + (i + 1) * zoneWidth, y + height, paint)
+                    
+                    paint.color = Color.BLACK
+                    paint.textSize = 10f
+                    paint.textAlign = Paint.Align.CENTER
+                    canvas.drawText(labels[i], x + i * zoneWidth + zoneWidth/2f, y + height/2f + 3f, paint)
+                }
+                
+                paint.color = Color.WHITE
+                paint.textSize = 14f
+                canvas.drawText("QUALITÉ DE VOS POUSSÉES", x + width/2f, y - 8f, paint)
+                
+            } else {
+                // Performance en temps réel
+                val currentWidth = width
+                val currentX = x
+                
+                // Qualité de la poussée actuelle (moitié gauche)
+                val pushColor = getPerformanceColor(currentPushQuality)
+                paint.color = pushColor
+                canvas.drawRect(currentX, y, currentX + currentWidth/2f, y + height, paint)
+                
+                // Qualité du rythme actuel (moitié droite)
+                val rhythmColor = getPerformanceColor(currentRhythmQuality)
+                paint.color = rhythmColor
+                canvas.drawRect(currentX + currentWidth/2f, y, currentX + currentWidth, y + height, paint)
+                
+                // Labels
+                paint.color = Color.WHITE
+                paint.textSize = 12f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("FORCE", currentX + currentWidth/4f, y - 6f, paint)
+                canvas.drawText("RYTHME", currentX + 3*currentWidth/4f, y - 6f, paint)
+                
+                // Valeurs numériques
+                paint.color = Color.BLACK
+                paint.textSize = 10f
+                canvas.drawText("${(currentPushQuality * 100).toInt()}%", currentX + currentWidth/4f, y + height/2f + 3f, paint)
+                canvas.drawText("${(currentRhythmQuality * 100).toInt()}%", currentX + 3*currentWidth/4f, y + height/2f + 3f, paint)
+            }
+            
+            // Bordure
+            paint.color = Color.WHITE
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 2f
+            canvas.drawRect(x, y, x + width, y + height, paint)
+            paint.style = Paint.Style.FILL
+        }
+        
+        private fun getPerformanceColor(performance: Float): Int {
+            return when {
+                performance >= 0.8f -> Color.parseColor("#00FF00") // Vert - Excellent
+                performance >= 0.6f -> Color.parseColor("#88FF00") // Vert clair - Bon  
+                performance >= 0.4f -> Color.parseColor("#FFFF00") // Jaune - Moyen
+                performance >= 0.2f -> Color.parseColor("#FF8800") // Orange - Faible
+                else -> Color.parseColor("#FF0000") // Rouge - Très faible
+            }
         }
         
         private fun drawForestDecor(canvas: Canvas, w: Int, h: Int, accentColor: String) {
