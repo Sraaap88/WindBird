@@ -477,16 +477,16 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 canvas.drawText("REGARDEZ LA BARRE DE PERFORMANCE:", w/2f, h * 0.29f, paint)
             }
             
-            // NOUVELLE - Barre de performance en temps réel (seulement pendant le ski)
+            // NOUVELLE - Barre de performance en temps réel EN HAUT (seulement pendant le ski)
             if (gameState == GameState.SKIING || gameState == GameState.FINAL_SKIING) {
-                drawPerformanceBand(canvas, 50f, h - 180f, w * 0.6f, 35f)
+                drawPerformanceBand(canvas, w * 0.1f, 80f, w * 0.4f, 60f)
             }
             
             // Barre de progression avec sections
             drawProgressBar(canvas, w, h, progressRatio)
         }
         
-        // NOUVELLE - Barre de performance pour le biathlon
+        // NOUVELLE - Barre de performance pour le biathlon - PLUS ÉPAISSE ET TEXTE ÉNORME
         private fun drawPerformanceBand(canvas: Canvas, x: Float, y: Float, width: Float, height: Float) {
             // Fond de la bande
             paint.color = Color.parseColor("#333333")
@@ -504,14 +504,14 @@ class BiathlonActivity : Activity(), SensorEventListener {
                     canvas.drawRect(x + i * zoneWidth, y, x + (i + 1) * zoneWidth, y + height, paint)
                     
                     paint.color = Color.BLACK
-                    paint.textSize = 10f
+                    paint.textSize = 24f // ÉNORME de 10f
                     paint.textAlign = Paint.Align.CENTER
-                    canvas.drawText(labels[i], x + i * zoneWidth + zoneWidth/2f, y + height/2f + 3f, paint)
+                    canvas.drawText(labels[i], x + i * zoneWidth + zoneWidth/2f, y + height/2f + 8f, paint)
                 }
                 
                 paint.color = Color.WHITE
-                paint.textSize = 14f
-                canvas.drawText("QUALITÉ DE VOS POUSSÉES", x + width/2f, y - 8f, paint)
+                paint.textSize = 32f // ÉNORME de 14f
+                canvas.drawText("QUALITÉ POUSSÉES", x + width/2f, y - 20f, paint)
                 
             } else {
                 // Performance en temps réel
@@ -528,24 +528,24 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 paint.color = rhythmColor
                 canvas.drawRect(currentX + currentWidth/2f, y, currentX + currentWidth, y + height, paint)
                 
-                // Labels
+                // Labels ÉNORMES
                 paint.color = Color.WHITE
-                paint.textSize = 12f
+                paint.textSize = 28f // ÉNORME de 12f
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("FORCE", currentX + currentWidth/4f, y - 6f, paint)
-                canvas.drawText("RYTHME", currentX + 3*currentWidth/4f, y - 6f, paint)
+                canvas.drawText("FORCE", currentX + currentWidth/4f, y - 15f, paint)
+                canvas.drawText("RYTHME", currentX + 3*currentWidth/4f, y - 15f, paint)
                 
-                // Valeurs numériques
+                // Valeurs numériques ÉNORMES
                 paint.color = Color.BLACK
-                paint.textSize = 10f
-                canvas.drawText("${(currentPushQuality * 100).toInt()}%", currentX + currentWidth/4f, y + height/2f + 3f, paint)
-                canvas.drawText("${(currentRhythmQuality * 100).toInt()}%", currentX + 3*currentWidth/4f, y + height/2f + 3f, paint)
+                paint.textSize = 32f // ÉNORME de 10f
+                canvas.drawText("${(currentPushQuality * 100).toInt()}%", currentX + currentWidth/4f, y + height/2f + 12f, paint)
+                canvas.drawText("${(currentRhythmQuality * 100).toInt()}%", currentX + 3*currentWidth/4f, y + height/2f + 12f, paint)
             }
             
             // Bordure
             paint.color = Color.WHITE
             paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 2f
+            paint.strokeWidth = 4f // PLUS ÉPAISSE
             canvas.drawRect(x, y, x + width, y + height, paint)
             paint.style = Paint.Style.FILL
         }
@@ -561,59 +561,293 @@ class BiathlonActivity : Activity(), SensorEventListener {
         }
         
         private fun drawForestDecor(canvas: Canvas, w: Int, h: Int, accentColor: String) {
-            paint.color = Color.parseColor(accentColor)
-            // Arbres simples
+            // BEAUX DÉCORS DE FORÊT
+            
+            // Montagnes au loin
+            paint.color = Color.parseColor("#B0C4DE")
+            val mountainPath = Path()
+            mountainPath.moveTo(0f, h * 0.15f)
+            mountainPath.lineTo(w * 0.3f, h * 0.05f)
+            mountainPath.lineTo(w * 0.6f, h * 0.12f)
+            mountainPath.lineTo(w * 0.9f, h * 0.08f)
+            mountainPath.lineTo(w.toFloat(), h * 0.18f)
+            mountainPath.lineTo(w.toFloat(), h * 0.5f)
+            mountainPath.lineTo(0f, h * 0.5f)
+            mountainPath.close()
+            canvas.drawPath(mountainPath, paint)
+            
+            // Nuages
+            paint.color = Color.parseColor("#F0F8FF")
+            for (i in 0..6) {
+                val cloudX = (backgroundOffset * 0.2f + i * 150) % (w + 300) - 150
+                val cloudY = h * 0.1f + (i % 3) * 30f
+                canvas.drawCircle(cloudX, cloudY, 40f, paint)
+                canvas.drawCircle(cloudX + 25f, cloudY, 35f, paint)
+                canvas.drawCircle(cloudX + 50f, cloudY, 30f, paint)
+            }
+            
+            // Arbres variés
+            paint.color = Color.parseColor("#228B22")
+            for (i in 0..12) {
+                val treeX = (backgroundOffset * 0.5f + i * 80) % (w + 160) - 80
+                val treeHeight = 80f + (i % 3) * 20f
+                
+                // Tronc
+                paint.color = Color.parseColor("#8B4513")
+                canvas.drawRect(treeX - 5f, h * 0.5f - treeHeight, treeX + 5f, h * 0.5f, paint)
+                
+                // Feuillage
+                paint.color = Color.parseColor("#228B22")
+                canvas.drawCircle(treeX, h * 0.5f - treeHeight, 25f, paint)
+                canvas.drawCircle(treeX, h * 0.5f - treeHeight + 15f, 20f, paint)
+            }
+            
+            // Sapins
+            paint.color = Color.parseColor("#006400")
             for (i in 0..8) {
-                val treeX = (backgroundOffset * 0.5f + i * 100) % (w + 200) - 100
-                canvas.drawRect(treeX, h * 0.35f, treeX + 15f, h * 0.5f, paint)
-                canvas.drawCircle(treeX + 7.5f, h * 0.35f, 20f, paint)
+                val sapinX = (backgroundOffset * 0.6f + i * 120) % (w + 240) - 120
+                val sapinPath = Path()
+                sapinPath.moveTo(sapinX, h * 0.5f)
+                sapinPath.lineTo(sapinX - 20f, h * 0.4f)
+                sapinPath.lineTo(sapinX + 20f, h * 0.4f)
+                sapinPath.close()
+                canvas.drawPath(sapinPath, paint)
+                
+                sapinPath.reset()
+                sapinPath.moveTo(sapinX, h * 0.42f)
+                sapinPath.lineTo(sapinX - 15f, h * 0.35f)
+                sapinPath.lineTo(sapinX + 15f, h * 0.35f)
+                sapinPath.close()
+                canvas.drawPath(sapinPath, paint)
             }
         }
         
         private fun drawMountainDecor(canvas: Canvas, w: Int, h: Int, accentColor: String) {
-            paint.color = Color.parseColor(accentColor)
-            // Montagnes simples
+            // BEAUX DÉCORS DE MONTAGNE
+            
+            // Chaîne de montagnes majestueuse
+            paint.color = Color.parseColor("#4682B4")
+            val mountainPath1 = Path()
+            mountainPath1.moveTo(0f, h * 0.5f)
+            mountainPath1.lineTo(w * 0.15f, h * 0.05f)
+            mountainPath1.lineTo(w * 0.35f, h * 0.2f)
+            mountainPath1.lineTo(w * 0.5f, h * 0.02f)
+            mountainPath1.lineTo(w * 0.7f, h * 0.15f)
+            mountainPath1.lineTo(w * 0.9f, h * 0.08f)
+            mountainPath1.lineTo(w.toFloat(), h * 0.25f)
+            mountainPath1.lineTo(w.toFloat(), h * 0.5f)
+            mountainPath1.close()
+            canvas.drawPath(mountainPath1, paint)
+            
+            // Sommets enneigés
+            paint.color = Color.WHITE
+            val snowPath = Path()
+            snowPath.moveTo(w * 0.12f, h * 0.12f)
+            snowPath.lineTo(w * 0.15f, h * 0.05f)
+            snowPath.lineTo(w * 0.18f, h * 0.12f)
+            canvas.drawPath(snowPath, paint)
+            
+            snowPath.reset()
+            snowPath.moveTo(w * 0.47f, h * 0.08f)
+            snowPath.lineTo(w * 0.5f, h * 0.02f)
+            snowPath.lineTo(w * 0.53f, h * 0.08f)
+            canvas.drawPath(snowPath, paint)
+            
+            // Nuages de montagne
+            paint.color = Color.parseColor("#E6E6FA")
+            for (i in 0..5) {
+                val cloudX = (backgroundOffset * 0.1f + i * 180) % (w + 360) - 180
+                val cloudY = h * 0.12f + (i % 2) * 25f
+                canvas.drawCircle(cloudX, cloudY, 30f, paint)
+                canvas.drawCircle(cloudX + 20f, cloudY, 25f, paint)
+            }
+            
+            // Rochers
+            paint.color = Color.parseColor("#696969")
+            for (i in 0..6) {
+                val rockX = (backgroundOffset * 0.4f + i * 130) % (w + 260) - 130
+                val rockY = h * 0.45f
+                canvas.drawCircle(rockX, rockY, 15f + (i % 3) * 5f, paint)
+            }
+            
+            // Pins alpins
+            paint.color = Color.parseColor("#228B22")
             for (i in 0..4) {
-                val mountainX = (backgroundOffset * 0.3f + i * 200) % (w + 400) - 200
-                val path = Path()
-                path.moveTo(mountainX, h * 0.5f)
-                path.lineTo(mountainX + 100f, h * 0.1f)
-                path.lineTo(mountainX + 200f, h * 0.5f)
-                path.close()
-                canvas.drawPath(path, paint)
+                val pineX = (backgroundOffset * 0.3f + i * 200) % (w + 400) - 200
+                val pineHeight = 60f
+                
+                val pineShape = Path()
+                pineShape.moveTo(pineX, h * 0.5f)
+                pineShape.lineTo(pineX - 8f, h * 0.5f - pineHeight/3)
+                pineShape.lineTo(pineX + 8f, h * 0.5f - pineHeight/3)
+                pineShape.close()
+                canvas.drawPath(pineShape, paint)
+                
+                pineShape.reset()
+                pineShape.moveTo(pineX, h * 0.5f - pineHeight/4)
+                pineShape.lineTo(pineX - 6f, h * 0.5f - pineHeight * 2/3)
+                pineShape.lineTo(pineX + 6f, h * 0.5f - pineHeight * 2/3)
+                pineShape.close()
+                canvas.drawPath(pineShape, paint)
             }
         }
         
         private fun drawValleyDecor(canvas: Canvas, w: Int, h: Int, accentColor: String) {
-            paint.color = Color.parseColor(accentColor)
-            // Rivière gelée
-            canvas.drawRect(0f, h * 0.45f, w.toFloat(), h * 0.5f, paint)
-            // Quelques buissons
-            for (i in 0..6) {
-                val bushX = (backgroundOffset * 0.4f + i * 150) % (w + 300) - 150
-                canvas.drawCircle(bushX, h * 0.45f, 15f, paint)
+            // BEAUX DÉCORS DE VALLÉE
+            
+            // Collines douces
+            paint.color = Color.parseColor("#90EE90")
+            val hillPath = Path()
+            hillPath.moveTo(0f, h * 0.35f)
+            hillPath.quadTo(w * 0.25f, h * 0.25f, w * 0.5f, h * 0.3f)
+            hillPath.quadTo(w * 0.75f, h * 0.35f, w.toFloat(), h * 0.25f)
+            hillPath.lineTo(w.toFloat(), h * 0.5f)
+            hillPath.lineTo(0f, h * 0.5f)
+            hillPath.close()
+            canvas.drawPath(hillPath, paint)
+            
+            // Rivière serpentante
+            paint.color = Color.parseColor("#4682B4")
+            val riverPath = Path()
+            riverPath.moveTo(0f, h * 0.42f)
+            riverPath.quadTo(w * 0.2f, h * 0.38f, w * 0.4f, h * 0.45f)
+            riverPath.quadTo(w * 0.6f, h * 0.48f, w * 0.8f, h * 0.42f)
+            riverPath.lineTo(w.toFloat(), h * 0.44f)
+            riverPath.lineTo(w.toFloat(), h * 0.48f)
+            riverPath.quadTo(w * 0.6f, h * 0.52f, w * 0.4f, h * 0.49f)
+            riverPath.quadTo(w * 0.2f, h * 0.46f, 0f, h * 0.46f)
+            riverPath.close()
+            canvas.drawPath(riverPath, paint)
+            
+            // Reflets sur l'eau
+            paint.color = Color.parseColor("#87CEEB")
+            for (i in 0..8) {
+                val reflectX = (backgroundOffset * 0.2f + i * 100) % (w + 200) - 200
+                canvas.drawOval(reflectX, h * 0.43f, reflectX + 30f, h * 0.46f, paint)
+            }
+            
+            // Arbres de vallée (bouleaux)
+            paint.color = Color.parseColor("#F5F5DC")
+            for (i in 0..10) {
+                val treeX = (backgroundOffset * 0.4f + i * 90) % (w + 180) - 180
+                val treeHeight = 70f + (i % 4) * 10f
+                
+                // Tronc de bouleau (blanc avec marques noires)
+                canvas.drawRect(treeX - 3f, h * 0.5f - treeHeight, treeX + 3f, h * 0.5f, paint)
+                
+                // Marques de bouleau
+                paint.color = Color.BLACK
+                for (j in 1..4) {
+                    val markY = h * 0.5f - treeHeight * j / 5f
+                    canvas.drawRect(treeX - 3f, markY, treeX + 3f, markY + 2f, paint)
+                }
+                
+                // Feuillage vert clair
+                paint.color = Color.parseColor("#90EE90")
+                canvas.drawCircle(treeX, h * 0.5f - treeHeight, 18f, paint)
+                
+                paint.color = Color.parseColor("#F5F5DC")
+            }
+            
+            // Buissons colorés
+            val bushColors = arrayOf("#32CD32", "#228B22", "#ADFF2F")
+            for (i in 0..15) {
+                val bushX = (backgroundOffset * 0.6f + i * 60) % (w + 120) - 120
+                paint.color = Color.parseColor(bushColors[i % 3])
+                canvas.drawCircle(bushX, h * 0.47f, 8f + (i % 3) * 3f, paint)
+            }
+            
+            // Fleurs sauvages
+            val flowerColors = arrayOf("#FF69B4", "#FFD700", "#FF6347", "#9370DB")
+            for (i in 0..20) {
+                val flowerX = (backgroundOffset * 0.8f + i * 40) % (w + 80) - 80
+                paint.color = Color.parseColor(flowerColors[i % 4])
+                canvas.drawCircle(flowerX, h * 0.49f, 3f, paint)
             }
         }
         
         private fun drawFinishDecor(canvas: Canvas, w: Int, h: Int, accentColor: String) {
-            paint.color = Color.parseColor(accentColor)
-            // Drapeaux d'arrivée
-            for (i in 0..10) {
-                val flagX = (backgroundOffset * 0.6f + i * 80) % (w + 160) - 80
-                canvas.drawRect(flagX, h * 0.3f, flagX + 5f, h * 0.5f, paint)
-                canvas.drawRect(flagX, h * 0.3f, flagX + 30f, h * 0.35f, paint)
+            // BEAUX DÉCORS D'ARRIVÉE
+            
+            // Ciel doré de victoire
+            val gradient = LinearGradient(0f, 0f, 0f, h * 0.5f,
+                Color.parseColor("#FFD700"), Color.parseColor("#FFA500"), Shader.TileMode.CLAMP)
+            paint.shader = gradient
+            canvas.drawRect(0f, 0f, w.toFloat(), h * 0.5f, paint)
+            paint.shader = null
+            
+            // Montagnes dorées
+            paint.color = Color.parseColor("#DAA520")
+            val goldenMountain = Path()
+            goldenMountain.moveTo(0f, h * 0.3f)
+            goldenMountain.lineTo(w * 0.25f, h * 0.15f)
+            goldenMountain.lineTo(w * 0.5f, h * 0.25f)
+            goldenMountain.lineTo(w * 0.75f, h * 0.1f)
+            goldenMountain.lineTo(w.toFloat(), h * 0.2f)
+            goldenMountain.lineTo(w.toFloat(), h * 0.5f)
+            goldenMountain.lineTo(0f, h * 0.5f)
+            goldenMountain.close()
+            canvas.drawPath(goldenMountain, paint)
+            
+            // Confettis dans le ciel
+            val confettiColors = arrayOf("#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF69B4")
+            for (i in 0..25) {
+                val confettiX = (backgroundOffset * 0.1f + i * 40) % (w + 80) - 80
+                val confettiY = h * 0.1f + (i % 5) * 30f
+                paint.color = Color.parseColor(confettiColors[i % 5])
+                canvas.drawRect(confettiX, confettiY, confettiX + 6f, confettiY + 6f, paint)
             }
             
-            // Ligne d'arrivée si proche de la fin
-            if (distance > totalDistance * 0.9f) {
+            // Drapeaux de victoire partout
+            for (i in 0..15) {
+                val flagX = (backgroundOffset * 0.6f + i * 60) % (w + 120) - 120
+                val flagHeight = 80f + (i % 3) * 20f
+                
+                // Mât
+                paint.color = Color.parseColor("#8B4513")
+                canvas.drawRect(flagX - 2f, h * 0.5f - flagHeight, flagX + 2f, h * 0.5f, paint)
+                
+                // Drapeau
+                val flagColors = arrayOf("#FF0000", "#FFFFFF", "#0000FF")
+                paint.color = Color.parseColor(flagColors[i % 3])
+                canvas.drawRect(flagX + 2f, h * 0.5f - flagHeight, flagX + 35f, h * 0.5f - flagHeight + 25f, paint)
+            }
+            
+            // Tribunes de spectateurs (silhouettes)
+            paint.color = Color.parseColor("#696969")
+            for (i in 0..12) {
+                val spectatorX = (backgroundOffset * 0.3f + i * 70) % (w + 140) - 140
+                canvas.drawRect(spectatorX, h * 0.4f, spectatorX + 50f, h * 0.5f, paint)
+                
+                // Silhouettes de gens
                 paint.color = Color.BLACK
-                paint.strokeWidth = 8f
-                for (i in 0..20) {
-                    val y = h * 0.75f + i * 10f
+                for (j in 0..3) {
+                    val personX = spectatorX + j * 12f + 5f
+                    canvas.drawCircle(personX, h * 0.42f, 4f, paint)
+                    canvas.drawRect(personX - 2f, h * 0.42f, personX + 2f, h * 0.48f, paint)
+                }
+                paint.color = Color.parseColor("#696969")
+            }
+            
+            // Ligne d'arrivée majestueuse
+            if (distance > totalDistance * 0.85f) {
+                paint.color = Color.BLACK
+                paint.strokeWidth = 12f
+                for (i in 0..25) {
+                    val y = h * 0.75f + i * 8f
                     val color = if (i % 2 == 0) Color.BLACK else Color.WHITE
                     paint.color = color
-                    canvas.drawRect(w * 0.9f, y, w.toFloat(), y + 10f, paint)
+                    canvas.drawRect(w * 0.85f, y, w.toFloat(), y + 8f, paint)
                 }
+                
+                // Banderole "ARRIVÉE"
+                paint.color = Color.parseColor("#FFD700")
+                canvas.drawRect(w * 0.7f, h * 0.6f, w * 0.95f, h * 0.7f, paint)
+                
+                paint.color = Color.BLACK
+                paint.textSize = 32f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("ARRIVÉE", w * 0.825f, h * 0.66f, paint)
             }
         }
         
