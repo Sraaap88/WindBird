@@ -24,6 +24,11 @@ class SlalomActivity : Activity(), SensorEventListener {
     private var sensorManager: SensorManager? = null
     private var gyroscope: Sensor? = null
 
+    // Images du skieur
+    private var skierNoTurn: Bitmap? = null
+    private var skierLeftTurn: Bitmap? = null
+    private var skierRightTurn: Bitmap? = null
+
     // Variables de gameplay SLALOM
     private var gameState = GameState.PREPARATION
     private var phaseTimer = 0f
@@ -103,6 +108,9 @@ class SlalomActivity : Activity(), SensorEventListener {
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 
+        // Charger les images du skieur
+        loadSkierImages()
+
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         statusText = TextView(this).apply {
@@ -120,6 +128,16 @@ class SlalomActivity : Activity(), SensorEventListener {
         setContentView(layout)
         
         initializeGame()
+    }
+
+    private fun loadSkierImages() {
+        try {
+            skierNoTurn = BitmapFactory.decodeResource(resources, R.drawable.slalom_no_turn)
+            skierLeftTurn = BitmapFactory.decodeResource(resources, R.drawable.slalom_left_turn)
+            skierRightTurn = BitmapFactory.decodeResource(resources, R.drawable.slalom_right_turn)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
     
     private fun initializeGame() {
@@ -638,23 +656,23 @@ class SlalomActivity : Activity(), SensorEventListener {
             mountainPath.close()
             canvas.drawPath(mountainPath, paint)
             
-            // Piste de ski en perspective
+            // Piste de ski en perspective - INVERSÉE (descend du bas vers le haut)
             paint.color = Color.WHITE
             val pistePath = Path()
-            pistePath.moveTo(w * 0.3f, 0f)
-            pistePath.lineTo(w * 0.7f, 0f)
-            pistePath.lineTo(w * 0.8f, h.toFloat())
-            pistePath.lineTo(w * 0.2f, h.toFloat())
+            pistePath.moveTo(w * 0.4f, h.toFloat()) // Plus large en bas
+            pistePath.lineTo(w * 0.6f, h.toFloat())
+            pistePath.lineTo(w * 0.45f, 0f) // Plus étroit en haut
+            pistePath.lineTo(w * 0.55f, 0f)
             pistePath.close()
             canvas.drawPath(pistePath, paint)
             
             // Aperçu des portes de slalom AVEC COULEURS ALTERNÉES
             paint.color = Color.RED
-            canvas.drawRect(w * 0.6f, h * 0.2f, w * 0.64f, h * 0.35f, paint)
+            canvas.drawRect(w * 0.6f, h * 0.8f, w * 0.64f, h * 0.65f, paint)
             paint.color = Color.BLUE
-            canvas.drawRect(w * 0.36f, h * 0.4f, w * 0.4f, h * 0.55f, paint)
+            canvas.drawRect(w * 0.36f, h * 0.6f, w * 0.4f, h * 0.45f, paint)
             paint.color = Color.RED
-            canvas.drawRect(w * 0.65f, h * 0.6f, w * 0.69f, h * 0.75f, paint)
+            canvas.drawRect(w * 0.65f, h * 0.4f, w * 0.69f, h * 0.25f, paint)
             
             // Instructions
             paint.color = Color.parseColor("#000033")
@@ -686,7 +704,7 @@ class SlalomActivity : Activity(), SensorEventListener {
             // Portes de slalom AMÉLIORÉES
             drawSlalomGates(canvas, w, h)
             
-            // Skieur
+            // Skieur avec sprites
             drawSkier(canvas, w, h)
             
             // Traces et effets
@@ -724,7 +742,8 @@ class SlalomActivity : Activity(), SensorEventListener {
                 val pointDistance = point.distance - distance
                 
                 if (pointDistance > -50f && pointDistance < 300f) {
-                    val screenY = h * 0.2f + (pointDistance * 1f)
+                    // PERSPECTIVE INVERSÉE : plus on est loin, plus on est vers le haut
+                    val screenY = h * 0.8f - (pointDistance * 1f) // Inversé
                     val screenX = w * point.x
                     
                     if (i > 0 && lastScreenY > 0) {
@@ -847,43 +866,48 @@ class SlalomActivity : Activity(), SensorEventListener {
         }
         
         private fun drawSlopePerspective(canvas: Canvas, w: Int, h: Int) {
-            // Piste en perspective avec effet de vitesse
+            // Piste en perspective avec effet de vitesse - PERSPECTIVE INVERSÉE
             paint.color = Color.WHITE
             val slopeWidth = w * 0.6f
             val perspectiveOffset = speed * 0.4f
             
             val slopePath = Path()
-            slopePath.moveTo((w - slopeWidth) / 2f - perspectiveOffset, 0f)
-            slopePath.lineTo((w + slopeWidth) / 2f + perspectiveOffset, 0f)
+            // Plus large en bas (proche), plus étroit en haut (loin)
+            slopePath.moveTo(w * 0.15f, h.toFloat()) // Large en bas
             slopePath.lineTo(w * 0.85f, h.toFloat())
-            slopePath.lineTo(w * 0.15f, h.toFloat())
+            slopePath.lineTo((w + slopeWidth) / 2f + perspectiveOffset, 0f) // Étroit en haut
+            slopePath.lineTo((w - slopeWidth) / 2f - perspectiveOffset, 0f)
             slopePath.close()
             canvas.drawPath(slopePath, paint)
             
-            // Lignes de perspective pour effet de vitesse
+            // Lignes de perspective pour effet de vitesse - INVERSÉES
             paint.color = Color.parseColor("#EEEEEE")
             paint.strokeWidth = 2f
             paint.style = Paint.Style.STROKE
             
             for (i in 1..4) {
-                val lineY = (i * h / 5f + (distance * 1f) % (h / 5f))
-                val lineLeft = w * 0.15f + (i * 0.1f * w)
-                val lineRight = w * 0.85f - (i * 0.1f * w)
-                canvas.drawLine(lineLeft, lineY, lineRight, lineY, paint)
+                val lineY = h - (i * h / 5f + (distance * 1f) % (h / 5f)) // Inversé
+                if (lineY > 0 && lineY < h) {
+                    val perspectiveFactor = (h - lineY) / h.toFloat() // Plus étroit vers le haut
+                    val lineLeft = w/2f - (w * 0.35f * perspectiveFactor)
+                    val lineRight = w/2f + (w * 0.35f * perspectiveFactor)
+                    canvas.drawLine(lineLeft, lineY, lineRight, lineY, paint)
+                }
             }
             
             paint.style = Paint.Style.FILL
         }
         
         private fun drawSlalomGates(canvas: Canvas, w: Int, h: Int) {
-            // Dessiner les portes visibles AVEC AMÉLIORATIONS
+            // Dessiner les portes visibles AVEC AMÉLIORATIONS - PERSPECTIVE INVERSÉE
             for (gate in gates) {
                 val gateScreenDistance = gate.distance - distance
                 
                 // Seulement dessiner les portes proches
                 if (gateScreenDistance > -50f && gateScreenDistance < 500f) {
-                    val screenY = h * 0.2f + (gateScreenDistance * 1f)
-                    val perspectiveFactor = 1f - (gateScreenDistance / 500f)
+                    // PERSPECTIVE INVERSÉE : plus on est loin, plus on est vers le haut
+                    val screenY = h * 0.8f - (gateScreenDistance * 1f) // Inversé
+                    val perspectiveFactor = (h - screenY) / h.toFloat() // Plus petit vers le haut
                     val gateWidth = 20f * perspectiveFactor.coerceIn(0.3f, 1f)
                     val gateHeight = 100f * perspectiveFactor.coerceIn(0.3f, 1f)
                     
@@ -895,15 +919,15 @@ class SlalomActivity : Activity(), SensorEventListener {
                     
                     // Dessiner le piquet
                     canvas.drawRect(
-                        screenX - gateWidth/2, screenY,
-                        screenX + gateWidth/2, screenY + gateHeight,
+                        screenX - gateWidth/2, screenY - gateHeight,
+                        screenX + gateWidth/2, screenY,
                         paint
                     )
                     
                     // NOUVEAU - Zone de passage visible
                     if (gate == gates.getOrNull(nextGateIndex)) {
                         paint.color = Color.parseColor("#44FFFFFF")
-                        canvas.drawCircle(screenX, screenY + gateHeight/2, 60f, paint)
+                        canvas.drawCircle(screenX, screenY - gateHeight/2, 60f * perspectiveFactor, paint)
                     }
                     
                     // NOUVEAU - Flèche directionnelle sur la porte
@@ -912,17 +936,17 @@ class SlalomActivity : Activity(), SensorEventListener {
                         val arrowDirection = if (gate.side == "DROITE") "→" else "←"
                         paint.textSize = 24f * perspectiveFactor
                         paint.textAlign = Paint.Align.CENTER
-                        canvas.drawText(arrowDirection, screenX, screenY - 10f, paint)
+                        canvas.drawText(arrowDirection, screenX, screenY + 20f, paint)
                         
                         // Numéro de porte
                         paint.textSize = 20f * perspectiveFactor
-                        canvas.drawText("${gate.number}", screenX, screenY + gateHeight/2 + 8f, paint)
+                        canvas.drawText("${gate.number}", screenX, screenY - gateHeight/2 + 8f, paint)
                     }
                     
                     // Effet spécial pour porte passée
                     if (gate.passed) {
                         paint.color = Color.parseColor("#44FFFF00")
-                        canvas.drawCircle(screenX, screenY + gateHeight/2, gateHeight/2 + 15f, paint)
+                        canvas.drawCircle(screenX, screenY - gateHeight/2, gateHeight/2 + 15f, paint)
                     }
                 }
             }
@@ -930,33 +954,37 @@ class SlalomActivity : Activity(), SensorEventListener {
         
         private fun drawSkier(canvas: Canvas, w: Int, h: Int) {
             val skierScreenX = skierX * w
-            val skierScreenY = h * 0.75f
+            val skierScreenY = h * 0.85f // Position du skieur vers le bas de l'écran
             
-            // Corps du skieur
-            paint.color = Color.parseColor("#FF6600")
-            canvas.drawCircle(skierScreenX, skierScreenY, 25f, paint)
+            // Choisir l'image selon la direction
+            val currentSkierImage = when {
+                tiltX < -0.3f -> skierLeftTurn  // Virage à gauche
+                tiltX > 0.3f -> skierRightTurn  // Virage à droite
+                else -> skierNoTurn              // Tout droit
+            }
             
-            // Skis avec angle selon l'inclinaison
-            paint.color = Color.YELLOW
-            paint.strokeWidth = 10f
-            paint.style = Paint.Style.STROKE
-            
-            canvas.save()
-            canvas.translate(skierScreenX, skierScreenY)
-            canvas.rotate(tiltX * 20f)
-            
-            // Skis
-            canvas.drawLine(-20f, 30f, -20f, 55f, paint)
-            canvas.drawLine(20f, 30f, 20f, 55f, paint)
-            
-            // Bâtons
-            paint.color = Color.parseColor("#8B4513")
-            paint.strokeWidth = 6f
-            canvas.drawLine(-30f, -15f, -40f, 25f, paint)
-            canvas.drawLine(30f, -15f, 40f, 25f, paint)
-            
-            canvas.restore()
-            paint.style = Paint.Style.FILL
+            // Dessiner l'image du skieur si elle est chargée
+            currentSkierImage?.let { bitmap ->
+                val scaleFactor = 2.5f // Ajustez la taille selon vos besoins
+                val scaledWidth = bitmap.width * scaleFactor
+                val scaledHeight = bitmap.height * scaleFactor
+                
+                canvas.drawBitmap(
+                    bitmap,
+                    Rect(0, 0, bitmap.width, bitmap.height),
+                    RectF(
+                        skierScreenX - scaledWidth / 2,
+                        skierScreenY - scaledHeight / 2,
+                        skierScreenX + scaledWidth / 2,
+                        skierScreenY + scaledHeight / 2
+                    ),
+                    paint
+                )
+            } ?: run {
+                // Fallback si les images ne sont pas chargées
+                paint.color = Color.parseColor("#FF6600")
+                canvas.drawCircle(skierScreenX, skierScreenY, 25f, paint)
+            }
             
             // Effet de vitesse derrière le skieur
             if (speed > 30f) {
