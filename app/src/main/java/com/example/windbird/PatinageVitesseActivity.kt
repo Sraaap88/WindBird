@@ -54,6 +54,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     // NOUVEAU - Variables pour l'animation de victoire
     private var victoryAnimationProgress = 0f
     private var victoryAnimationStarted = false
+    
+    // Contrôles gyroscope - LOGIQUE CORRIGÉE
     // Contrôles gyroscope - LOGIQUE CORRIGÉE
     private var lastTiltDirection = 0
     private var expectingLeft = true
