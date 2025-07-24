@@ -24,10 +24,12 @@ class SlalomActivity : Activity(), SensorEventListener {
     private var sensorManager: SensorManager? = null
     private var gyroscope: Sensor? = null
 
-    // Images du skieur
+    // Images du skieur et drapeaux
     private var skierNoTurn: Bitmap? = null
     private var skierLeftTurn: Bitmap? = null
     private var skierRightTurn: Bitmap? = null
+    private var flagRed: Bitmap? = null
+    private var flagBlue: Bitmap? = null
 
     // Variables de gameplay SLALOM
     private var gameState = GameState.PREPARATION
@@ -42,8 +44,8 @@ class SlalomActivity : Activity(), SensorEventListener {
     private var speed = 0f
     private var maxSpeed = 55f // Zone rouge à partir de 50
     private var skierX = 0.5f // Position horizontale (0.0 = gauche, 1.0 = droite)
-    private var distance = 0f
-    private var totalDistance = 1400f
+    private var courseProgress = 0f // Progression sur le parcours
+    private var totalCourseLength = 2000f
     private var raceTime = 0f
     
     // Contrôles gyroscope - LÉGERS AJUSTEMENTS
@@ -57,17 +59,13 @@ class SlalomActivity : Activity(), SensorEventListener {
     private var turnSmoothness = 1f
     private var gForce = 0f // Intensité du virage
     
-    // Système de portes de slalom AMÉLIORÉ
+    // Système de portes de slalom REFAIT POUR PERSPECTIVE
     private val gates = mutableListOf<SlalomGate>()
     private var nextGateIndex = 0
     private var gatesPassed = 0
     private var gatesMissed = 0
     private var perfectGates = 0
     private var timePenalty = 0f
-    
-    // NOUVEAU - Ligne fantôme (trajectoire optimale)
-    private val optimalPath = mutableListOf<PathPoint>()
-    private var showGhostLine = true
     
     // Performance et style
     private var technique = 100f
@@ -108,8 +106,8 @@ class SlalomActivity : Activity(), SensorEventListener {
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 
-        // Charger les images du skieur
-        loadSkierImages()
+        // Charger les images
+        loadImages()
 
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
@@ -130,11 +128,13 @@ class SlalomActivity : Activity(), SensorEventListener {
         initializeGame()
     }
 
-    private fun loadSkierImages() {
+    private fun loadImages() {
         try {
             skierNoTurn = BitmapFactory.decodeResource(resources, R.drawable.slalom_no_turn)
             skierLeftTurn = BitmapFactory.decodeResource(resources, R.drawable.slalom_left_turn)
             skierRightTurn = BitmapFactory.decodeResource(resources, R.drawable.slalom_right_turn)
+            flagRed = BitmapFactory.decodeResource(resources, R.drawable.slalom_flag_red)
+            flagBlue = BitmapFactory.decodeResource(resources, R.drawable.slalom_flag_bleu)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -145,7 +145,7 @@ class SlalomActivity : Activity(), SensorEventListener {
         phaseTimer = 0f
         speed = 0f
         skierX = 0.5f
-        distance = 0f
+        courseProgress = 0f
         raceTime = 0f
         tiltX = 0f
         tiltY = 0f
@@ -175,69 +175,29 @@ class SlalomActivity : Activity(), SensorEventListener {
         gates.clear()
         snowSpray.clear()
         skiTrails.clear()
-        optimalPath.clear()
         
         generateSlalomCourse()
-        generateOptimalPath()
     }
     
     private fun generateSlalomCourse() {
-        // Générer des PAIRES de drapeaux (vraies portes de slalom)
-        var currentDistance = 120f
+        // Générer des PAIRES de drapeaux pour vraie perspective
+        var currentPosition = 150f
         
-        repeat(15) { i -> // Moins de portes mais plus réalistes
-            val gateX = 0.3f + (i % 2) * 0.4f // Alternance gauche-droite
+        repeat(20) { i ->
+            val gateCenter = 0.3f + (i % 2) * 0.4f // Alternance gauche-droite
+            val gateWidth = 0.15f // Largeur entre les drapeaux
             
-            // PAIRE de drapeaux (porte complète)
+            // Paire de drapeaux (rouge à gauche, bleu à droite)
             gates.add(SlalomGate(
-                x = gateX - 0.1f, // Drapeau gauche
-                distance = currentDistance,
-                type = SlalomGate.Type.RED,
+                leftX = gateCenter - gateWidth,
+                rightX = gateCenter + gateWidth,
+                position = currentPosition,
                 number = i + 1,
-                passed = false,
-                side = "GAUCHE",
-                isPair = true,
-                pairIndex = 0
+                passed = false
             ))
             
-            gates.add(SlalomGate(
-                x = gateX + 0.1f, // Drapeau droite  
-                distance = currentDistance,
-                type = SlalomGate.Type.BLUE,
-                number = i + 1,
-                passed = false,
-                side = "DROITE", 
-                isPair = true,
-                pairIndex = 1
-            ))
-            
-            currentDistance += 80f + kotlin.random.Random.nextFloat() * 20f
+            currentPosition += 90f + kotlin.random.Random.nextFloat() * 20f
         }
-    }
-    
-    // NOUVEAU - Génération de la ligne fantôme
-    private fun generateOptimalPath() {
-        optimalPath.clear()
-        
-        // Créer une trajectoire optimale entre les portes
-        for (i in 0 until gates.size - 1) {
-            val currentGate = gates[i]
-            val nextGate = gates[i + 1]
-            
-            // Points intermédiaires pour une courbe lisse
-            val steps = 10
-            for (j in 0..steps) {
-                val t = j.toFloat() / steps
-                val x = lerp(currentGate.x, nextGate.x, t)
-                val distance = lerp(currentGate.distance, nextGate.distance, t)
-                
-                optimalPath.add(PathPoint(x, distance))
-            }
-        }
-    }
-    
-    private fun lerp(start: Float, end: Float, t: Float): Float {
-        return start + (end - start) * t
     }
 
     override fun onResume() {
@@ -300,7 +260,7 @@ class SlalomActivity : Activity(), SensorEventListener {
         updateCarving()
         
         // Fin de course
-        if (distance >= totalDistance) {
+        if (courseProgress >= totalCourseLength) {
             calculateFinalScore()
             gameState = GameState.RESULTS
             phaseTimer = 0f
@@ -308,26 +268,26 @@ class SlalomActivity : Activity(), SensorEventListener {
     }
     
     private fun handleSkierMovement() {
-        // Mouvement latéral basé sur l'inclinaison gauche/droite - CONTRÔLES LÉGERS
-        val steeringInput = tiltX * 0.6f // Légèrement plus réactif
+        // Mouvement latéral basé sur l'inclinaison gauche/droite
+        val steeringInput = tiltX * 0.8f
         val previousX = skierX
-        skierX += steeringInput * 0.01f // Légèrement plus fluide
+        skierX += steeringInput * 0.015f
         skierX = skierX.coerceIn(0.1f, 0.9f)
         
         // NOUVEAU - Calcul de la G-Force pour les virages
         val turnRate = abs(skierX - previousX)
-        gForce = turnRate * speed * 2f // Plus on va vite, plus les virages sont intenses
+        gForce = turnRate * speed * 2f
         
-        // Vitesse basée sur l'inclinaison avant/arrière - CONTRÔLES LÉGERS
+        // Vitesse basée sur l'inclinaison avant/arrière
         when {
-            tiltY < -0.4f -> { // Légèrement plus sensible
+            tiltY < -0.4f -> {
                 // Incliner vers l'avant = accélération
-                speed += 1.2f // Légèrement plus réactif
+                speed += 1.2f
                 technique += 0.015f
             }
-            tiltY > 0.4f -> { // Légèrement plus sensible
+            tiltY > 0.4f -> {
                 // Incliner vers l'arrière = freinage
-                speed -= 1f // Légèrement plus réactif
+                speed -= 1f
                 technique -= 0.008f
             }
             else -> {
@@ -367,7 +327,6 @@ class SlalomActivity : Activity(), SensorEventListener {
         val angleChange = abs(turnAngle - lastTurnAngle)
         
         // Calculer la qualité du carving
-        // Bon carving = changements d'angle fluides et progressifs
         if (angleChange < 0.5f) {
             // Virage fluide
             turnSmoothness = min(1f, turnSmoothness + 0.02f)
@@ -382,8 +341,8 @@ class SlalomActivity : Activity(), SensorEventListener {
         if (carvingQuality > 0.8f && gForce > 1f) {
             // Excellent carving dans un virage intense
             carvingBonus += 0.5f
-            carvingBonusTimer = 60f // 60 frames d'affichage
-            speed += 0.3f // Bonus de vitesse
+            carvingBonusTimer = 60f
+            speed += 0.3f
         } else if (carvingQuality < 0.3f) {
             // Dérapage = perte de vitesse
             speed *= 0.98f
@@ -399,7 +358,7 @@ class SlalomActivity : Activity(), SensorEventListener {
     
     private fun updateRaceProgress() {
         // Progression basée sur la vitesse
-        distance += speed * 0.06f
+        courseProgress += speed * 0.08f
         
         // Effets de caméra selon la vitesse
         if (speed > 45f) {
@@ -411,19 +370,22 @@ class SlalomActivity : Activity(), SensorEventListener {
         if (nextGateIndex >= gates.size) return
         
         val currentGate = gates[nextGateIndex]
-        val gateDistance = currentGate.distance
+        val relativePosition = currentGate.position - courseProgress
         
-        // Vérifier si on approche de la porte
-        if (distance >= gateDistance - 30f && distance <= gateDistance + 30f) {
-            val distanceToGate = abs(skierX - currentGate.x)
-            
-            if (distanceToGate < 0.2f && !currentGate.passed) {
+        // Vérifier si on traverse la porte
+        if (relativePosition <= 30f && relativePosition >= -30f) {
+            // Vérifier si on passe entre les drapeaux
+            if (skierX > currentGate.leftX && skierX < currentGate.rightX && !currentGate.passed) {
                 // Porte passée correctement !
                 currentGate.passed = true
                 gatesPassed++
                 
                 // Évaluation de la précision
-                if (distanceToGate < 0.1f) {
+                val gateCenter = (currentGate.leftX + currentGate.rightX) / 2f
+                val distanceFromCenter = abs(skierX - gateCenter)
+                val gateWidth = currentGate.rightX - currentGate.leftX
+                
+                if (distanceFromCenter < gateWidth * 0.2f) {
                     perfectGates++
                     consecutivePerfectTurns++
                     generatePerfectGateEffect()
@@ -434,7 +396,7 @@ class SlalomActivity : Activity(), SensorEventListener {
                 updateRhythm()
                 nextGateIndex++
                 
-            } else if (distance > gateDistance + 30f && !currentGate.passed) {
+            } else if (relativePosition < -30f && !currentGate.passed) {
                 // Porte manquée !
                 gatesMissed++
                 timePenalty += 2f
@@ -549,7 +511,7 @@ class SlalomActivity : Activity(), SensorEventListener {
             val perfectBonus = perfectGates * 25
             val techniqueBonus = ((technique - 100f) * 2).toInt()
             val rhythmBonus = (rhythm * 30).toInt()
-            val carvingBonusPoints = (carvingBonus * 5).toInt() // NOUVEAU
+            val carvingBonusPoints = (carvingBonus * 5).toInt()
             val penalty = (gatesMissed * 30) + (timePenalty * 10).toInt()
             
             finalScore = maxOf(50, timeBonus + speedBonus + gatesBonus + perfectBonus + 
@@ -613,7 +575,7 @@ class SlalomActivity : Activity(), SensorEventListener {
     private fun updateStatus() {
         statusText.text = when (gameState) {
             GameState.PREPARATION -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Préparation... ${(preparationDuration - phaseTimer).toInt() + 1}s"
-            GameState.RACE -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Portes: $gatesPassed/25 | ${speed.toInt()} km/h | Carving: ${(carvingQuality * 100).toInt()}%"
+            GameState.RACE -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Portes: $gatesPassed/20 | ${speed.toInt()} km/h | Carving: ${(carvingQuality * 100).toInt()}%"
             GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | Temps: ${raceTime.toInt()}s | Score: ${finalScore}"
             GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Course terminée!"
         }
@@ -667,23 +629,15 @@ class SlalomActivity : Activity(), SensorEventListener {
             mountainPath.close()
             canvas.drawPath(mountainPath, paint)
             
-            // Piste de ski en perspective - INVERSÉE (descend du bas vers le haut)
+            // Piste de ski en perspective
             paint.color = Color.WHITE
             val pistePath = Path()
-            pistePath.moveTo(w * 0.4f, h.toFloat()) // Plus large en bas
-            pistePath.lineTo(w * 0.6f, h.toFloat())
-            pistePath.lineTo(w * 0.45f, 0f) // Plus étroit en haut
+            pistePath.moveTo(w * 0.45f, 0f) // Étroit en haut
             pistePath.lineTo(w * 0.55f, 0f)
+            pistePath.lineTo(w * 0.85f, h.toFloat()) // Large en bas
+            pistePath.lineTo(w * 0.15f, h.toFloat())
             pistePath.close()
             canvas.drawPath(pistePath, paint)
-            
-            // Aperçu des portes de slalom AVEC COULEURS ALTERNÉES
-            paint.color = Color.RED
-            canvas.drawRect(w * 0.6f, h * 0.8f, w * 0.64f, h * 0.65f, paint)
-            paint.color = Color.BLUE
-            canvas.drawRect(w * 0.36f, h * 0.6f, w * 0.4f, h * 0.45f, paint)
-            paint.color = Color.RED
-            canvas.drawRect(w * 0.65f, h * 0.4f, w * 0.69f, h * 0.25f, paint)
             
             // Instructions
             paint.color = Color.parseColor("#000033")
@@ -693,7 +647,7 @@ class SlalomActivity : Activity(), SensorEventListener {
             
             paint.textSize = 28f
             paint.color = Color.parseColor("#0066CC")
-            canvas.drawText("Suivez la ligne fantôme pour la trajectoire optimale", w/2f, h * 0.8f, paint)
+            canvas.drawText("Zigzaguez entre les portes qui arrivent", w/2f, h * 0.8f, paint)
             
             paint.textSize = 22f
             paint.color = Color.parseColor("#666666")
@@ -709,24 +663,20 @@ class SlalomActivity : Activity(), SensorEventListener {
             // Piste avec perspective dynamique
             drawSlopePerspective(canvas, w, h)
             
-            // NOUVEAU - Ligne fantôme
-            drawOptimalPath(canvas, w, h)
-            
-            // Portes de slalom AMÉLIORÉES
+            // Portes de slalom avec vraie perspective
             drawSlalomGates(canvas, w, h)
             
-            // Skieur avec sprites
+            // Skieur fixe en bas
             drawSkier(canvas, w, h)
             
             // Traces et effets
             drawSkiTrails(canvas, w, h)
             
-            // Interface de course AMÉLIORÉE
+            // Interface de course
             drawRaceInterface(canvas, w, h)
             
-            // NOUVEAU - Barre de carving et flèche directionnelle
+            // Barre de carving
             drawCarvingIndicator(canvas, w, h)
-            drawDirectionalArrow(canvas, w, h)
             
             // Bonus de carving
             if (carvingBonusTimer > 0f) {
@@ -737,108 +687,159 @@ class SlalomActivity : Activity(), SensorEventListener {
             }
         }
         
-        // NOUVEAU - Ligne fantôme
-        private fun drawOptimalPath(canvas: Canvas, w: Int, h: Int) {
-            if (!showGhostLine) return
+        private fun drawSlopePerspective(canvas: Canvas, w: Int, h: Int) {
+            // Piste en perspective avec effet de vitesse
+            paint.color = Color.WHITE
             
-            paint.color = Color.parseColor("#88FFFF00") // Jaune transparent
-            paint.strokeWidth = 8f
+            val slopePath = Path()
+            slopePath.moveTo(w * 0.45f, 0f) // Étroit en haut (loin)
+            slopePath.lineTo(w * 0.55f, 0f)
+            slopePath.lineTo(w * 0.85f, h.toFloat()) // Large en bas (proche)
+            slopePath.lineTo(w * 0.15f, h.toFloat())
+            slopePath.close()
+            canvas.drawPath(slopePath, paint)
+            
+            // Lignes de perspective pour effet de vitesse
+            paint.color = Color.parseColor("#EEEEEE")
+            paint.strokeWidth = 2f
             paint.style = Paint.Style.STROKE
             
-            var lastScreenX = 0f
-            var lastScreenY = 0f
-            
-            for (i in optimalPath.indices) {
-                val point = optimalPath[i]
-                val pointDistance = point.distance - distance
-                
-                if (pointDistance > -50f && pointDistance < 300f) {
-                    // PERSPECTIVE INVERSÉE : plus on est loin, plus on est vers le haut
-                    val screenY = h * 0.8f - (pointDistance * 1f) // Inversé
-                    val screenX = w * point.x
-                    
-                    if (i > 0 && lastScreenY > 0) {
-                        canvas.drawLine(lastScreenX, lastScreenY, screenX, screenY, paint)
-                    }
-                    
-                    lastScreenX = screenX
-                    lastScreenY = screenY
+            for (i in 1..8) {
+                val lineY = (i * h / 9f + (courseProgress * 0.5f) % (h / 9f))
+                if (lineY > 0 && lineY < h) {
+                    val perspectiveFactor = lineY / h.toFloat()
+                    val lineLeft = w/2f - (w * 0.35f * perspectiveFactor)
+                    val lineRight = w/2f + (w * 0.35f * perspectiveFactor)
+                    canvas.drawLine(lineLeft, lineY, lineRight, lineY, paint)
                 }
             }
             
             paint.style = Paint.Style.FILL
         }
         
-        // NOUVEAU - Indicateur de carving
-        private fun drawCarvingIndicator(canvas: Canvas, w: Int, h: Int) {
-            val barX = w - 200f
-            val barY = h - 300f
-            val barWidth = 30f
-            val barHeight = 120f
-            
-            // Fond de la barre
-            paint.color = Color.parseColor("#333333")
-            canvas.drawRect(barX, barY, barX + barWidth, barY + barHeight, paint)
-            
-            // Niveau de carving
-            val carvingLevel = carvingQuality * barHeight
-            val carvingColor = when {
-                carvingQuality > 0.8f -> Color.parseColor("#00FF00") // Vert
-                carvingQuality > 0.5f -> Color.parseColor("#FFFF00") // Jaune
-                else -> Color.parseColor("#FF0000") // Rouge
+        private fun drawSlalomGates(canvas: Canvas, w: Int, h: Int) {
+            // Dessiner les portes avec vraie perspective progressive
+            for (gate in gates) {
+                val relativePosition = gate.position - courseProgress
+                
+                // Seulement dessiner les portes visibles
+                if (relativePosition > 0f && relativePosition < 400f) {
+                    // Calcul de la perspective : plus proche = plus bas et plus gros
+                    val screenY = relativePosition * h / 400f
+                    val perspectiveFactor = screenY / h.toFloat()
+                    
+                    // Taille des drapeaux selon la distance
+                    val flagScale = perspectiveFactor * 0.8f + 0.2f
+                    
+                    // Positions écran des drapeaux
+                    val leftScreenX = w * (0.5f + (gate.leftX - 0.5f) * perspectiveFactor)
+                    val rightScreenX = w * (0.5f + (gate.rightX - 0.5f) * perspectiveFactor)
+                    
+                    // Dessiner les drapeaux avec les vraies images
+                    flagRed?.let { bitmap ->
+                        val scaledWidth = bitmap.width * flagScale * 0.15f
+                        val scaledHeight = bitmap.height * flagScale * 0.15f
+                        
+                        canvas.drawBitmap(
+                            bitmap,
+                            Rect(0, 0, bitmap.width, bitmap.height),
+                            RectF(
+                                leftScreenX - scaledWidth / 2,
+                                screenY - scaledHeight,
+                                leftScreenX + scaledWidth / 2,
+                                screenY
+                            ),
+                            paint
+                        )
+                    }
+                    
+                    flagBlue?.let { bitmap ->
+                        val scaledWidth = bitmap.width * flagScale * 0.15f
+                        val scaledHeight = bitmap.height * flagScale * 0.15f
+                        
+                        canvas.drawBitmap(
+                            bitmap,
+                            Rect(0, 0, bitmap.width, bitmap.height),
+                            RectF(
+                                rightScreenX - scaledWidth / 2,
+                                screenY - scaledHeight,
+                                rightScreenX + scaledWidth / 2,
+                                screenY
+                            ),
+                            paint
+                        )
+                    }
+                    
+                    // Zone de passage pour la prochaine porte
+                    if (gate == gates.getOrNull(nextGateIndex)) {
+                        paint.color = Color.parseColor("#44FFFFFF")
+                        canvas.drawRect(
+                            leftScreenX, screenY - flagScale * 40f,
+                            rightScreenX, screenY,
+                            paint
+                        )
+                    }
+                    
+                    // Numéro de porte
+                    if (perspectiveFactor > 0.3f) {
+                        paint.color = Color.BLACK
+                        paint.textSize = 18f * flagScale
+                        paint.textAlign = Paint.Align.CENTER
+                        val centerX = (leftScreenX + rightScreenX) / 2f
+                        canvas.drawText("${gate.number}", centerX, screenY + 30f * flagScale, paint)
+                    }
+                    
+                    // Effet pour porte passée
+                    if (gate.passed) {
+                        paint.color = Color.parseColor("#44FFFF00")
+                        val centerX = (leftScreenX + rightScreenX) / 2f
+                        canvas.drawCircle(centerX, screenY - flagScale * 20f, flagScale * 30f, paint)
+                    }
+                }
             }
-            
-            paint.color = carvingColor
-            canvas.drawRect(barX, barY + barHeight - carvingLevel, 
-                           barX + barWidth, barY + barHeight, paint)
-            
-            // Label
-            paint.color = Color.WHITE
-            paint.textSize = 16f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("CARVING", barX + barWidth/2f, barY - 10f, paint)
-            
-            // Zones
-            paint.color = Color.WHITE
-            paint.strokeWidth = 1f
-            paint.style = Paint.Style.STROKE
-            canvas.drawLine(barX, barY + barHeight * 0.2f, barX + barWidth, barY + barHeight * 0.2f, paint) // Zone verte
-            canvas.drawLine(barX, barY + barHeight * 0.5f, barX + barWidth, barY + barHeight * 0.5f, paint) // Zone jaune
-            paint.style = Paint.Style.FILL
         }
         
-        // NOUVEAU - Flèche directionnelle
-        private fun drawDirectionalArrow(canvas: Canvas, w: Int, h: Int) {
-            if (nextGateIndex >= gates.size) return
+        private fun drawSkier(canvas: Canvas, w: Int, h: Int) {
+            val skierScreenX = skierX * w
+            val skierScreenY = h * 0.9f // Fixe en bas de l'écran
             
-            val nextGate = gates[nextGateIndex]
-            val direction = if (nextGate.x > skierX) 1f else -1f
-            val arrowX = w/2f + direction * 100f
-            val arrowY = h * 0.4f
-            
-            // Couleur selon l'approche
-            val approachQuality = 1f - abs(skierX - nextGate.x) * 2f
-            val arrowColor = when {
-                approachQuality > 0.7f -> Color.parseColor("#00FF00")
-                approachQuality > 0.4f -> Color.parseColor("#FFFF00")
-                else -> Color.parseColor("#FF0000")
+            // Choisir l'image selon la direction
+            val currentSkierImage = when {
+                tiltX < -0.3f -> skierLeftTurn  // Virage à gauche
+                tiltX > 0.3f -> skierRightTurn  // Virage à droite
+                else -> skierNoTurn              // Tout droit
             }
             
-            paint.color = arrowColor
+            // Dessiner l'image du skieur
+            currentSkierImage?.let { bitmap ->
+                val scaleFactor = 0.6f
+                val scaledWidth = bitmap.width * scaleFactor
+                val scaledHeight = bitmap.height * scaleFactor
+                
+                canvas.drawBitmap(
+                    bitmap,
+                    Rect(0, 0, bitmap.width, bitmap.height),
+                    RectF(
+                        skierScreenX - scaledWidth / 2,
+                        skierScreenY - scaledHeight / 2,
+                        skierScreenX + scaledWidth / 2,
+                        skierScreenY + scaledHeight / 2
+                    ),
+                    paint
+                )
+            } ?: run {
+                // Fallback si les images ne sont pas chargées
+                paint.color = Color.parseColor("#FF6600")
+                canvas.drawCircle(skierScreenX, skierScreenY, 25f, paint)
+            }
             
-            // Dessiner la flèche
-            val arrowPath = Path()
-            arrowPath.moveTo(arrowX, arrowY - 20f)
-            arrowPath.lineTo(arrowX + direction * 30f, arrowY)
-            arrowPath.lineTo(arrowX, arrowY + 20f)
-            arrowPath.lineTo(arrowX + direction * 10f, arrowY)
-            arrowPath.close()
-            canvas.drawPath(arrowPath, paint)
-            
-            // Texte d'indication
-            paint.textSize = 18f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("PORTE ${nextGate.number}", arrowX, arrowY + 50f, paint)
+            // Effet de vitesse
+            if (speed > 30f) {
+                paint.color = Color.parseColor("#66FFFFFF")
+                for (i in 1..3) {
+                    canvas.drawCircle(skierScreenX, skierScreenY - i * 15f, 15f - i * 3f, paint)
+                }
+            }
         }
         
         private fun drawResults(canvas: Canvas, w: Int, h: Int) {
@@ -863,7 +864,7 @@ class SlalomActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#333333")
             paint.textSize = 24f
             canvas.drawText("⏱️ Temps: ${raceTime.toInt()}s", w/2f, h * 0.5f, paint)
-            canvas.drawText("🚪 Portes passées: $gatesPassed/25", w/2f, h * 0.55f, paint)
+            canvas.drawText("🚪 Portes passées: $gatesPassed/20", w/2f, h * 0.55f, paint)
             canvas.drawText("⭐ Portes parfaites: $perfectGates", w/2f, h * 0.6f, paint)
             canvas.drawText("❌ Portes manquées: $gatesMissed", w/2f, h * 0.65f, paint)
             canvas.drawText("⚡ Vitesse max: ${speed.toInt()} km/h", w/2f, h * 0.7f, paint)
@@ -873,148 +874,6 @@ class SlalomActivity : Activity(), SensorEventListener {
             if (timePenalty > 0f) {
                 paint.color = Color.RED
                 canvas.drawText("⏰ Pénalité: +${timePenalty.toInt()}s", w/2f, h * 0.85f, paint)
-            }
-        }
-        
-        private fun drawSlopePerspective(canvas: Canvas, w: Int, h: Int) {
-            // Piste en perspective avec effet de vitesse - PERSPECTIVE INVERSÉE
-            paint.color = Color.WHITE
-            val slopeWidth = w * 0.6f
-            val perspectiveOffset = speed * 0.4f
-            
-            val slopePath = Path()
-            // Plus large en bas (proche), plus étroit en haut (loin)
-            slopePath.moveTo(w * 0.15f, h.toFloat()) // Large en bas
-            slopePath.lineTo(w * 0.85f, h.toFloat())
-            slopePath.lineTo((w + slopeWidth) / 2f + perspectiveOffset, 0f) // Étroit en haut
-            slopePath.lineTo((w - slopeWidth) / 2f - perspectiveOffset, 0f)
-            slopePath.close()
-            canvas.drawPath(slopePath, paint)
-            
-            // Lignes de perspective pour effet de vitesse - INVERSÉES
-            paint.color = Color.parseColor("#EEEEEE")
-            paint.strokeWidth = 2f
-            paint.style = Paint.Style.STROKE
-            
-            for (i in 1..4) {
-                val lineY = h - (i * h / 5f + (distance * 1f) % (h / 5f)) // Inversé
-                if (lineY > 0 && lineY < h) {
-                    val perspectiveFactor = (h - lineY) / h.toFloat() // Plus étroit vers le haut
-                    val lineLeft = w/2f - (w * 0.35f * perspectiveFactor)
-                    val lineRight = w/2f + (w * 0.35f * perspectiveFactor)
-                    canvas.drawLine(lineLeft, lineY, lineRight, lineY, paint)
-                }
-            }
-            
-            paint.style = Paint.Style.FILL
-        }
-        
-        private fun drawSlalomGates(canvas: Canvas, w: Int, h: Int) {
-            // Dessiner les PAIRES de drapeaux (vraies portes de slalom)
-            val gatePairs = gates.chunked(2) // Grouper par paires
-            
-            for (gatePair in gatePairs) {
-                if (gatePair.size == 2) {
-                    val leftGate = gatePair[0]
-                    val rightGate = gatePair[1]
-                    val gateScreenDistance = leftGate.distance - distance
-                    
-                    // Seulement dessiner les portes proches
-                    if (gateScreenDistance > -50f && gateScreenDistance < 500f) {
-                        val screenY = h * 0.8f - (gateScreenDistance * 1f)
-                        val perspectiveFactor = (h - screenY) / h.toFloat()
-                        val gateWidth = 15f * perspectiveFactor.coerceIn(0.3f, 1f)
-                        val gateHeight = 80f * perspectiveFactor.coerceIn(0.3f, 1f)
-                        
-                        // Drapeau ROUGE (gauche)
-                        val leftScreenX = w * leftGate.x
-                        paint.color = Color.parseColor("#FF0000")
-                        canvas.drawRect(
-                            leftScreenX - gateWidth/2, screenY - gateHeight,
-                            leftScreenX + gateWidth/2, screenY,
-                            paint
-                        )
-                        
-                        // Drapeau BLEU (droite)
-                        val rightScreenX = w * rightGate.x
-                        paint.color = Color.parseColor("#0044FF")
-                        canvas.drawRect(
-                            rightScreenX - gateWidth/2, screenY - gateHeight,
-                            rightScreenX + gateWidth/2, screenY,
-                            paint
-                        )
-                        
-                        // Zone de passage entre les drapeaux
-                        if (leftGate.number == nextGateIndex / 2 + 1) {
-                            paint.color = Color.parseColor("#44FFFFFF")
-                            val centerX = (leftScreenX + rightScreenX) / 2f
-                            canvas.drawRect(
-                                leftScreenX + gateWidth/2, screenY - gateHeight/2 - 20f,
-                                rightScreenX - gateWidth/2, screenY - gateHeight/2 + 20f,
-                                paint
-                            )
-                        }
-                        
-                        // Numéro de porte
-                        if (perspectiveFactor > 0.6f) {
-                            paint.color = Color.WHITE
-                            paint.textSize = 20f * perspectiveFactor
-                            paint.textAlign = Paint.Align.CENTER
-                            val centerX = (leftScreenX + rightScreenX) / 2f
-                            canvas.drawText("${leftGate.number}", centerX, screenY + 25f, paint)
-                        }
-                        
-                        // Effet spécial pour porte passée
-                        if (leftGate.passed && rightGate.passed) {
-                            paint.color = Color.parseColor("#44FFFF00")
-                            val centerX = (leftScreenX + rightScreenX) / 2f
-                            canvas.drawCircle(centerX, screenY - gateHeight/2, gateHeight/2 + 15f, paint)
-                        }
-                    }
-                }
-            }
-        }
-        
-        private fun drawSkier(canvas: Canvas, w: Int, h: Int) {
-            val skierScreenX = skierX * w
-            val skierScreenY = h * 0.85f // Position du skieur vers le bas de l'écran
-            
-            // Choisir l'image selon la direction
-            val currentSkierImage = when {
-                tiltX < -0.3f -> skierLeftTurn  // Virage à gauche
-                tiltX > 0.3f -> skierRightTurn  // Virage à droite
-                else -> skierNoTurn              // Tout droit
-            }
-            
-            // Dessiner l'image du skieur si elle est chargée
-            currentSkierImage?.let { bitmap ->
-                val scaleFactor = 0.5f // Réduit la taille des sprites
-                val scaledWidth = bitmap.width * scaleFactor
-                val scaledHeight = bitmap.height * scaleFactor
-                
-                canvas.drawBitmap(
-                    bitmap,
-                    Rect(0, 0, bitmap.width, bitmap.height),
-                    RectF(
-                        skierScreenX - scaledWidth / 2,
-                        skierScreenY - scaledHeight / 2,
-                        skierScreenX + scaledWidth / 2,
-                        skierScreenY + scaledHeight / 2
-                    ),
-                    paint
-                )
-            } ?: run {
-                // Fallback si les images ne sont pas chargées
-                paint.color = Color.parseColor("#FF6600")
-                canvas.drawCircle(skierScreenX, skierScreenY, 25f, paint)
-            }
-            
-            // Effet de vitesse derrière le skieur
-            if (speed > 30f) {
-                paint.color = Color.parseColor("#66FFFFFF")
-                for (i in 1..3) {
-                    canvas.drawCircle(skierScreenX, skierScreenY + i * 20f, 20f - i * 4f, paint)
-                }
             }
         }
         
@@ -1034,14 +893,14 @@ class SlalomActivity : Activity(), SensorEventListener {
         private fun drawRaceInterface(canvas: Canvas, w: Int, h: Int) {
             val baseY = h - 180f
             
-            // NOUVEAU - Speedomètre analogique avec zone rouge
+            // Speedomètre analogique
             drawAnalogSpeedometer(canvas, w - 120f, 120f, speed, maxSpeed)
             
             // Progression des portes
             paint.color = Color.parseColor("#000033")
             paint.textSize = 20f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("Portes: $gatesPassed/25", 30f, baseY, paint)
+            canvas.drawText("Portes: $gatesPassed/20", 30f, baseY, paint)
             canvas.drawText("Parfaites: $perfectGates", 30f, baseY + 30f, paint)
             canvas.drawText("Manquées: $gatesMissed", 30f, baseY + 60f, paint)
             
@@ -1060,7 +919,35 @@ class SlalomActivity : Activity(), SensorEventListener {
             }
         }
         
-        // NOUVEAU - Speedomètre analogique avec zone rouge
+        private fun drawCarvingIndicator(canvas: Canvas, w: Int, h: Int) {
+            val barX = w - 200f
+            val barY = h - 300f
+            val barWidth = 30f
+            val barHeight = 120f
+            
+            // Fond de la barre
+            paint.color = Color.parseColor("#333333")
+            canvas.drawRect(barX, barY, barX + barWidth, barY + barHeight, paint)
+            
+            // Niveau de carving
+            val carvingLevel = carvingQuality * barHeight
+            val carvingColor = when {
+                carvingQuality > 0.8f -> Color.parseColor("#00FF00")
+                carvingQuality > 0.5f -> Color.parseColor("#FFFF00")
+                else -> Color.parseColor("#FF0000")
+            }
+            
+            paint.color = carvingColor
+            canvas.drawRect(barX, barY + barHeight - carvingLevel, 
+                           barX + barWidth, barY + barHeight, paint)
+            
+            // Label
+            paint.color = Color.WHITE
+            paint.textSize = 16f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("CARVING", barX + barWidth/2f, barY - 10f, paint)
+        }
+        
         private fun drawAnalogSpeedometer(canvas: Canvas, centerX: Float, centerY: Float, 
                                         currentSpeed: Float, maxSpeed: Float) {
             val radius = 60f
@@ -1160,17 +1047,12 @@ class SlalomActivity : Activity(), SensorEventListener {
     }
 
     data class SlalomGate(
-        val x: Float,
-        val distance: Float,
-        val type: Type,
-        val number: Int,
-        var passed: Boolean,
-        val side: String,
-        val isPair: Boolean = false, // NOUVEAU - fait partie d'une paire
-        val pairIndex: Int = 0       // NOUVEAU - 0=gauche, 1=droite
-    ) {
-        enum class Type { RED, BLUE }
-    }
+        val leftX: Float,     // Position X du drapeau rouge (gauche)
+        val rightX: Float,    // Position X du drapeau bleu (droite)
+        val position: Float,  // Position sur le parcours
+        val number: Int,      // Numéro de la porte
+        var passed: Boolean   // Porte franchie ou non
+    )
     
     data class SnowParticle(
         var x: Float,
@@ -1184,12 +1066,6 @@ class SlalomActivity : Activity(), SensorEventListener {
         val x: Float,
         val y: Float,
         val timestamp: Long
-    )
-    
-    // NOUVEAU
-    data class PathPoint(
-        val x: Float,
-        val distance: Float
     )
 
     enum class GameState {
