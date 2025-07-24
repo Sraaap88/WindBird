@@ -752,6 +752,29 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         // Cache des objets réutilisables
         private val reusableRectF = RectF()
         private val reusablePath = Path()
+        
+        // Images du snowboarder
+        private var snowFrontBitmap: Bitmap? = null
+        private var snowTrickBitmap: Bitmap? = null
+        
+        init {
+            loadBitmaps()
+        }
+        
+        private fun loadBitmaps() {
+            try {
+                snowFrontBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_front)
+                snowTrickBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_trick)
+            } catch (e: Exception) {
+                // Les bitmaps resteront null, le fallback sera utilisé
+            }
+        }
+        
+        override fun onDetachedFromWindow() {
+            super.onDetachedFromWindow()
+            snowFrontBitmap?.recycle()
+            snowTrickBitmap?.recycle()
+        }
 
         override fun onDraw(canvas: Canvas) {
             val w = width
@@ -868,14 +891,14 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             canvas.drawRect(0f, 0f, w.toFloat(), h * 0.3f, paint)
             paint.shader = null
             
-            // Perspective du halfpipe qui défile
-            val scrollOffset = pipeScroll % 100f
+            // Halfpipe qui défile avec forme en U améliorée
+            val scrollOffset = (pipeScroll * 2f) % 150f // Plus rapide et visible
             
-            // Mur gauche du halfpipe
+            // Mur gauche du halfpipe (forme en U)
             reusablePath.reset()
             reusablePath.moveTo(0f, h * 0.3f)
-            reusablePath.quadTo(w * 0.25f, h * 0.5f - scrollOffset, w * 0.4f, h * 0.8f)
-            reusablePath.lineTo(w * 0.35f, h.toFloat())
+            reusablePath.quadTo(w * 0.15f, h * 0.45f, w * 0.3f, h * 0.7f) // Courbe plus douce
+            reusablePath.quadTo(w * 0.35f, h * 0.85f, w * 0.4f, h.toFloat()) // Transition vers le fond
             reusablePath.lineTo(0f, h.toFloat())
             reusablePath.close()
             
@@ -883,34 +906,58 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             paint.style = Paint.Style.FILL
             canvas.drawPath(reusablePath, paint)
             
-            // Mur droit du halfpipe
+            // Mur droit du halfpipe (symétrique)
             reusablePath.reset()
             reusablePath.moveTo(w.toFloat(), h * 0.3f)
-            reusablePath.quadTo(w * 0.75f, h * 0.5f - scrollOffset, w * 0.6f, h * 0.8f)
-            reusablePath.lineTo(w * 0.65f, h.toFloat())
+            reusablePath.quadTo(w * 0.85f, h * 0.45f, w * 0.7f, h * 0.7f)
+            reusablePath.quadTo(w * 0.65f, h * 0.85f, w * 0.6f, h.toFloat())
             reusablePath.lineTo(w.toFloat(), h.toFloat())
             reusablePath.close()
             
             canvas.drawPath(reusablePath, paint)
             
-            // Fond du halfpipe
-            paint.color = Color.parseColor("#F5F5F5")
-            reusableRectF.set(w * 0.35f, h * 0.8f, w * 0.65f, h.toFloat())
+            // Fond du halfpipe (partie plate)
+            paint.color = Color.parseColor("#F8F8F8")
+            reusableRectF.set(w * 0.4f, h * 0.85f, w * 0.6f, h.toFloat())
             canvas.drawRect(reusableRectF, paint)
             
-            // Lignes de perspective
+            // Lignes de perspective qui BOUGENT pour montrer la vitesse
             paint.color = Color.parseColor("#DDDDDD")
-            paint.strokeWidth = 2f
+            paint.strokeWidth = 3f
             paint.style = Paint.Style.STROKE
             
-            for (i in 1..8) {
-                val perspective = i * 50f - scrollOffset
-                val yPos = h * 0.7f + perspective * 2f
-                if (yPos < h.toFloat()) {
-                    val width = w * (0.3f + perspective * 0.002f)
-                    canvas.drawLine(w/2f - width/2f, yPos, w/2f + width/2f, yPos, paint)
+            for (i in 0..12) {
+                val lineDistance = i * 60f - scrollOffset
+                val yPos = h * 0.6f + lineDistance * 1.5f
+                
+                if (yPos > h * 0.3f && yPos < h.toFloat()) {
+                    val perspective = (yPos - h * 0.3f) / (h * 0.7f)
+                    val width = w * (0.2f + perspective * 0.4f)
+                    val centerX = w / 2f
+                    
+                    // Ligne courbée pour suivre la forme du halfpipe
+                    reusablePath.reset()
+                    reusablePath.moveTo(centerX - width/2f, yPos)
+                    reusablePath.quadTo(centerX, yPos + perspective * 15f, centerX + width/2f, yPos)
+                    canvas.drawPath(reusablePath, paint)
                 }
             }
+            
+            // Bords du halfpipe
+            paint.color = Color.parseColor("#CCCCCC")
+            paint.strokeWidth = 4f
+            
+            // Bord gauche
+            reusablePath.reset()
+            reusablePath.moveTo(0f, h * 0.3f)
+            reusablePath.quadTo(w * 0.15f, h * 0.45f, w * 0.3f, h * 0.7f)
+            canvas.drawPath(reusablePath, paint)
+            
+            // Bord droit
+            reusablePath.reset()
+            reusablePath.moveTo(w.toFloat(), h * 0.3f)
+            reusablePath.quadTo(w * 0.85f, h * 0.45f, w * 0.7f, h * 0.7f)
+            canvas.drawPath(reusablePath, paint)
             
             paint.style = Paint.Style.FILL
         }
@@ -923,66 +970,75 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             canvas.save()
             canvas.translate(riderScreenX, riderScreenY)
             
-            // Rotation selon les tricks
+            // Rotation selon les tricks et position dans le halfpipe
+            val baseRotation = (riderPosition - 0.5f) * 20f // Inclinaison selon position
+            canvas.rotate(baseRotation)
+            
             when (currentTrick) {
-                TrickType.SPIN -> canvas.rotate(trickRotation * if (tiltZ > 0) 1f else -1f)
-                TrickType.FLIP -> canvas.rotate(trickFlip * if (tiltY > 0) 1f else -1f) // Utiliser rotate au lieu de rotateX
+                TrickType.SPIN -> canvas.rotate(trickRotation * 0.8f)
+                TrickType.FLIP -> canvas.rotate(trickFlip * 0.6f)
                 TrickType.COMBO -> {
-                    canvas.rotate(trickRotation * 0.5f + trickFlip * 0.3f) // Combiner les rotations
+                    canvas.rotate(trickRotation * 0.5f + trickFlip * 0.3f)
                 }
                 else -> {}
             }
             
             // Échelle selon la distance (effet de profondeur)
-            val scale = if (isInAir) 1f + altimeter * 0.01f else 1f
+            val scale = if (isInAir) 1.2f + altimeter * 0.02f else 1f
             canvas.scale(scale, scale)
             
-            // Corps du snowboarder (vu de derrière)
-            paint.color = Color.parseColor("#FF6600") // Combinaison orange
-            canvas.drawRect(-15f, -30f, 15f, 20f, paint) // Torse
-            
-            // Casque
-            paint.color = Color.parseColor("#FFFFFF")
-            canvas.drawCircle(0f, -35f, 12f, paint)
-            
-            // Bras
-            paint.color = Color.parseColor("#FF6600")
-            paint.strokeWidth = 8f
-            paint.style = Paint.Style.STROKE
-            
-            if (currentTrick == TrickType.GRAB && trickGrab) {
-                // Position grab
-                canvas.drawLine(-10f, -10f, -20f, 25f, paint) // Bras vers planche
-                canvas.drawLine(10f, -10f, 20f, 25f, paint)
+            // Utiliser l'image du snowboarder
+            val snowboarderImage = if (currentTrick != TrickType.NONE) {
+                snowTrickBitmap
             } else {
-                // Position normale
-                canvas.drawLine(-12f, -15f, -20f, -5f, paint)
-                canvas.drawLine(12f, -15f, 20f, -5f, paint)
+                snowFrontBitmap
             }
             
-            // Jambes
-            canvas.drawLine(-8f, 15f, -12f, 35f, paint)
-            canvas.drawLine(8f, 15f, 12f, 35f, paint)
+            snowboarderImage?.let { image ->
+                // Ajuster l'échelle de l'image
+                val imageScale = 0.8f // Échelle de base
+                val imageWidth = image.width * imageScale
+                val imageHeight = image.height * imageScale
+                
+                reusableRectF.set(
+                    -imageWidth/2f,
+                    -imageHeight/2f,
+                    imageWidth/2f,
+                    imageHeight/2f
+                )
+                canvas.drawBitmap(image, null, reusableRectF, paint)
+                
+            } ?: run {
+                // Fallback si pas d'image
+                paint.color = Color.parseColor("#FF6600")
+                canvas.drawCircle(0f, 0f, 25f, paint)
+                
+                // Snowboard
+                paint.color = Color.parseColor("#4400FF")
+                canvas.drawRoundRect(-30f, 25f, 30f, 35f, 5f, 5f, paint)
+            }
             
-            // Snowboard
-            paint.color = Color.parseColor("#4400FF")
-            paint.style = Paint.Style.FILL
-            canvas.drawRoundRect(-25f, 30f, 25f, 40f, 5f, 5f, paint)
-            
-            // Fixations
-            paint.color = Color.parseColor("#333333")
-            canvas.drawRect(-15f, 32f, -5f, 38f, paint)
-            canvas.drawRect(5f, 32f, 15f, 38f, paint)
-            
-            paint.style = Paint.Style.FILL
             canvas.restore()
             
-            // Effet de mur si proche des bords
+            // Effet de mur si proche des bords avec plus de visibilité
             if (wallBounceEffect > 0f) {
-                paint.color = Color.parseColor("#40FFFFFF")
-                paint.alpha = (wallBounceEffect * 255).toInt()
-                canvas.drawCircle(riderScreenX, riderScreenY, wallBounceEffect * 100f, paint)
+                paint.color = Color.parseColor("#60FFFFFF")
+                paint.alpha = (wallBounceEffect * 200).toInt()
+                canvas.drawCircle(riderScreenX, riderScreenY, wallBounceEffect * 80f, paint)
                 paint.alpha = 255
+            }
+            
+            // Trainée de vitesse si rapide
+            if (speed > 15f) {
+                paint.color = Color.parseColor("#40FFFFFF")
+                for (i in 1..3) {
+                    canvas.drawCircle(
+                        riderScreenX, 
+                        riderScreenY + i * 20f, 
+                        (4f - i) * (speed / 25f) * 8f, 
+                        paint
+                    )
+                }
             }
         }
         
