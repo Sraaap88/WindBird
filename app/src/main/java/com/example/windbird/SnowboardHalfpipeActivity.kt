@@ -926,10 +926,9 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             // Rotation selon les tricks
             when (currentTrick) {
                 TrickType.SPIN -> canvas.rotate(trickRotation * if (tiltZ > 0) 1f else -1f)
-                TrickType.FLIP -> canvas.rotateX(trickFlip * if (tiltY > 0) 1f else -1f)
+                TrickType.FLIP -> canvas.rotate(trickFlip * if (tiltY > 0) 1f else -1f) // Utiliser rotate au lieu de rotateX
                 TrickType.COMBO -> {
-                    canvas.rotate(trickRotation * 0.5f)
-                    canvas.rotateX(trickFlip * 0.5f)
+                    canvas.rotate(trickRotation * 0.5f + trickFlip * 0.3f) // Combiner les rotations
                 }
                 else -> {}
             }
