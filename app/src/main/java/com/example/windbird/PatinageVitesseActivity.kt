@@ -56,6 +56,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     private var victoryAnimationStarted = false
     
     // Contrôles gyroscope - LOGIQUE CORRIGÉE
+    private var tiltX = 0f
+    private var lastTiltDirection = 0
+    private var expectingLeft = true
+    private var currentTiltState = TiltState.CENTER
     // Contrôles gyroscope - LOGIQUE CORRIGÉE
     private var lastTiltDirection = 0
     private var expectingLeft = true
