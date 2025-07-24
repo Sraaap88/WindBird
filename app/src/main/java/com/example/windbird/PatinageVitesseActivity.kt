@@ -478,10 +478,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 paint.color = Color.parseColor("#87CEEB")
                 canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
                 paint.color = Color.WHITE
-                canvas.drawRect(0f, h * 0.3f, w.toFloat(), h.toFloat(), paint)
+                canvas.drawRect(0f, h.toFloat() * 0.3f, w.toFloat(), h.toFloat(), paint)
                 paint.color = Color.BLACK
                 paint.strokeWidth = 4f
-                canvas.drawLine(0f, h * 0.65f, w.toFloat(), h * 0.65f, paint)
+                canvas.drawLine(0f, h.toFloat() * 0.65f, w.toFloat(), h.toFloat() * 0.65f, paint)
             }
             
             // Drapeau et infos pays
@@ -529,8 +529,6 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             paint.textSize = 32f
             canvas.drawText("TESTEZ VOTRE RYTHME:", w.toFloat()/2f, h.toFloat() * 0.36f, paint)
             
-            // SUPPRIMÉ DÉFINITIVEMENT - Pas de bande pendant la préparation
-            
             val countdown = (preparationDuration - phaseTimer).toInt() + 1
             paint.textSize = 60f
             paint.color = Color.RED
@@ -555,18 +553,18 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             drawFrontView(canvas, w, h)
             drawHUD(canvas, w, h)
             
-            // NOUVELLE bande de performance en temps réel
-            drawPerformanceBand(canvas, 50f, h - 200f, w * 0.5f, 40f, false)
+            // BARRE DE PERFORMANCE EN TEMPS RÉEL - CORRIGÉE
+            drawPerformanceBand(canvas, 50f, h.toFloat() - 200f, w.toFloat() * 0.5f, 40f)
         }
         
-        // FONCTION pour la bande de performance - SIGNATURE SIMPLIFIÉE
+        // FONCTION pour la barre de performance - CORRIGÉE
         private fun drawPerformanceBand(canvas: Canvas, x: Float, y: Float, width: Float, height: Float) {
             // Fond de la bande
             paint.color = Color.parseColor("#333333")
             paint.style = Paint.Style.FILL
             canvas.drawRect(x, y, x + width, y + height, paint)
             
-            // SEULEMENT performance en temps réel (plus de mode préparation)
+            // Performance en temps réel SEULEMENT
             val currentWidth = width
             val currentX = x
             
