@@ -281,11 +281,11 @@ class BobsledActivity : Activity(), SensorEventListener {
     
     // NOUVEAU : Fonction pour gérer le défilement de la piste
     private fun updateTrackScrolling() {
-        val scrollSpeed = speed * 0.04f // Plus rapide pour la piste plus grosse
+        val scrollSpeed = speed * 0.03f // Ajusté pour la nouvelle vitesse
         trackScrollOffset += scrollSpeed
         
         // Défilement du paysage (plus lent que la piste pour effet parallaxe)
-        landscapeOffset += scrollSpeed * 0.5f
+        landscapeOffset += scrollSpeed * 0.4f
         
         // Reset pour éviter les valeurs trop grandes
         if (trackScrollOffset > 1000f) trackScrollOffset -= 1000f
@@ -293,7 +293,7 @@ class BobsledActivity : Activity(), SensorEventListener {
     }
     
     private fun updateTrackProgress() {
-        val progressSpeed = speed / 6000f // RALENTI 3X (était 2000f) pour course 3x plus longue
+        val progressSpeed = speed / 8000f // RALENTI pour virages plus longs (était 6000f)
         trackPosition += progressSpeed * 0.025f
         trackPosition = trackPosition.coerceAtMost(1f)
         
@@ -677,23 +677,23 @@ class BobsledActivity : Activity(), SensorEventListener {
         
         // NOUVEAU : Paysage défilant réaliste dans la moitié supérieure
         private fun drawScrollingLandscape(canvas: Canvas, w: Int, horizonHeight: Int) {
-            // Ciel avec dégradé
+            // Ciel hivernal avec dégradé blanc-bleu
             val skyGradient = LinearGradient(
                 0f, 0f, 0f, horizonHeight.toFloat(),
-                Color.rgb(135, 206, 250), // Bleu ciel clair en haut
-                Color.rgb(170, 140, 255),  // Bleu-violet vers l'horizon
+                Color.rgb(240, 248, 255), // Blanc Alice en haut (hivernal)
+                Color.rgb(220, 230, 255),  // Bleu très pâle vers l'horizon
                 Shader.TileMode.CLAMP
             )
             paint.shader = skyGradient
             canvas.drawRect(0f, 0f, w.toFloat(), horizonHeight.toFloat(), paint)
             paint.shader = null
             
-            // MONTAGNES QUI BOUGENT SELON LES VIRAGES - Effet réaliste
-            val curveRotation = currentCurveIntensity * 25f // Rotation plus prononcée
+            // MONTAGNES ENNEIGÉES QUI BOUGENT SELON LES VIRAGES
+            val curveRotation = currentCurveIntensity * 20f
             val mountainShift = landscapeOffset + currentCurveIntensity * w * 0.4f
             
-            // Montagnes arrière (plus lentes, effet parallaxe)
-            paint.color = Color.rgb(80, 80, 120)
+            // Montagnes arrière (plus lentes, effet parallaxe) - Tons bleus pour distance
+            paint.color = Color.rgb(180, 190, 210)
             val backMountains = Path().apply {
                 moveTo(-mountainShift * 0.3f, horizonHeight.toFloat())
                 lineTo(w * 0.2f - mountainShift * 0.3f, horizonHeight * 0.3f)
@@ -705,8 +705,8 @@ class BobsledActivity : Activity(), SensorEventListener {
             }
             canvas.drawPath(backMountains, paint)
             
-            // Montagnes moyennes
-            paint.color = Color.rgb(100, 100, 140)
+            // Montagnes moyennes - Gris clair enneigé
+            paint.color = Color.rgb(200, 210, 220)
             val midMountains = Path().apply {
                 moveTo(-mountainShift * 0.6f, horizonHeight.toFloat())
                 lineTo(w * 0.15f - mountainShift * 0.6f, horizonHeight * 0.5f)
@@ -718,8 +718,8 @@ class BobsledActivity : Activity(), SensorEventListener {
             }
             canvas.drawPath(midMountains, paint)
             
-            // Montagnes proches (bougent le plus)
-            paint.color = Color.rgb(120, 120, 160)
+            // Montagnes proches (bougent le plus) - Blanc neigeux
+            paint.color = Color.rgb(230, 235, 245)
             val frontMountains = Path().apply {
                 moveTo(-mountainShift, horizonHeight.toFloat())
                 lineTo(w * 0.25f - mountainShift, horizonHeight * 0.6f)
@@ -731,32 +731,45 @@ class BobsledActivity : Activity(), SensorEventListener {
             }
             canvas.drawPath(frontMountains, paint)
             
-            // ARBRES ET ÉLÉMENTS QUI DÉFILENT RAPIDEMENT
-            paint.color = Color.rgb(34, 139, 34)
-            val treeShift = landscapeOffset * 2f // Arbres bougent 2x plus vite
-            for (i in 0..15) {
-                val treeX = (w * i / 10f - treeShift + currentCurveIntensity * w * 0.6f) % (w + 200f) - 100f
-                val treeY = horizonHeight * (0.8f + sin(i.toFloat()) * 0.1f)
-                val treeHeight = 40f + (i % 3) * 20f
+            // SAPINS ENNEIGÉS QUI DÉFILENT
+            paint.color = Color.rgb(20, 60, 20) // Vert foncé pour les sapins
+            val treeShift = landscapeOffset * 1.5f
+            for (i in 0..12) {
+                val treeX = (w * i / 8f - treeShift + currentCurveIntensity * w * 0.5f) % (w + 200f) - 100f
+                val treeY = horizonHeight * (0.8f + sin(i.toFloat()) * 0.08f)
+                val treeHeight = 35f + (i % 3) * 15f
                 
-                // Tronc
-                paint.color = Color.rgb(139, 69, 19)
-                canvas.drawRect(treeX - 3f, treeY, treeX + 3f, treeY + treeHeight, paint)
+                // Tronc brun
+                paint.color = Color.rgb(100, 50, 20)
+                canvas.drawRect(treeX - 2f, treeY, treeX + 2f, treeY + treeHeight, paint)
                 
-                // Feuillage
-                paint.color = Color.rgb(34, 139, 34)
-                canvas.drawCircle(treeX, treeY, treeHeight * 0.4f, paint)
+                // Sapin vert avec neige
+                paint.color = Color.rgb(20, 60, 20)
+                for (layer in 0..2) {
+                    val layerY = treeY + layer * treeHeight / 3f
+                    val layerWidth = treeHeight * (0.6f - layer * 0.15f)
+                    canvas.drawRect(treeX - layerWidth/2f, layerY, treeX + layerWidth/2f, layerY + treeHeight/3f, paint)
+                }
+                
+                // Neige sur les branches
+                paint.color = Color.WHITE
+                for (layer in 0..2) {
+                    val layerY = treeY + layer * treeHeight / 3f
+                    val layerWidth = treeHeight * (0.5f - layer * 0.12f)
+                    canvas.drawRect(treeX - layerWidth/2f, layerY, treeX + layerWidth/2f, layerY + 3f, paint)
+                }
             }
             
-            // NUAGES QUI BOUGENT LENTEMENT
-            paint.color = Color.argb(180, 255, 255, 255)
-            val cloudShift = landscapeOffset * 0.1f // Nuages très lents
-            for (i in 0..6) {
-                val cloudX = (w * i / 4f - cloudShift) % (w + 300f) - 150f
-                val cloudY = horizonHeight * (0.1f + i * 0.08f)
-                canvas.drawCircle(cloudX, cloudY, 30f + i * 5f, paint)
-                canvas.drawCircle(cloudX + 25f, cloudY, 25f + i * 3f, paint)
-                canvas.drawCircle(cloudX - 20f, cloudY, 20f + i * 4f, paint)
+            // NUAGES BLANCS D'HIVER
+            paint.color = Color.argb(200, 255, 255, 255)
+            val cloudShift = landscapeOffset * 0.15f
+            for (i in 0..5) {
+                val cloudX = (w * i / 3f - cloudShift) % (w + 300f) - 150f
+                val cloudY = horizonHeight * (0.1f + i * 0.1f)
+                val cloudSize = 25f + i * 4f
+                canvas.drawCircle(cloudX, cloudY, cloudSize, paint)
+                canvas.drawCircle(cloudX + cloudSize * 0.8f, cloudY, cloudSize * 0.8f, paint)
+                canvas.drawCircle(cloudX - cloudSize * 0.6f, cloudY, cloudSize * 0.7f, paint)
             }
         }
         
