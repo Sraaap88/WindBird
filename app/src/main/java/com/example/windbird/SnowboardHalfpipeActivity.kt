@@ -25,54 +25,85 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
     private var gyroscope: Sensor? = null
     private var accelerometer: Sensor? = null
 
-    // Variables de gameplay HALFPIPE - RALLENTI
+    // États du jeu
     private var gameState = GameState.PREPARATION
     private var phaseTimer = 0f
     
-    // Phases avec durées TRÈS accessibles
-    private val preparationDuration = 8f // AUGMENTÉ de 5f
-    private val runDuration = 50f  // AUGMENTÉ de 35f à 50f - Course très longue
-    private val resultsDuration = 10f // AUGMENTÉ de 6f
+    // Durées des phases
+    private val preparationDuration = 5f
+    private val rideDuration = 60f  // 1 minute de ride
+    private val resultsDuration = 8f
     
-    // Variables de snowboard
-    private var riderX = 0.5f // Position sur le halfpipe (0.0 = gauche, 1.0 = droite)
-    private var riderY = 0.8f // Hauteur dans le halfpipe
-    private var speed = 0f
-    private var airTime = 0f
+    // Variables de physique réaliste du halfpipe
+    private var riderPosition = 0.5f      // Position sur le halfpipe (0.0 = gauche max, 1.0 = droite max)
+    private var riderHeight = 0.8f        // Hauteur dans le halfpipe (0.0 = fond, 1.0 = coping)
+    private var speed = 8f                // Vitesse actuelle (démarrage avec vitesse de base)
+    private var momentum = 0f             // Momentum pour les oscillations
+    private var pipeDistance = 0f         // Distance parcourue dans le pipe
+    private var verticalVelocity = 0f     // Vélocité verticale (gravity)
+    
+    // État physique du rider
     private var isInAir = false
+    private var airTime = 0f
     private var lastWallHit = 0L
+    private var goingLeft = false         // Direction du mouvement
+    private var energy = 100f             // Énergie totale (conservation)
     
-    // Système de tricks
+    // Système de pumping réaliste
+    private var pumpEnergy = 0f
+    private var pumpTiming = 0f           // Qualité du timing de pump (0-1)
+    private var pumpCombo = 0
+    private var lastPumpTime = 0L
+    private var pumpWindow = false        // Fenêtre de pumping optimal
+    private var pumpEfficiency = 0f      // Efficacité du pump actuel
+    
+    // Contrôles gyroscope/accéléromètre
+    private var tiltX = 0f    // Inclinaison gauche/droite (balance)
+    private var tiltY = 0f    // Inclinaison avant/arrière (pumping)
+    private var tiltZ = 0f    // Rotation (spins)
+    private var accelX = 0f   // Accélération X (grabs)
+    private var accelY = 0f   // Accélération Y 
+    private var accelZ = 0f   // Accélération Z (grabs)
+    
+    // Système de tricks complet avec phases
     private var currentTrick = TrickType.NONE
+    private var trickPhase = TrickPhase.NONE
     private var trickProgress = 0f
-    private var tricksLanded = 0
-    private var trickMultiplier = 1f
-    private var comboActive = false
-    private var comboCount = 0
+    private var trickRotation = 0f
+    private var trickFlip = 0f
+    private var trickGrab = false
+    private var tricksCompleted = 0
+    private var trickCombo = 0
+    private var lastTrickType = TrickType.NONE
+    private var trickSetupTime = 0f
+    private var landingBalance = 0.5f     // Balance pour landing (0-1)
     
-    // Contrôles gyroscope/accéléromètre - MOINS SENSIBLE
-    private var tiltX = 0f
-    private var tiltY = 0f
-    private var tiltZ = 0f
-    private var accelX = 0f
-    private var accelY = 0f
-    private var accelZ = 0f
-    
-    // Performance et score
-    private var amplitude = 0f // Hauteur des sauts
-    private var style = 100f
-    private var flow = 100f
-    private var difficulty = 0f
+    // Système de scoring réaliste
+    private var amplitude = 0f            // Hauteur des airs
+    private var technicality = 0f         // Difficulté technique
+    private var variety = 0f              // Variété des tricks
+    private var flow = 100f               // Fluidité et transitions
+    private var style = 100f              // Style et landing quality
+    private var consistency = 100f        // Régularité
     private var totalScore = 0f
     private var finalScore = 0
     private var scoreCalculated = false
     
-    // Effets visuels spectaculaires
-    private var cameraShake = 0f
-    private val snowExplosions = mutableListOf<SnowExplosion>()
-    private val trickTrails = mutableListOf<TrickTrail>()
-    private val sparkles = mutableListOf<Sparkle>()
-    private var backgroundRotation = 0f
+    // Métriques de performance
+    private var perfectLandings = 0
+    private var maxAirTime = 0f
+    private var maxHeight = 0f
+    private var trickVariety = mutableSetOf<TrickType>()
+    private var speedHistory = mutableListOf<Float>()
+    
+    // Effets visuels
+    private var pipeScroll = 0f           // Défilement de la piste
+    private var wallBounceEffect = 0f     // Effet visuel des murs
+    private var backgroundPerspective = 0f// Perspective du pipe
+    
+    // Air awareness et feedback
+    private var altimeter = 0f            // Hauteur actuelle au-dessus du pipe
+    private var landingZone = 0.5f        // Zone de landing optimale
 
     private lateinit var tournamentData: TournamentData
     private var eventIndex: Int = 0
@@ -99,9 +130,9 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         statusText = TextView(this).apply {
             text = "🏂 SNOWBOARD HALFPIPE - ${tournamentData.playerNames[currentPlayerIndex]}"
             setTextColor(Color.WHITE)
-            textSize = 22f // AUGMENTÉ de 18f
+            textSize = 22f
             setBackgroundColor(Color.parseColor("#001144"))
-            setPadding(25, 20, 25, 20) // AUGMENTÉ
+            setPadding(25, 20, 25, 20)
         }
 
         gameView = SnowboardHalfpipeView(this)
@@ -116,37 +147,66 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
     private fun initializeGame() {
         gameState = GameState.PREPARATION
         phaseTimer = 0f
-        riderX = 0.5f
-        riderY = 0.8f
-        speed = 0f
-        airTime = 0f
+        riderPosition = 0.5f
+        riderHeight = 0.8f
+        speed = 8f
+        momentum = 0f
+        pipeDistance = 0f
+        verticalVelocity = 0f
+        
         isInAir = false
+        airTime = 0f
         lastWallHit = 0L
-        currentTrick = TrickType.NONE
-        trickProgress = 0f
-        tricksLanded = 0
-        trickMultiplier = 1f
-        comboActive = false
-        comboCount = 0
+        goingLeft = false
+        energy = 100f
+        
+        pumpEnergy = 0f
+        pumpTiming = 0f
+        pumpCombo = 0
+        lastPumpTime = 0L
+        pumpWindow = false
+        pumpEfficiency = 0f
+        
         tiltX = 0f
         tiltY = 0f
         tiltZ = 0f
         accelX = 0f
         accelY = 0f
         accelZ = 0f
+        
+        currentTrick = TrickType.NONE
+        trickPhase = TrickPhase.NONE
+        trickProgress = 0f
+        trickRotation = 0f
+        trickFlip = 0f
+        trickGrab = false
+        tricksCompleted = 0
+        trickCombo = 0
+        lastTrickType = TrickType.NONE
+        trickSetupTime = 0f
+        landingBalance = 0.5f
+        
         amplitude = 0f
-        style = 100f
+        technicality = 0f
+        variety = 0f
         flow = 100f
-        difficulty = 0f
+        style = 100f
+        consistency = 100f
         totalScore = 0f
         finalScore = 0
         scoreCalculated = false
-        cameraShake = 0f
-        backgroundRotation = 0f
         
-        snowExplosions.clear()
-        trickTrails.clear()
-        sparkles.clear()
+        perfectLandings = 0
+        maxAirTime = 0f
+        maxHeight = 0f
+        trickVariety.clear()
+        speedHistory.clear()
+        
+        pipeScroll = 0f
+        wallBounceEffect = 0f
+        backgroundPerspective = 0f
+        altimeter = 0f
+        landingZone = 0.5f
     }
 
     override fun onResume() {
@@ -163,9 +223,10 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
     override fun onSensorChanged(event: SensorEvent) {
         when (event.sensor.type) {
             Sensor.TYPE_GYROSCOPE -> {
-                tiltX = event.values[0]
-                tiltY = event.values[1]
-                tiltZ = event.values[2]
+                // Filtrage du bruit
+                tiltX = if (abs(event.values[0]) > 0.1f) event.values[0] else 0f
+                tiltY = if (abs(event.values[1]) > 0.1f) event.values[1] else 0f
+                tiltZ = if (abs(event.values[2]) > 0.1f) event.values[2] else 0f
             }
             Sensor.TYPE_ACCELEROMETER -> {
                 accelX = event.values[0]
@@ -174,8 +235,7 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             }
         }
 
-        // Progression du jeu - PLUS LENT
-        phaseTimer += 0.016f // RÉDUIT de 0.03f
+        phaseTimer += 0.016f // ~60 FPS
 
         when (gameState) {
             GameState.PREPARATION -> handlePreparation()
@@ -193,340 +253,378 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         if (phaseTimer >= preparationDuration) {
             gameState = GameState.RIDING
             phaseTimer = 0f
-            speed = 12f // RÉDUIT de 15f - vitesse de départ plus douce
+            // Démarrage avec une poussée initiale
+            speed = 12f
+            momentum = 5f
         }
     }
     
     private fun handleRiding() {
-        // Mouvement du rider dans le halfpipe
-        handleRiderMovement()
+        // Physique réaliste du halfpipe
+        updateHalfpipePhysics()
         
-        // Système de tricks
+        // Système de pumping
+        handlePumping()
+        
+        // Mouvement du rider
+        updateRiderMovement()
+        
+        // Système de tricks avec phases
         handleTrickSystem()
         
-        // Gestion de la physique
-        updatePhysics()
-        
-        // Mise à jour des scores
+        // Mise à jour des métriques
         updatePerformanceMetrics()
         
+        // Conservation d'énergie et friction
+        applyPhysicsConstraints()
+        
         // Fin de run
-        if (phaseTimer >= runDuration) {
+        if (phaseTimer >= rideDuration) {
             calculateFinalScore()
             gameState = GameState.RESULTS
             phaseTimer = 0f
         }
     }
     
-    private fun handleRiderMovement() {
-        // Mouvement horizontal basé sur l'inclinaison gauche/droite - MOINS SENSIBLE
-        val horizontalInput = tiltX * 0.4f // RÉDUIT de 0.6f
-        riderX += horizontalInput * 0.005f // RÉDUIT de 0.008f - mouvement plus doux
-        riderX = riderX.coerceIn(0.1f, 0.9f)
+    private fun updateHalfpipePhysics() {
+        // Gravité et momentum selon position dans le pipe
+        val pipeAngle = (riderPosition - 0.5f) * PI.toFloat() // Angle de la rampe
+        val gravity = 0.3f
         
-        // Détection des murs du halfpipe
+        if (!isInAir) {
+            // Sur la rampe : conversion entre énergie potentielle et cinétique
+            val heightFactor = (1f - riderHeight) // Plus bas = plus de vitesse
+            speed += heightFactor * gravity * cos(pipeAngle)
+            
+            // Oscillation naturelle du pendule
+            momentum += sin(pipeAngle) * 0.1f
+            riderPosition += momentum * 0.01f
+            
+            // Contraintes du pipe
+            riderPosition = riderPosition.coerceIn(0.05f, 0.95f)
+            riderHeight = 0.8f + abs(riderPosition - 0.5f) * 0.4f // Forme en U
+        } else {
+            // En l'air : gravité pure
+            verticalVelocity -= gravity * 0.016f
+            riderHeight += verticalVelocity * 0.016f
+            airTime += 0.016f
+            altimeter = max(0f, riderHeight - 0.8f) * 100f // Hauteur en "mètres"
+            
+            // Atterrissage
+            if (riderHeight <= 0.8f + abs(riderPosition - 0.5f) * 0.4f) {
+                landTrick()
+            }
+        }
+        
+        // Mise à jour distance parcourue
+        pipeDistance += speed * 0.016f
+        pipeScroll = pipeDistance * 0.1f
+        
+        // Historique de vitesse pour analyse
+        speedHistory.add(speed)
+        if (speedHistory.size > 100) speedHistory.removeAt(0)
+    }
+    
+    private fun handlePumping() {
         val currentTime = System.currentTimeMillis()
-        if ((riderX <= 0.2f || riderX >= 0.8f) && currentTime - lastWallHit > 1200) { // SEUILS ÉLARGIS et DÉLAI AUGMENTÉ
-            // Impact avec le mur = envol !
-            hitWall()
+        
+        // Calcul de la fenêtre de pumping optimal
+        val pipeBottomZone = riderHeight > 0.75f && riderHeight < 0.85f
+        val transitionZone = abs(riderPosition - 0.5f) > 0.2f
+        pumpWindow = pipeBottomZone && transitionZone
+        
+        // Détection du mouvement de pump (avant)
+        if (tiltY < -0.4f && currentTime - lastPumpTime > 200L) {
+            if (pumpWindow) {
+                // Pump parfait !
+                pumpEfficiency = 1f
+                pumpTiming = 1f
+                speed += 3f
+                pumpCombo++
+                flow += 2f
+                
+            } else {
+                // Pump mal timé
+                pumpEfficiency = 0.3f
+                pumpTiming = 0.3f
+                speed += 0.5f
+                pumpCombo = 0
+                flow -= 1f
+            }
+            
+            lastPumpTime = currentTime
+            pumpEnergy = pumpEfficiency
+        }
+        
+        // Dégradation du pump
+        pumpEnergy *= 0.95f
+        pumpTiming *= 0.98f
+    }
+    
+    private fun updateRiderMovement() {
+        // Contrôle horizontal (balance)
+        val horizontalInput = tiltX * 0.5f
+        momentum += horizontalInput * 0.008f
+        
+        // Amortissement du momentum
+        momentum *= 0.98f
+        
+        // Application du mouvement
+        riderPosition += momentum * 0.01f
+        riderPosition = riderPosition.coerceIn(0.05f, 0.95f)
+        
+        // Détection des murs et envol
+        val currentTime = System.currentTimeMillis()
+        val wallThreshold = 0.15f
+        
+        if ((riderPosition <= wallThreshold || riderPosition >= 1f - wallThreshold) 
+            && !isInAir && currentTime - lastWallHit > 800L) {
+            
+            takeoff()
             lastWallHit = currentTime
         }
         
-        // Mouvement vertical (gravité et envol)
-        if (isInAir) {
-            riderY -= 0.003f // RÉDUIT de 0.006f - retombée plus lente
-            airTime += 0.016f // ADAPTÉ
-            
-            if (riderY >= 0.8f) {
-                // Atterrissage
-                landTrick()
-                isInAir = false
-                airTime = 0f
-                riderY = 0.8f
-            }
-        } else {
-            // Sur la rampe
-            riderY = 0.8f + abs(riderX - 0.5f) * 0.3f // Courbure du halfpipe
-        }
-        
-        // Vitesse basée sur l'inclinaison avant/arrière - MOINS SENSIBLE
-        if (tiltY < -0.3f) { // AUGMENTÉ de -0.2f
-            speed += 0.5f // RÉDUIT de 0.8f
-        } else if (tiltY > 0.3f) { // AUGMENTÉ de 0.2f
-            speed -= 0.4f // RÉDUIT de 0.6f
-        }
-        
-        speed = speed.coerceIn(6f, 25f) // RÉDUIT de 8-35 à 6-25 - vitesse plus modérée
+        // Direction du mouvement
+        goingLeft = momentum < 0f
     }
     
-    private fun hitWall() {
-        // Envol depuis le mur !
+    private fun takeoff() {
         isInAir = true
-        riderY = 0.5f // AUGMENTÉ de 0.4f - Hauteur de saut plus haute
-        amplitude = maxOf(amplitude, 0.5f) // ADAPTÉ
+        verticalVelocity = speed * 0.08f + pumpEnergy * 0.05f // Hauteur selon vitesse et pump
+        airTime = 0f
+        wallBounceEffect = 0.5f
         
-        // Effets visuels
-        cameraShake = 0.3f // RÉDUIT de 0.4f
-        generateSnowExplosion()
+        // Métriques d'amplitude
+        val projectedHeight = verticalVelocity * 8f
+        amplitude = max(amplitude, projectedHeight)
+        maxHeight = max(maxHeight, projectedHeight)
         
-        // Bonus de flow pour bon timing
-        if (speed > 15f) { // ADAPTÉ
-            flow += 2f
-        }
+        // Préparation pour tricks
+        trickPhase = TrickPhase.TAKEOFF
+        trickSetupTime = 0f
     }
     
     private fun handleTrickSystem() {
-        if (!isInAir) return
+        if (!isInAir) {
+            currentTrick = TrickType.NONE
+            trickPhase = TrickPhase.NONE
+            return
+        }
         
-        // Détection des tricks basée sur les mouvements - MOINS SENSIBLE
-        val rotationThreshold = 1.2f // AUGMENTÉ de 0.8f
-        val flipThreshold = 1.6f // AUGMENTÉ de 1.2f
+        trickSetupTime += 0.016f
         
-        if (currentTrick == TrickType.NONE) {
-            // Nouveau trick
-            when {
-                abs(tiltZ) > rotationThreshold && abs(tiltX) < 0.7f -> { // SEUIL AUGMENTÉ
-                    startTrick(TrickType.SPIN)
-                }
-                abs(tiltY) > flipThreshold && abs(tiltX) < 0.7f -> {
-                    startTrick(TrickType.FLIP)
-                }
-                abs(tiltX) > rotationThreshold && abs(accelZ) > 10f -> { // SEUIL AUGMENTÉ de 8f
-                    startTrick(TrickType.GRAB)
-                }
-                abs(tiltX) > 2.0f && abs(tiltZ) > 2.0f -> { // SEUILS AUGMENTÉS de 1.5f
-                    startTrick(TrickType.COMBO)
+        when (trickPhase) {
+            TrickPhase.TAKEOFF -> {
+                // Phase de setup (courte fenêtre pour initier)
+                if (trickSetupTime > 0.1f) {
+                    detectTrickInitiation()
                 }
             }
-        } else {
-            // Progression du trick en cours
-            updateTrickProgress()
+            TrickPhase.SETUP -> {
+                // Continuer le setup du trick
+                continueTrickSetup()
+            }
+            TrickPhase.EXECUTION -> {
+                // Exécution du trick
+                executeTrick()
+            }
+            TrickPhase.LANDING -> {
+                // Préparation du landing
+                prepareLanding()
+            }
+            else -> {}
         }
     }
     
-    private fun startTrick(type: TrickType) {
+    private fun detectTrickInitiation() {
+        val rotationThreshold = 1.0f
+        val flipThreshold = 1.2f
+        val grabThreshold = 8f
+        
+        when {
+            abs(tiltZ) > rotationThreshold && currentTrick == TrickType.NONE -> {
+                initiateTrick(TrickType.SPIN)
+            }
+            abs(tiltY) > flipThreshold && currentTrick == TrickType.NONE -> {
+                initiateTrick(TrickType.FLIP)
+            }
+            abs(accelZ) > grabThreshold && currentTrick == TrickType.NONE -> {
+                initiateTrick(TrickType.GRAB)
+            }
+            abs(tiltZ) > rotationThreshold && abs(tiltY) > flipThreshold -> {
+                initiateTrick(TrickType.COMBO)
+            }
+        }
+    }
+    
+    private fun initiateTrick(type: TrickType) {
         currentTrick = type
+        trickPhase = TrickPhase.SETUP
         trickProgress = 0f
+        trickRotation = 0f
+        trickFlip = 0f
+        trickGrab = false
         
-        // Effets visuels selon le trick
-        when (type) {
-            TrickType.SPIN -> generateSpinTrail()
-            TrickType.FLIP -> generateFlipEffect()
-            TrickType.GRAB -> generateGrabSparkles()
-            TrickType.COMBO -> generateComboExplosion()
-            else -> {}
-        }
-    }
-    
-    private fun updateTrickProgress() {
-        when (currentTrick) {
-            TrickType.SPIN -> {
-                trickProgress += abs(tiltZ) * 0.02f // RÉDUIT de 0.03f
-                backgroundRotation += tiltZ * 1f // RÉDUIT de 2f
-            }
-            TrickType.FLIP -> {
-                trickProgress += abs(tiltY) * 0.015f // RÉDUIT de 0.02f
-            }
-            TrickType.GRAB -> {
-                trickProgress += (abs(tiltX) + abs(accelZ) / 12f) * 0.015f // RÉDUIT de 0.02f et 10f
-            }
-            TrickType.COMBO -> {
-                trickProgress += (abs(tiltX) + abs(tiltZ) + abs(tiltY)) * 0.01f // RÉDUIT de 0.015f
-            }
-            else -> {}
-        }
-        
-        trickProgress = trickProgress.coerceIn(0f, 1f)
-    }
-    
-    private fun landTrick() {
-        if (currentTrick != TrickType.NONE && trickProgress > 0.25f) { // RÉDUIT de 0.3f
-            // Trick réussi !
-            val trickScore = calculateTrickScore()
-            totalScore += trickScore
-            tricksLanded++
-            
-            // Système de combo
-            if (comboActive) {
-                comboCount++
-                trickMultiplier += 0.2f
-            } else {
-                comboActive = true
-                comboCount = 1
-                trickMultiplier = 1.2f
-            }
-            
-            // Effets selon la qualité
-            if (trickProgress > 0.8f) {
-                generatePerfectLanding()
-                style += 5f
-            } else if (trickProgress > 0.5f) { // RÉDUIT de 0.7f
-                generateGoodLanding()
-                style += 2f
-            }
-            
-        } else {
-            // Trick raté
-            comboActive = false
-            comboCount = 0
-            trickMultiplier = 1f
-            style -= 3f
-        }
-        
-        currentTrick = TrickType.NONE
-        trickProgress = 0f
-    }
-    
-    private fun calculateTrickScore(): Float {
-        val baseScore = when (currentTrick) {
-            TrickType.SPIN -> 15f
-            TrickType.FLIP -> 20f
-            TrickType.GRAB -> 18f
-            TrickType.COMBO -> 30f
-            else -> 0f
-        }
-        
-        val progressBonus = trickProgress * 10f
-        val airBonus = airTime * 5f
-        val difficultyBonus = difficulty * 2f
-        
-        difficulty += when (currentTrick) {
+        // Difficulté technique
+        val difficulty = when (type) {
             TrickType.SPIN -> 1f
             TrickType.FLIP -> 2f
             TrickType.GRAB -> 1.5f
             TrickType.COMBO -> 3f
             else -> 0f
         }
-        
-        return (baseScore + progressBonus + airBonus + difficultyBonus) * trickMultiplier
+        technicality += difficulty
     }
     
-    private fun updatePhysics() {
-        // Dégradation naturelle - PLUS LENTE
-        style -= 0.03f // RÉDUIT de 0.05f
-        flow -= 0.02f // RÉDUIT de 0.03f
-        
-        // Bonus pour fluidité
-        if (speed > 15f && !isInAir) { // ADAPTÉ
-            flow += 0.08f // RÉDUIT de 0.1f
+    private fun continueTrickSetup() {
+        // Fenêtre de setup pour construire le trick
+        if (trickSetupTime > 0.3f) {
+            trickPhase = TrickPhase.EXECUTION
+        }
+    }
+    
+    private fun executeTrick() {
+        when (currentTrick) {
+            TrickType.SPIN -> {
+                trickRotation += abs(tiltZ) * 0.02f
+                trickProgress = (trickRotation / 360f).coerceIn(0f, 3f) // Max 1080°
+            }
+            TrickType.FLIP -> {
+                trickFlip += abs(tiltY) * 0.015f
+                trickProgress = (trickFlip / 180f).coerceIn(0f, 2f) // Max double flip
+            }
+            TrickType.GRAB -> {
+                if (abs(accelZ) > 6f) trickGrab = true
+                trickProgress = if (trickGrab) min(1f, trickProgress + 0.03f) else trickProgress * 0.95f
+            }
+            TrickType.COMBO -> {
+                trickRotation += abs(tiltZ) * 0.015f
+                trickFlip += abs(tiltY) * 0.01f
+                if (abs(accelZ) > 6f) trickGrab = true
+                trickProgress = ((trickRotation + trickFlip) / 400f + if (trickGrab) 0.3f else 0f).coerceIn(0f, 2f)
+            }
+            else -> {}
         }
         
-        // Contraintes
-        style = style.coerceIn(60f, 120f)
-        flow = flow.coerceIn(60f, 120f)
+        // Préparation landing si temps en l'air suffisant
+        if (airTime > 0.5f && verticalVelocity < 0f) {
+            trickPhase = TrickPhase.LANDING
+        }
+    }
+    
+    private fun prepareLanding() {
+        // Balance pour le landing
+        landingBalance = 0.5f + tiltX * 0.1f
+        landingBalance = landingBalance.coerceIn(0f, 1f)
+    }
+    
+    private fun landTrick() {
+        isInAir = false
+        airTime = 0f
+        verticalVelocity = 0f
+        riderHeight = 0.8f + abs(riderPosition - 0.5f) * 0.4f
+        maxAirTime = max(maxAirTime, airTime)
+        
+        if (currentTrick != TrickType.NONE && trickProgress > 0.3f) {
+            // Trick réussi !
+            val trickScore = calculateTrickScore()
+            totalScore += trickScore
+            tricksCompleted++
+            trickVariety.add(currentTrick)
+            
+            // Système de combo pour variété
+            if (lastTrickType != currentTrick) {
+                trickCombo++
+                variety += 2f
+            } else {
+                variety -= 1f // Pénalité répétition
+            }
+            
+            // Quality du landing
+            val landingQuality = 1f - abs(landingBalance - 0.5f) * 2f
+            if (landingQuality > 0.8f) {
+                perfectLandings++
+                style += 3f
+            } else if (landingQuality > 0.5f) {
+                style += 1f
+            } else {
+                style -= 2f // Mauvais landing
+            }
+            
+            lastTrickType = currentTrick
+            
+        } else if (currentTrick != TrickType.NONE) {
+            // Trick raté
+            style -= 3f
+            flow -= 2f
+            trickCombo = 0
+        }
+        
+        currentTrick = TrickType.NONE
+        trickPhase = TrickPhase.NONE
+        trickProgress = 0f
+    }
+    
+    private fun calculateTrickScore(): Float {
+        val baseScore = when (currentTrick) {
+            TrickType.SPIN -> when {
+                trickRotation >= 1080f -> 50f
+                trickRotation >= 720f -> 35f
+                trickRotation >= 540f -> 25f
+                trickRotation >= 360f -> 15f
+                else -> 8f
+            }
+            TrickType.FLIP -> when {
+                trickFlip >= 360f -> 60f // Double flip
+                trickFlip >= 180f -> 30f
+                else -> 10f
+            }
+            TrickType.GRAB -> 20f * trickProgress
+            TrickType.COMBO -> 40f * trickProgress
+            else -> 0f
+        }
+        
+        val airTimeBonus = airTime * 5f
+        val heightBonus = altimeter * 0.5f
+        val comboBonus = trickCombo * 3f
+        
+        return baseScore + airTimeBonus + heightBonus + comboBonus
     }
     
     private fun updatePerformanceMetrics() {
-        // Mise à jour continue des métriques
-        if (airTime > 0.8f) { // AUGMENTÉ de 0.5f
-            amplitude = maxOf(amplitude, airTime * 0.3f)
-        }
+        // Flow basé sur la fluidité des transitions
+        val speedVariation = if (speedHistory.size > 10) {
+            val recent = speedHistory.takeLast(10)
+            recent.maxOrNull()!! - recent.minOrNull()!!
+        } else 0f
+        
+        if (speedVariation < 3f) flow += 0.1f else flow -= 0.1f
+        
+        // Consistency basée sur la régularité
+        if (speed > 10f && !isInAir) consistency += 0.05f
+        if (speed < 6f) consistency -= 0.1f
+        
+        // Contraintes
+        flow = flow.coerceIn(60f, 120f)
+        style = style.coerceIn(60f, 120f)
+        consistency = consistency.coerceIn(60f, 120f)
     }
     
-    private fun generateSnowExplosion() {
-        repeat(10) { // RÉDUIT de 12
-            snowExplosions.add(SnowExplosion(
-                x = kotlin.random.Random.nextFloat() * 800f + 100f,
-                y = kotlin.random.Random.nextFloat() * 200f + 500f,
-                vx = (kotlin.random.Random.nextFloat() - 0.5f) * 8f, // RÉDUIT de 12f
-                vy = kotlin.random.Random.nextFloat() * -6f - 2f, // RÉDUIT de -8f -4f
-                life = 1.5f
-            ))
-        }
-    }
-    
-    private fun generateSpinTrail() {
-        repeat(5) { // RÉDUIT de 6
-            trickTrails.add(TrickTrail(
-                x = kotlin.random.Random.nextFloat() * 800f + 100f,
-                y = kotlin.random.Random.nextFloat() * 400f + 200f,
-                type = TrickType.SPIN,
-                life = 1f
-            ))
-        }
-    }
-    
-    private fun generateFlipEffect() {
-        cameraShake = 0.25f // RÉDUIT de 0.3f
-        repeat(6) { // RÉDUIT de 8
-            sparkles.add(Sparkle(
-                x = kotlin.random.Random.nextFloat() * 400f + 300f,
-                y = kotlin.random.Random.nextFloat() * 300f + 250f,
-                color = Color.CYAN,
-                life = 1.2f
-            ))
-        }
-    }
-    
-    private fun generateGrabSparkles() {
-        repeat(8) { // RÉDUIT de 10
-            sparkles.add(Sparkle(
-                x = kotlin.random.Random.nextFloat() * 300f + 350f,
-                y = kotlin.random.Random.nextFloat() * 200f + 300f,
-                color = Color.YELLOW,
-                life = 1f
-            ))
-        }
-    }
-    
-    private fun generateComboExplosion() {
-        cameraShake = 0.4f // RÉDUIT de 0.6f
-        repeat(12) { // RÉDUIT de 15
-            sparkles.add(Sparkle(
-                x = kotlin.random.Random.nextFloat() * 600f + 200f,
-                y = kotlin.random.Random.nextFloat() * 400f + 200f,
-                color = Color.MAGENTA,
-                life = 1.5f
-            ))
-        }
-    }
-    
-    private fun generatePerfectLanding() {
-        repeat(15) { // RÉDUIT de 20
-            sparkles.add(Sparkle(
-                x = kotlin.random.Random.nextFloat() * 800f + 100f,
-                y = kotlin.random.Random.nextFloat() * 200f + 500f,
-                color = Color.parseColor("#FFD700"),
-                life = 2f
-            ))
-        }
-    }
-    
-    private fun generateGoodLanding() {
-        repeat(6) { // RÉDUIT de 8
-            sparkles.add(Sparkle(
-                x = kotlin.random.Random.nextFloat() * 400f + 300f,
-                y = kotlin.random.Random.nextFloat() * 150f + 550f,
-                color = Color.parseColor("#00FF00"),
-                life = 1f
-            ))
-        }
+    private fun applyPhysicsConstraints() {
+        // Friction naturelle
+        speed *= 0.998f
+        
+        // Vitesse minimale et maximale
+        speed = speed.coerceIn(4f, 30f)
+        
+        // Conservation d'énergie
+        val totalEnergy = speed + (1f - riderHeight) * 20f
+        energy = totalEnergy * 0.99f // Perte d'énergie graduelle
     }
     
     private fun updateEffects() {
-        // Mise à jour des explosions de neige
-        snowExplosions.removeAll { explosion ->
-            explosion.x += explosion.vx
-            explosion.y += explosion.vy
-            explosion.life -= 0.012f // RÉDUIT de 0.02f
-            explosion.life <= 0f || explosion.y > 1000f
-        }
-        
-        // Mise à jour des trails de tricks
-        trickTrails.removeAll { trail ->
-            trail.life -= 0.02f // RÉDUIT de 0.03f
-            trail.life <= 0f
-        }
-        
-        // Mise à jour des sparkles
-        sparkles.removeAll { sparkle ->
-            sparkle.y -= 0.8f // RÉDUIT de 1f
-            sparkle.life -= 0.015f // RÉDUIT de 0.02f
-            sparkle.life <= 0f
-        }
-        
-        cameraShake = maxOf(0f, cameraShake - 0.015f) // RÉDUIT de 0.02f
-        backgroundRotation *= 0.97f // RÉDUIT de 0.95f - ralentissement plus progressif
+        wallBounceEffect = max(0f, wallBounceEffect - 0.02f)
+        backgroundPerspective += speed * 0.001f
     }
     
     private fun handleResults() {
@@ -545,14 +643,18 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
     
     private fun calculateFinalScore() {
         if (!scoreCalculated) {
-            val amplitudeBonus = (amplitude * 100).toInt()
-            val styleBonus = ((style - 100f) * 3).toInt()
-            val flowBonus = ((flow - 100f) * 2).toInt()
-            val tricksBonus = totalScore.toInt()
-            val comboBonus = if (comboCount > 3) comboCount * 15 else 0
-            val difficultyBonus = (difficulty * 2).toInt()
+            val amplitudePoints = (amplitude * 2).toInt()
+            val tricksPoints = totalScore.toInt()
+            val varietyPoints = trickVariety.size * 15
+            val flowPoints = ((flow - 100f) * 1.5f).toInt()
+            val stylePoints = ((style - 100f) * 2f).toInt()
+            val consistencyPoints = ((consistency - 100f) * 1f).toInt()
+            val perfectLandingBonus = perfectLandings * 10
             
-            finalScore = maxOf(60, amplitudeBonus + styleBonus + flowBonus + tricksBonus + comboBonus + difficultyBonus)
+            finalScore = maxOf(80, 
+                amplitudePoints + tricksPoints + varietyPoints + 
+                flowPoints + stylePoints + consistencyPoints + perfectLandingBonus
+            )
             scoreCalculated = true
         }
     }
@@ -584,7 +686,7 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
                 startActivity(intent)
                 finish()
             } else {
-                val aiScore = (95..190).random()
+                val aiScore = (120..220).random()
                 tournamentData.addScore(nextPlayer, eventIndex, aiScore)
                 proceedToNextPlayerOrEvent()
             }
@@ -614,30 +716,46 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             GameState.PREPARATION -> "🏂 ${tournamentData.playerNames[currentPlayerIndex]} | Préparation... ${(preparationDuration - phaseTimer).toInt() + 1}s"
             GameState.RIDING -> {
                 val trickText = if (currentTrick != TrickType.NONE) " | ${currentTrick.displayName}" else ""
-                val comboText = if (comboActive) " | COMBO x$comboCount" else ""
-                "🏂 ${tournamentData.playerNames[currentPlayerIndex]} | Tricks: $tricksLanded$trickText$comboText"
+                val speedText = "Speed: ${speed.toInt()}km/h"
+                "🏂 ${tournamentData.playerNames[currentPlayerIndex]} | $speedText | Tricks: $tricksCompleted$trickText"
             }
-            GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | Score: ${finalScore} | Tricks: $tricksLanded"
+            GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | Score: ${finalScore} | Tricks: $tricksCompleted"
             GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Run terminé!"
         }
     }
 
+    private fun getCountryFlag(country: String): String {
+        return when (country.uppercase()) {
+            "FRANCE" -> "🇫🇷"
+            "CANADA" -> "🇨🇦"
+            "USA", "ÉTATS-UNIS", "ETATS-UNIS" -> "🇺🇸"
+            "ALLEMAGNE", "GERMANY" -> "🇩🇪"
+            "ITALIE", "ITALY" -> "🇮🇹"
+            "SUISSE", "SWITZERLAND" -> "🇨🇭"
+            "AUTRICHE", "AUSTRIA" -> "🇦🇹"
+            "NORVÈGE", "NORWAY" -> "🇳🇴"
+            "SUÈDE", "SWEDEN" -> "🇸🇪"
+            "FINLANDE", "FINLAND" -> "🇫🇮"
+            "JAPON", "JAPAN" -> "🇯🇵"
+            "CORÉE", "KOREA" -> "🇰🇷"
+            "RUSSIE", "RUSSIA" -> "🇷🇺"
+            "POLOGNE", "POLAND" -> "🇵🇱"
+            "SLOVÉNIE", "SLOVENIA" -> "🇸🇮"
+            "RÉPUBLIQUE TCHÈQUE", "CZECH REPUBLIC" -> "🇨🇿"
+            else -> "🏴"
+        }
+    }
+
     inner class SnowboardHalfpipeView(context: Context) : View(context) {
-        private val paint = Paint()
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        
+        // Cache des objets réutilisables
+        private val reusableRectF = RectF()
+        private val reusablePath = Path()
 
         override fun onDraw(canvas: Canvas) {
-            val w = canvas.width
-            val h = canvas.height
-            
-            // Appliquer effets de caméra
-            canvas.save()
-            if (cameraShake > 0f) {
-                canvas.translate(
-                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 12f,
-                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 12f
-                )
-            }
-            canvas.rotate(backgroundRotation * 0.05f, w/2f, h/2f) // RÉDUIT de 0.1f
+            val w = width
+            val h = height
             
             when (gameState) {
                 GameState.PREPARATION -> drawPreparation(canvas, w, h)
@@ -645,311 +763,440 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
                 GameState.RESULTS -> drawResults(canvas, w, h)
                 GameState.FINISHED -> drawResults(canvas, w, h)
             }
-            
-            drawEffects(canvas, w, h)
-            canvas.restore()
         }
         
         private fun drawPreparation(canvas: Canvas, w: Int, h: Int) {
-            // Fond de halfpipe
-            paint.color = Color.parseColor("#E6F0FF")
+            // Fond dégradé ciel
+            val skyGradient = LinearGradient(0f, 0f, 0f, h.toFloat(),
+                Color.parseColor("#87CEEB"), Color.parseColor("#E0F6FF"), Shader.TileMode.CLAMP)
+            paint.shader = skyGradient
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            paint.shader = null
             
-            // Halfpipe en perspective
-            drawHalfpipeStructure(canvas, w, h)
+            // Vue de dessus du halfpipe (perspective)
+            drawHalfpipePerspective(canvas, w, h)
             
-            // Instructions spectaculaires - TEXTE PLUS GROS
+            // Drapeau du pays
+            val playerCountry = if (practiceMode) "CANADA" else tournamentData.playerCountries[currentPlayerIndex]
+            val flagText = getCountryFlag(playerCountry)
+            
+            paint.color = Color.parseColor("#FFFFFF")
+            paint.style = Paint.Style.FILL
+            reusableRectF.set(50f, 50f, 250f, 170f)
+            canvas.drawRoundRect(reusableRectF, 15f, 15f, paint)
+            
             paint.color = Color.parseColor("#001144")
-            paint.textSize = 48f // AUGMENTÉ de 36f
+            paint.textSize = 60f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText(flagText, 150f, 130f, paint)
+            
+            paint.textSize = 20f
+            canvas.drawText(playerCountry.uppercase(), 150f, 160f, paint)
+            
+            // Titre de l'épreuve
+            paint.color = Color.parseColor("#001144")
+            paint.textSize = 48f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("🏂 SNOWBOARD HALFPIPE 🏂", w/2f, h * 0.15f, paint)
             
-            paint.textSize = 30f // AUGMENTÉ de 22f
-            paint.color = Color.parseColor("#0066CC")
-            canvas.drawText("Préparez-vous pour les tricks...", w/2f, h * 0.8f, paint)
+            // Timer de préparation
+            val countdown = (preparationDuration - phaseTimer).toInt() + 1
+            paint.textSize = 80f
+            paint.color = Color.parseColor("#FF0000")
+            canvas.drawText("${countdown}", w/2f, h * 0.7f, paint)
             
-            paint.textSize = 22f // AUGMENTÉ de 16f
-            paint.color = Color.parseColor("#666666")
-            canvas.drawText("📱 Inclinez gauche/droite pour bouger", w/2f, h * 0.85f, paint)
-            canvas.drawText("📱 Faites des mouvements en l'air pour tricks!", w/2f, h * 0.9f, paint)
+            paint.textSize = 32f
+            paint.color = Color.parseColor("#0066CC")
+            canvas.drawText("Préparation du run...", w/2f, h * 0.8f, paint)
+            
+            // Instructions
+            paint.textSize = 24f
+            paint.color = Color.parseColor("#333333")
+            canvas.drawText("📱 Inclinez vers l'avant pour pomper", w/2f, h * 0.85f, paint)
+            canvas.drawText("📱 Mouvements en l'air = tricks", w/2f, h * 0.9f, paint)
+        }
+        
+        private fun drawHalfpipePerspective(canvas: Canvas, w: Int, h: Int) {
+            // Vue en perspective du halfpipe depuis le haut
+            paint.color = Color.WHITE
+            paint.style = Paint.Style.FILL
+            
+            // Halfpipe en perspective (forme d'ellipse allongée)
+            reusableRectF.set(w * 0.2f, h * 0.3f, w * 0.8f, h * 0.6f)
+            canvas.drawOval(reusableRectF, paint)
+            
+            // Bords du halfpipe
+            paint.color = Color.parseColor("#CCCCCC")
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 8f
+            canvas.drawOval(reusableRectF, paint)
+            
+            // Lignes de perspective
+            paint.strokeWidth = 3f
+            for (i in 1..4) {
+                val y = h * (0.3f + i * 0.075f)
+                canvas.drawLine(w * 0.25f, y, w * 0.75f, y, paint)
+            }
+            
+            paint.style = Paint.Style.FILL
         }
         
         private fun drawRiding(canvas: Canvas, w: Int, h: Int) {
-            // Fond dynamique
-            val bgColor = if (isInAir) Color.parseColor("#F0F8FF") else Color.parseColor("#E6F0FF")
-            paint.color = bgColor
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            // Vue depuis l'intérieur du halfpipe
+            drawHalfpipeInterior(canvas, w, h)
             
-            // Halfpipe
-            drawHalfpipeStructure(canvas, w, h)
-            
-            // Rider
-            drawSnowboarder(canvas, w, h)
+            // Snowboarder vu de derrière
+            drawSnowboarderFromBehind(canvas, w, h)
             
             // Interface de jeu
             drawGameInterface(canvas, w, h)
             
-            // Instructions dynamiques - TEXTE PLUS GROS
+            // Barre de rythme de pumping
+            drawPumpRhythmBar(canvas, w, h)
+            
+            // Altimètre si en l'air
             if (isInAir) {
-                paint.color = Color.parseColor("#FF6600")
-                paint.textSize = 32f // AUGMENTÉ de 24f
-                paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("🌟 BOUGEZ POUR LES TRICKS! 🌟", w/2f, 60f, paint)
-            } else {
-                paint.color = Color.parseColor("#001144")
-                paint.textSize = 24f // AUGMENTÉ de 18f
-                canvas.drawText("📱 Touchez les bords pour décoller!", w/2f, 50f, paint)
+                drawAltimeter(canvas, w, h)
             }
         }
         
-        private fun drawResults(canvas: Canvas, w: Int, h: Int) {
-            // Fond festif
-            paint.color = Color.parseColor("#FFF8DC")
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+        private fun drawHalfpipeInterior(canvas: Canvas, w: Int, h: Int) {
+            // Fond ciel
+            val skyGradient = LinearGradient(0f, 0f, 0f, h * 0.3f,
+                Color.parseColor("#87CEEB"), Color.parseColor("#E0F6FF"), Shader.TileMode.CLAMP)
+            paint.shader = skyGradient
+            canvas.drawRect(0f, 0f, w.toFloat(), h * 0.3f, paint)
+            paint.shader = null
             
-            // Bandeau doré
-            paint.color = Color.parseColor("#FFD700")
-            canvas.drawRect(0f, 0f, w.toFloat(), h * 0.4f, paint)
+            // Perspective du halfpipe qui défile
+            val scrollOffset = pipeScroll % 100f
             
-            // Score final - TEXTE PLUS GROS
-            paint.color = Color.parseColor("#001144")
-            paint.textSize = 80f // AUGMENTÉ de 72f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("${finalScore}", w/2f, h * 0.2f, paint)
+            // Mur gauche du halfpipe
+            reusablePath.reset()
+            reusablePath.moveTo(0f, h * 0.3f)
+            reusablePath.quadTo(w * 0.25f, h * 0.5f - scrollOffset, w * 0.4f, h * 0.8f)
+            reusablePath.lineTo(w * 0.35f, h.toFloat())
+            reusablePath.lineTo(0f, h.toFloat())
+            reusablePath.close()
             
-            paint.textSize = 36f // AUGMENTÉ de 28f
-            canvas.drawText("POINTS", w/2f, h * 0.3f, paint)
-            
-            // Détails performance - TEXTE PLUS GROS
-            paint.color = Color.parseColor("#333333")
-            paint.textSize = 26f // AUGMENTÉ de 20f
-            canvas.drawText("🏂 Tricks réussis: $tricksLanded", w/2f, h * 0.5f, paint)
-            canvas.drawText("⭐ Style: ${style.toInt()}%", w/2f, h * 0.55f, paint)
-            canvas.drawText("🌊 Flow: ${flow.toInt()}%", w/2f, h * 0.6f, paint)
-            canvas.drawText("🎯 Difficulté: ${difficulty.toInt()}", w/2f, h * 0.65f, paint)
-            canvas.drawText("📏 Amplitude: ${(amplitude * 100).toInt()}%", w/2f, h * 0.7f, paint)
-            
-            if (comboCount > 1) {
-                paint.color = Color.parseColor("#FF6600")
-                canvas.drawText("🔥 Meilleur combo: x$comboCount", w/2f, h * 0.75f, paint)
-            }
-        }
-        
-        private fun drawHalfpipeStructure(canvas: Canvas, w: Int, h: Int) {
-            // Structure du halfpipe en U - PLUS VISIBLE
             paint.color = Color.WHITE
             paint.style = Paint.Style.FILL
+            canvas.drawPath(reusablePath, paint)
             
-            // Partie centrale (fond)
-            canvas.drawRect(w * 0.2f, h * 0.7f, w * 0.8f, h.toFloat(), paint)
+            // Mur droit du halfpipe
+            reusablePath.reset()
+            reusablePath.moveTo(w.toFloat(), h * 0.3f)
+            reusablePath.quadTo(w * 0.75f, h * 0.5f - scrollOffset, w * 0.6f, h * 0.8f)
+            reusablePath.lineTo(w * 0.65f, h.toFloat())
+            reusablePath.lineTo(w.toFloat(), h.toFloat())
+            reusablePath.close()
             
-            // Rampes gauche et droite - PLUS LARGES
-            val leftRampPath = Path()
-            leftRampPath.moveTo(w * 0.2f, h * 0.7f)
-            leftRampPath.quadTo(w * 0.08f, h * 0.5f, w * 0.02f, h * 0.3f) // PLUS LARGE
-            leftRampPath.lineTo(w * 0.12f, h * 0.25f)
-            leftRampPath.quadTo(w * 0.22f, h * 0.45f, w * 0.3f, h * 0.65f)
-            leftRampPath.close()
-            canvas.drawPath(leftRampPath, paint)
+            canvas.drawPath(reusablePath, paint)
             
-            val rightRampPath = Path()
-            rightRampPath.moveTo(w * 0.8f, h * 0.7f)
-            rightRampPath.quadTo(w * 0.92f, h * 0.5f, w * 0.98f, h * 0.3f) // PLUS LARGE
-            rightRampPath.lineTo(w * 0.88f, h * 0.25f)
-            rightRampPath.quadTo(w * 0.78f, h * 0.45f, w * 0.7f, h * 0.65f)
-            rightRampPath.close()
-            canvas.drawPath(rightRampPath, paint)
+            // Fond du halfpipe
+            paint.color = Color.parseColor("#F5F5F5")
+            reusableRectF.set(w * 0.35f, h * 0.8f, w * 0.65f, h.toFloat())
+            canvas.drawRect(reusableRectF, paint)
             
-            // Bords du halfpipe - PLUS ÉPAIS
+            // Lignes de perspective
             paint.color = Color.parseColor("#DDDDDD")
-            paint.strokeWidth = 8f // AUGMENTÉ de 6f
+            paint.strokeWidth = 2f
             paint.style = Paint.Style.STROKE
-            canvas.drawPath(leftRampPath, paint)
-            canvas.drawPath(rightRampPath, paint)
+            
+            for (i in 1..8) {
+                val perspective = i * 50f - scrollOffset
+                val yPos = h * 0.7f + perspective * 2f
+                if (yPos < h.toFloat()) {
+                    val width = w * (0.3f + perspective * 0.002f)
+                    canvas.drawLine(w/2f - width/2f, yPos, w/2f + width/2f, yPos, paint)
+                }
+            }
             
             paint.style = Paint.Style.FILL
         }
         
-        private fun drawSnowboarder(canvas: Canvas, w: Int, h: Int) {
-            val riderScreenX = riderX * w
-            val riderScreenY = riderY * h
+        private fun drawSnowboarderFromBehind(canvas: Canvas, w: Int, h: Int) {
+            // Position du snowboarder sur l'écran
+            val riderScreenX = w * riderPosition
+            val riderScreenY = h * riderHeight
             
             canvas.save()
             canvas.translate(riderScreenX, riderScreenY)
             
-            // Rotation selon les tricks - MOINS INTENSE
+            // Rotation selon les tricks
             when (currentTrick) {
-                TrickType.SPIN -> canvas.rotate(trickProgress * 360f + backgroundRotation * 0.5f) // RÉDUIT
-                TrickType.FLIP -> canvas.rotate(trickProgress * 180f, 1f, 0f) // RÉDUIT de 360f
-                TrickType.GRAB -> canvas.scale(1f + trickProgress * 0.2f, 1f + trickProgress * 0.2f) // RÉDUIT de 0.3f
+                TrickType.SPIN -> canvas.rotate(trickRotation * if (tiltZ > 0) 1f else -1f)
+                TrickType.FLIP -> canvas.rotateX(trickFlip * if (tiltY > 0) 1f else -1f)
                 TrickType.COMBO -> {
-                    canvas.rotate(trickProgress * 270f) // RÉDUIT de 540f
-                    canvas.scale(1f + trickProgress * 0.3f, 1f + trickProgress * 0.3f) // RÉDUIT de 0.5f
+                    canvas.rotate(trickRotation * 0.5f)
+                    canvas.rotateX(trickFlip * 0.5f)
                 }
                 else -> {}
             }
             
-            // Corps du snowboarder - PLUS GROS
-            paint.color = Color.parseColor("#FF6600")
-            canvas.drawCircle(0f, 0f, 22f, paint) // AUGMENTÉ de 18f
+            // Échelle selon la distance (effet de profondeur)
+            val scale = if (isInAir) 1f + altimeter * 0.01f else 1f
+            canvas.scale(scale, scale)
             
-            // Snowboard - PLUS GROS
-            paint.color = Color.parseColor("#4400FF")
-            canvas.drawRoundRect(-30f, -10f, 30f, 10f, 10f, 10f, paint) // PLUS LARGE
+            // Corps du snowboarder (vu de derrière)
+            paint.color = Color.parseColor("#FF6600") // Combinaison orange
+            canvas.drawRect(-15f, -30f, 15f, 20f, paint) // Torse
             
-            // Bras selon le trick - PLUS GROS
+            // Casque
+            paint.color = Color.parseColor("#FFFFFF")
+            canvas.drawCircle(0f, -35f, 12f, paint)
+            
+            // Bras
             paint.color = Color.parseColor("#FF6600")
-            paint.strokeWidth = 8f // AUGMENTÉ de 6f
+            paint.strokeWidth = 8f
             paint.style = Paint.Style.STROKE
             
-            if (currentTrick == TrickType.GRAB) {
+            if (currentTrick == TrickType.GRAB && trickGrab) {
                 // Position grab
-                canvas.drawLine(-18f, -12f, -25f, 8f, paint)
-                canvas.drawLine(18f, -12f, 25f, 8f, paint)
+                canvas.drawLine(-10f, -10f, -20f, 25f, paint) // Bras vers planche
+                canvas.drawLine(10f, -10f, 20f, 25f, paint)
             } else {
                 // Position normale
-                canvas.drawLine(-15f, -8f, -25f, -18f, paint)
-                canvas.drawLine(15f, -8f, 25f, -18f, paint)
+                canvas.drawLine(-12f, -15f, -20f, -5f, paint)
+                canvas.drawLine(12f, -15f, 20f, -5f, paint)
             }
+            
+            // Jambes
+            canvas.drawLine(-8f, 15f, -12f, 35f, paint)
+            canvas.drawLine(8f, 15f, 12f, 35f, paint)
+            
+            // Snowboard
+            paint.color = Color.parseColor("#4400FF")
+            paint.style = Paint.Style.FILL
+            canvas.drawRoundRect(-25f, 30f, 25f, 40f, 5f, 5f, paint)
+            
+            // Fixations
+            paint.color = Color.parseColor("#333333")
+            canvas.drawRect(-15f, 32f, -5f, 38f, paint)
+            canvas.drawRect(5f, 32f, 15f, 38f, paint)
             
             paint.style = Paint.Style.FILL
             canvas.restore()
             
-            // Ombre si au sol
-            if (!isInAir) {
-                paint.color = Color.parseColor("#33000000")
-                canvas.drawOval(riderScreenX - 35f, h * 0.82f, riderScreenX + 35f, h * 0.86f, paint) // PLUS GROS
+            // Effet de mur si proche des bords
+            if (wallBounceEffect > 0f) {
+                paint.color = Color.parseColor("#40FFFFFF")
+                paint.alpha = (wallBounceEffect * 255).toInt()
+                canvas.drawCircle(riderScreenX, riderScreenY, wallBounceEffect * 100f, paint)
+                paint.alpha = 255
             }
         }
         
         private fun drawGameInterface(canvas: Canvas, w: Int, h: Int) {
-            val baseY = h - 160f // PLUS BAS
+            val baseY = h - 140f
             
-            // Score en temps réel - TEXTE PLUS GROS
+            // Score et métriques
             paint.color = Color.parseColor("#001144")
-            paint.textSize = 24f // AUGMENTÉ de 20f
+            paint.textSize = 22f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("Score: ${totalScore.toInt()}", 30f, baseY, paint)
-            canvas.drawText("Tricks: $tricksLanded", 30f, baseY + 30f, paint)
+            canvas.drawText("Score: ${totalScore.toInt()}", 20f, baseY, paint)
+            canvas.drawText("Tricks: $tricksCompleted", 20f, baseY + 25f, paint)
+            canvas.drawText("Speed: ${speed.toInt()} km/h", 20f, baseY + 50f, paint)
             
-            // Trick en cours - TEXTE PLUS GROS
+            // Trick en cours
             if (currentTrick != TrickType.NONE) {
                 paint.color = Color.parseColor("#FF6600")
-                paint.textSize = 32f // AUGMENTÉ de 24f
+                paint.textSize = 28f
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("${currentTrick.displayName}: ${(trickProgress * 100).toInt()}%", w/2f, baseY, paint)
                 
-                // Barre de progression - PLUS GROSSE
-                paint.color = Color.parseColor("#333333")
-                canvas.drawRect(w/2f - 120f, baseY + 15f, w/2f + 120f, baseY + 35f, paint) // PLUS HAUTE
+                val trickText = when (currentTrick) {
+                    TrickType.SPIN -> "${(trickRotation).toInt()}° SPIN"
+                    TrickType.FLIP -> "FLIP ${(trickFlip).toInt()}°"
+                    TrickType.GRAB -> "GRAB ${(trickProgress * 100).toInt()}%"
+                    TrickType.COMBO -> "COMBO ${(trickProgress * 100).toInt()}%"
+                    else -> ""
+                }
                 
-                paint.color = Color.parseColor("#00FF00")
-                val progressWidth = trickProgress * 240f
-                canvas.drawRect(w/2f - 120f, baseY + 15f, w/2f - 120f + progressWidth, baseY + 35f, paint)
+                canvas.drawText(trickText, w/2f, baseY, paint)
+                
+                // Phase du trick
+                paint.textSize = 18f
+                canvas.drawText("Phase: ${trickPhase.name}", w/2f, baseY + 25f, paint)
             }
             
-            // Métriques de performance - PLUS GROSSES
-            drawMeter(canvas, w - 220f, baseY, 180f, style / 120f, "STYLE", Color.parseColor("#FF44AA"))
-            drawMeter(canvas, w - 220f, baseY + 35f, 180f, flow / 120f, "FLOW", Color.parseColor("#44AAFF"))
+            // Métriques de performance
+            drawPerformanceMeter(canvas, w - 180f, baseY - 20f, 160f, amplitude / 10f, "AMPLITUDE", Color.parseColor("#FF4444"))
+            drawPerformanceMeter(canvas, w - 180f, baseY + 5f, 160f, flow / 120f, "FLOW", Color.parseColor("#44AAFF"))
+            drawPerformanceMeter(canvas, w - 180f, baseY + 30f, 160f, style / 120f, "STYLE", Color.parseColor("#44FF44"))
             
-            // Combo actif - TEXTE PLUS GROS
-            if (comboActive) {
+            // Combo actuel
+            if (trickCombo > 1) {
                 paint.color = Color.parseColor("#FFD700")
-                paint.textSize = 22f // AUGMENTÉ de 18f
+                paint.textSize = 20f
                 paint.textAlign = Paint.Align.RIGHT
-                canvas.drawText("🔥 COMBO x$comboCount", w - 30f, baseY + 70f, paint)
-            }
-            
-            // Air time - TEXTE PLUS GROS
-            if (isInAir) {
-                paint.color = Color.parseColor("#00FFFF")
-                paint.textSize = 20f // AUGMENTÉ de 16f
-                paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("⏱️ Air time: ${airTime.toString().take(4)}s", w/2f, h - 60f, paint)
+                canvas.drawText("🔥 COMBO x$trickCombo", w - 20f, baseY + 55f, paint)
             }
         }
         
-        private fun drawMeter(canvas: Canvas, x: Float, y: Float, width: Float, 
-                             value: Float, label: String, color: Int) {
+        private fun drawPumpRhythmBar(canvas: Canvas, w: Int, h: Int) {
+            val barX = 50f
+            val barY = 120f
+            val barWidth = w * 0.4f
+            val barHeight = 30f
+            
+            // Fond de la barre
+            paint.color = Color.parseColor("#333333")
+            reusableRectF.set(barX, barY, barX + barWidth, barY + barHeight)
+            canvas.drawRect(reusableRectF, paint)
+            
+            // Zone de pumping optimal
+            if (pumpWindow) {
+                paint.color = Color.parseColor("#00FF00")
+                val optimalWidth = barWidth * 0.3f
+                val optimalX = barX + barWidth * 0.35f
+                reusableRectF.set(optimalX, barY, optimalX + optimalWidth, barY + barHeight)
+                canvas.drawRect(reusableRectF, paint)
+            }
+            
+            // Indicateur de timing actuel
+            val currentX = barX + (riderHeight - 0.6f) * barWidth / 0.4f
+            paint.color = Color.parseColor("#FFFF00")
+            canvas.drawLine(currentX, barY, currentX, barY + barHeight, paint)
+            
+            // Efficacité du pump
+            if (pumpEnergy > 0f) {
+                paint.color = Color.parseColor("#FF6600")
+                paint.alpha = (pumpEnergy * 255).toInt()
+                val pumpWidth = barWidth * pumpEfficiency
+                reusableRectF.set(barX, barY, barX + pumpWidth, barY + barHeight)
+                canvas.drawRect(reusableRectF, paint)
+                paint.alpha = 255
+            }
+            
+            // Label
+            paint.color = Color.WHITE
+            paint.textSize = 16f
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("PUMP RHYTHM", barX, barY - 5f, paint)
+            
+            if (pumpCombo > 0) {
+                paint.color = Color.parseColor("#00FF00")
+                canvas.drawText("Perfect x$pumpCombo", barX, barY + barHeight + 20f, paint)
+            }
+        }
+        
+        private fun drawPerformanceMeter(canvas: Canvas, x: Float, y: Float, width: Float, 
+                                       value: Float, label: String, color: Int) {
             // Fond
             paint.color = Color.parseColor("#333333")
-            canvas.drawRect(x, y, x + width, y + 20f, paint) // PLUS HAUT de 15f
+            reusableRectF.set(x, y, x + width, y + 15f)
+            canvas.drawRect(reusableRectF, paint)
             
             // Barre
             paint.color = color
             val filledWidth = value.coerceIn(0f, 1f) * width
-            canvas.drawRect(x, y, x + filledWidth, y + 20f, paint)
+            reusableRectF.set(x, y, x + filledWidth, y + 15f)
+            canvas.drawRect(reusableRectF, paint)
             
-            // Label - TEXTE PLUS GROS
+            // Label
             paint.color = Color.WHITE
-            paint.textSize = 16f // AUGMENTÉ de 12f
+            paint.textSize = 12f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("$label: ${(value * 100).toInt()}%", x, y - 5f, paint)
+            canvas.drawText("$label: ${(value * 100).toInt()}%", x, y - 3f, paint)
         }
         
-        private fun drawEffects(canvas: Canvas, w: Int, h: Int) {
-            // Explosions de neige
+        private fun drawAltimeter(canvas: Canvas, w: Int, h: Int) {
+            val altX = w - 120f
+            val altY = 200f
+            
+            // Fond de l'altimètre
+            paint.color = Color.parseColor("#000000")
+            paint.alpha = 180
+            reusableRectF.set(altX, altY, altX + 100f, altY + 120f)
+            canvas.drawRoundRect(reusableRectF, 10f, 10f, paint)
+            paint.alpha = 255
+            
+            // Hauteur actuelle
+            paint.color = Color.parseColor("#00FF00")
+            paint.textSize = 24f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("${altimeter.toInt()}m", altX + 50f, altY + 40f, paint)
+            
+            // Air time
+            paint.textSize = 16f
+            canvas.drawText("Air: ${airTime.toString().take(4)}s", altX + 50f, altY + 60f, paint)
+            
+            // Barre de hauteur
+            val maxBarHeight = 80f
+            val currentHeight = (altimeter / 15f).coerceIn(0f, 1f) * maxBarHeight
+            
+            paint.color = Color.parseColor("#333333")
+            reusableRectF.set(altX + 10f, altY + 80f, altX + 30f, altY + 80f + maxBarHeight)
+            canvas.drawRect(reusableRectF, paint)
+            
+            paint.color = Color.parseColor("#00FFFF")
+            reusableRectF.set(altX + 10f, altY + 80f + maxBarHeight - currentHeight, altX + 30f, altY + 80f + maxBarHeight)
+            canvas.drawRect(reusableRectF, paint)
+            
+            // Label
             paint.color = Color.WHITE
-            for (explosion in snowExplosions) {
-                paint.alpha = (explosion.life * 255).toInt()
-                canvas.drawCircle(explosion.x, explosion.y, explosion.life * 10f, paint) // PLUS GROS de 8f
-            }
-            paint.alpha = 255
+            paint.textSize = 14f
+            canvas.drawText("ALTITUDE", altX + 50f, altY + 100f, paint)
+        }
+        
+        private fun drawResults(canvas: Canvas, w: Int, h: Int) {
+            // Fond festif avec dégradé
+            val resultGradient = LinearGradient(0f, 0f, 0f, h.toFloat(),
+                Color.parseColor("#FFD700"), Color.parseColor("#FFF8DC"), Shader.TileMode.CLAMP)
+            paint.shader = resultGradient
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            paint.shader = null
             
-            // Trails de tricks
-            for (trail in trickTrails) {
-                val alpha = (trail.life * 180).toInt()
-                paint.alpha = alpha
-                paint.color = when (trail.type) {
-                    TrickType.SPIN -> Color.CYAN
-                    TrickType.FLIP -> Color.YELLOW
-                    TrickType.GRAB -> Color.GREEN
-                    TrickType.COMBO -> Color.MAGENTA
-                    else -> Color.WHITE
-                }
-                canvas.drawCircle(trail.x, trail.y, trail.life * 15f, paint) // PLUS GROS de 12f
-            }
-            paint.alpha = 255
+            // Score final
+            paint.color = Color.parseColor("#001144")
+            paint.textSize = 72f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("${finalScore}", w/2f, h * 0.2f, paint)
             
-            // Sparkles
-            for (sparkle in sparkles) {
-                paint.alpha = (sparkle.life * 255).toInt()
-                paint.color = sparkle.color
-                canvas.drawCircle(sparkle.x, sparkle.y, sparkle.life * 8f, paint) // PLUS GROS de 6f
+            paint.textSize = 32f
+            canvas.drawText("POINTS", w/2f, h * 0.28f, paint)
+            
+            // Détails de performance
+            paint.color = Color.parseColor("#333333")
+            paint.textSize = 24f
+            
+            val startY = h * 0.4f
+            val lineHeight = 35f
+            
+            canvas.drawText("🏂 Tricks réussis: $tricksCompleted", w/2f, startY, paint)
+            canvas.drawText("⭐ Variété: ${trickVariety.size} types", w/2f, startY + lineHeight, paint)
+            canvas.drawText("📏 Amplitude max: ${maxHeight.toInt()}m", w/2f, startY + lineHeight * 2, paint)
+            canvas.drawText("⏱️ Air time max: ${maxAirTime.toString().take(4)}s", w/2f, startY + lineHeight * 3, paint)
+            canvas.drawText("🎯 Landings parfaits: $perfectLandings", w/2f, startY + lineHeight * 4, paint)
+            canvas.drawText("🌊 Flow: ${flow.toInt()}%", w/2f, startY + lineHeight * 5, paint)
+            canvas.drawText("💎 Style: ${style.toInt()}%", w/2f, startY + lineHeight * 6, paint)
+            
+            // Message d'encouragement
+            val encouragement = when {
+                finalScore >= 300 -> "🏆 PERFORMANCE LÉGENDAIRE!"
+                finalScore >= 250 -> "🥇 EXCELLENT RUN!"
+                finalScore >= 200 -> "🥈 TRÈS BON STYLE!"
+                finalScore >= 150 -> "🥉 BIEN JOUÉ!"
+                else -> "💪 CONTINUE À T'ENTRAÎNER!"
             }
-            paint.alpha = 255
+            
+            paint.color = Color.parseColor("#FF6600")
+            paint.textSize = 28f
+            canvas.drawText(encouragement, w/2f, h * 0.9f, paint)
         }
     }
 
     enum class TrickType(val displayName: String) {
         NONE(""),
-        SPIN("360°"),
-        FLIP("FLIP"),
+        SPIN("SPIN"),
+        FLIP("FLIP"), 
         GRAB("GRAB"),
         COMBO("COMBO")
     }
     
-    data class SnowExplosion(
-        var x: Float,
-        var y: Float,
-        var vx: Float,
-        var vy: Float,
-        var life: Float
-    )
-    
-    data class TrickTrail(
-        val x: Float,
-        val y: Float,
-        val type: TrickType,
-        var life: Float
-    )
-    
-    data class Sparkle(
-        val x: Float,
-        var y: Float,
-        val color: Int,
-        var life: Float
-    )
+    enum class TrickPhase {
+        NONE, TAKEOFF, SETUP, EXECUTION, LANDING
+    }
 
     enum class GameState {
         PREPARATION, RIDING, RESULTS, FINISHED
