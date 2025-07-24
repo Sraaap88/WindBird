@@ -281,11 +281,11 @@ class BobsledActivity : Activity(), SensorEventListener {
     
     // NOUVEAU : Fonction pour gérer le défilement de la piste
     private fun updateTrackScrolling() {
-        val scrollSpeed = speed * 0.02f // Ajustable selon l'effet désiré
+        val scrollSpeed = speed * 0.04f // Plus rapide pour la piste plus grosse
         trackScrollOffset += scrollSpeed
         
-        // Défilement du paysage (plus lent que la piste)
-        landscapeOffset += scrollSpeed * 0.3f
+        // Défilement du paysage (plus lent que la piste pour effet parallaxe)
+        landscapeOffset += scrollSpeed * 0.5f
         
         // Reset pour éviter les valeurs trop grandes
         if (trackScrollOffset > 1000f) trackScrollOffset -= 1000f
@@ -660,27 +660,12 @@ class BobsledActivity : Activity(), SensorEventListener {
         
         // NOUVEAU : Système de rendu de piste avec sprites
         private fun drawNewTrackSystem(canvas: Canvas, w: Int, h: Int) {
-            val horizonY = h * 0.35f
+            val horizonY = h * 0.5f // PLUS BAS - moitié de l'écran pour le paysage
             
-            // 1. CIEL ET PAYSAGE DÉFILANT
-            paint.color = Color.rgb(170, 140, 255)
-            canvas.drawRect(0f, 0f, w.toFloat(), horizonY, paint)
+            // 1. PAYSAGE DÉFILANT DYNAMIQUE - MOITIÉ SUPÉRIEURE DE L'ÉCRAN
+            drawScrollingLandscape(canvas, w, horizonY.toInt())
             
-            // Paysage qui bouge selon les virages
-            val landscapeRotation = currentCurveIntensity * 15f // Rotation du paysage
-            val mountainOffset = landscapeOffset + currentCurveIntensity * w * 0.3f
-            
-            paint.color = Color.rgb(100, 100, 100)
-            val mountain1 = Path().apply {
-                moveTo(-mountainOffset, horizonY)
-                lineTo(w * 0.3f - mountainOffset, horizonY - 60f)
-                lineTo(w * 0.7f - mountainOffset, horizonY - 40f)
-                lineTo(w.toFloat() - mountainOffset, horizonY)
-                close()
-            }
-            canvas.drawPath(mountain1, paint)
-            
-            // 2. RENDU DE LA PISTE AVEC SPRITES
+            // 2. RENDU DE LA PISTE AVEC SPRITES - MOITIÉ INFÉRIEURE
             drawTrackWithSprites(canvas, w, h, horizonY)
             
             // 3. BOBSLEIGH AMÉLIORÉ AVEC BANKING
@@ -690,11 +675,96 @@ class BobsledActivity : Activity(), SensorEventListener {
             drawGameInterface(canvas, w, h)
         }
         
+        // NOUVEAU : Paysage défilant réaliste dans la moitié supérieure
+        private fun drawScrollingLandscape(canvas: Canvas, w: Int, horizonHeight: Int) {
+            // Ciel avec dégradé
+            val skyGradient = LinearGradient(
+                0f, 0f, 0f, horizonHeight.toFloat(),
+                Color.rgb(135, 206, 250), // Bleu ciel clair en haut
+                Color.rgb(170, 140, 255),  // Bleu-violet vers l'horizon
+                Shader.TileMode.CLAMP
+            )
+            paint.shader = skyGradient
+            canvas.drawRect(0f, 0f, w.toFloat(), horizonHeight.toFloat(), paint)
+            paint.shader = null
+            
+            // MONTAGNES QUI BOUGENT SELON LES VIRAGES - Effet réaliste
+            val curveRotation = currentCurveIntensity * 25f // Rotation plus prononcée
+            val mountainShift = landscapeOffset + currentCurveIntensity * w * 0.4f
+            
+            // Montagnes arrière (plus lentes, effet parallaxe)
+            paint.color = Color.rgb(80, 80, 120)
+            val backMountains = Path().apply {
+                moveTo(-mountainShift * 0.3f, horizonHeight.toFloat())
+                lineTo(w * 0.2f - mountainShift * 0.3f, horizonHeight * 0.3f)
+                lineTo(w * 0.5f - mountainShift * 0.3f, horizonHeight * 0.4f)
+                lineTo(w * 0.8f - mountainShift * 0.3f, horizonHeight * 0.25f)
+                lineTo(w + 200f - mountainShift * 0.3f, horizonHeight * 0.35f)
+                lineTo(w + 200f, horizonHeight.toFloat())
+                close()
+            }
+            canvas.drawPath(backMountains, paint)
+            
+            // Montagnes moyennes
+            paint.color = Color.rgb(100, 100, 140)
+            val midMountains = Path().apply {
+                moveTo(-mountainShift * 0.6f, horizonHeight.toFloat())
+                lineTo(w * 0.15f - mountainShift * 0.6f, horizonHeight * 0.5f)
+                lineTo(w * 0.45f - mountainShift * 0.6f, horizonHeight * 0.3f)
+                lineTo(w * 0.75f - mountainShift * 0.6f, horizonHeight * 0.45f)
+                lineTo(w + 100f - mountainShift * 0.6f, horizonHeight * 0.4f)
+                lineTo(w + 100f, horizonHeight.toFloat())
+                close()
+            }
+            canvas.drawPath(midMountains, paint)
+            
+            // Montagnes proches (bougent le plus)
+            paint.color = Color.rgb(120, 120, 160)
+            val frontMountains = Path().apply {
+                moveTo(-mountainShift, horizonHeight.toFloat())
+                lineTo(w * 0.25f - mountainShift, horizonHeight * 0.6f)
+                lineTo(w * 0.6f - mountainShift, horizonHeight * 0.5f)
+                lineTo(w * 0.9f - mountainShift, horizonHeight * 0.7f)
+                lineTo(w.toFloat() - mountainShift, horizonHeight * 0.65f)
+                lineTo(w.toFloat(), horizonHeight.toFloat())
+                close()
+            }
+            canvas.drawPath(frontMountains, paint)
+            
+            // ARBRES ET ÉLÉMENTS QUI DÉFILENT RAPIDEMENT
+            paint.color = Color.rgb(34, 139, 34)
+            val treeShift = landscapeOffset * 2f // Arbres bougent 2x plus vite
+            for (i in 0..15) {
+                val treeX = (w * i / 10f - treeShift + currentCurveIntensity * w * 0.6f) % (w + 200f) - 100f
+                val treeY = horizonHeight * (0.8f + sin(i.toFloat()) * 0.1f)
+                val treeHeight = 40f + (i % 3) * 20f
+                
+                // Tronc
+                paint.color = Color.rgb(139, 69, 19)
+                canvas.drawRect(treeX - 3f, treeY, treeX + 3f, treeY + treeHeight, paint)
+                
+                // Feuillage
+                paint.color = Color.rgb(34, 139, 34)
+                canvas.drawCircle(treeX, treeY, treeHeight * 0.4f, paint)
+            }
+            
+            // NUAGES QUI BOUGENT LENTEMENT
+            paint.color = Color.argb(180, 255, 255, 255)
+            val cloudShift = landscapeOffset * 0.1f // Nuages très lents
+            for (i in 0..6) {
+                val cloudX = (w * i / 4f - cloudShift) % (w + 300f) - 150f
+                val cloudY = horizonHeight * (0.1f + i * 0.08f)
+                canvas.drawCircle(cloudX, cloudY, 30f + i * 5f, paint)
+                canvas.drawCircle(cloudX + 25f, cloudY, 25f + i * 3f, paint)
+                canvas.drawCircle(cloudX - 20f, cloudY, 20f + i * 4f, paint)
+            }
+        }
+        
         // NOUVEAU : Fonction pour dessiner la piste avec les sprites
         private fun drawTrackWithSprites(canvas: Canvas, w: Int, h: Int, horizonY: Float) {
             val curveType = getCurveType(currentCurveIntensity)
             
-            for (screenY in horizonY.toInt() until h step 8) { // Step plus grand pour performance
+            for (screenY in horizonY.toInt() until h step 4) { // Step plus petit pour plus de détails
                 val lineProgress = (screenY - horizonY) / (h - horizonY)
                 val z = 200f * (1f - lineProgress * 0.95f)
                 val scaleFactor = 1f / z
@@ -718,8 +788,8 @@ class BobsledActivity : Activity(), SensorEventListener {
                     }
                 }
                 
-                // Calculer la position et taille du sprite
-                val trackWidth = (w * 1.2f * scaleFactor).coerceAtMost(w * 2f)
+                // PISTE BEAUCOUP PLUS GROSSE - près de la moitié de l'écran
+                val trackWidth = (w * 8f * scaleFactor).coerceAtMost(w * 12f) // ÉNORMÉMENT plus large
                 val lookAheadDistance = (1f - lineProgress) * 5f
                 val futurePosition = (trackPosition + lookAheadDistance / trackCurves.size.toFloat()) % 1f
                 val futureIndex = (futurePosition * (trackCurves.size - 1)).toInt()
@@ -733,11 +803,11 @@ class BobsledActivity : Activity(), SensorEventListener {
                     0f
                 }
                 
-                val trackCenterX = w/2f + futureCurve * w * 0.8f * scaleFactor
+                val trackCenterX = w/2f + futureCurve * w * 0.6f * scaleFactor // Réduction du déplacement horizontal
                 
                 // Dessiner le sprite de piste
                 spriteFrame?.let { sprite ->
-                    val spriteHeight = trackWidth * sprite.height / sprite.width
+                    val spriteHeight = 6f // Hauteur fixe pour éviter la déformation
                     val dstRect = RectF(
                         trackCenterX - trackWidth/2f,
                         screenY.toFloat(),
@@ -748,7 +818,7 @@ class BobsledActivity : Activity(), SensorEventListener {
                 } ?: run {
                     // Fallback si le sprite ne charge pas
                     paint.color = Color.WHITE
-                    canvas.drawRect(trackCenterX - trackWidth/2f, screenY.toFloat(), trackCenterX + trackWidth/2f, screenY + 8f, paint)
+                    canvas.drawRect(trackCenterX - trackWidth/2f, screenY.toFloat(), trackCenterX + trackWidth/2f, screenY + 6f, paint)
                 }
             }
         }
