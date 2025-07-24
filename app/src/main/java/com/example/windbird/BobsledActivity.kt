@@ -279,17 +279,13 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
     }
     
-    // NOUVEAU : Fonction pour gérer le défilement de la piste
+    // NOUVEAU : Fonction pour gérer le défilement de la piste (Winter Games style)
     private fun updateTrackScrolling() {
-        val scrollSpeed = speed * 0.03f // Ajusté pour la nouvelle vitesse
+        val scrollSpeed = speed * 0.8f // Plus rapide pour le défilement vertical
         trackScrollOffset += scrollSpeed
         
-        // Défilement du paysage (plus lent que la piste pour effet parallaxe)
-        landscapeOffset += scrollSpeed * 0.4f
-        
         // Reset pour éviter les valeurs trop grandes
-        if (trackScrollOffset > 1000f) trackScrollOffset -= 1000f
-        if (landscapeOffset > 1000f) landscapeOffset -= 1000f
+        if (trackScrollOffset > 10000f) trackScrollOffset -= 10000f
     }
     
     private fun updateTrackProgress() {
