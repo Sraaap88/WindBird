@@ -35,12 +35,13 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     private val resultsDuration = 8f
     
     // Physique réaliste du skieur
-    private var skierX = 0.5f              // Position horizontale (0-1)
-    private var skierY = 0.9f              // Position verticale sur écran
+    private var skierX = 0.5f              // Position horizontale (0-1) 
+    private var skierY = 0.75f             // Position fixe sur l'écran (skieur reste là)
     private var speed = 0f                 // Vitesse actuelle
     private var baseSpeed = 15f            // Vitesse de base
     private var momentum = 0f              // Momentum de descente
     private var distanceTraveled = 0f      // Distance parcourue
+    private var pisteScrollSpeed = 0f      // Vitesse de défilement de la piste
     
     // Système de vol avec physique réaliste
     private var isInAir = false
@@ -348,25 +349,23 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     }
     
     private fun handleSkierMovement() {
-        // Mouvement horizontal (steering)
+        // Mouvement horizontal (steering) - skieur reste sur l'écran
         val horizontalInput = tiltX * 0.5f
         skierX += horizontalInput * 0.008f
-        skierX = skierX.coerceIn(0.1f, 0.9f)
+        skierX = skierX.coerceIn(0.15f, 0.85f) // Garder le skieur visible
         
-        // Physique de vol ou sur piste
-        if (isInAir) {
-            updateAirPhysics()
-        } else {
-            // Sur la piste
-            skierY = 0.9f
-            
-            // Momentum naturel de descente
-            momentum += 0.1f
-            speed += momentum * 0.02f
-            
-            // Friction naturelle
-            speed *= 0.998f
-        }
+        // Le skieur reste à position Y fixe, c'est la piste qui bouge
+        // skierY reste à 0.75f
+        
+        // Momentum naturel de descente - affecte le défilement
+        momentum += 0.1f
+        speed += momentum * 0.02f
+        
+        // Friction naturelle
+        speed *= 0.998f
+        
+        // Vitesse de défilement de la piste basée sur la vitesse du skieur
+        pisteScrollSpeed = speed * 3f // Plus la vitesse est élevée, plus la piste défile vite
         
         // Effets de vitesse
         if (speed > 20f) {
@@ -380,23 +379,22 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
         
         airTime += 0.016f
         
-        // Mouvement vertical (parabole)
+        // Mouvement vertical (parabole) - skieur bouge un peu en Y quand en l'air
         verticalVelocity -= gravity * 0.016f
         skierY += verticalVelocity * 0.016f
         
-        // Mouvement horizontal (conservation)
-        skierX += horizontalVelocity * 0.016f
-        skierX = skierX.coerceIn(0.05f, 0.95f)
+        // Mouvement horizontal minimal - le skieur reste principalement centré
+        skierX += horizontalVelocity * 0.008f // Réduit pour garder contrôle
+        skierX = skierX.coerceIn(0.15f, 0.85f)
         
         // Calcul du pic de trajectoire
         if (verticalVelocity <= 0f && trajectoryPeak == 0f) {
             trajectoryPeak = skierY
-            amplitude = max(amplitude, 0.9f - trajectoryPeak)
+            amplitude = max(amplitude, 0.75f - trajectoryPeak)
         }
         
-        // Atterrissage
-        val landingY = calculateLandingHeight()
-        if (skierY >= landingY) {
+        // Atterrissage - retour à position fixe
+        if (skierY >= 0.75f) {
             landFromJump()
         }
     }
@@ -669,7 +667,7 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     
     private fun updateCourseProgress() {
         distanceTraveled += speed * 0.03f
-        pisteScroll += speed * 0.05f
+        pisteScroll += pisteScrollSpeed * 0.08f // La piste défile selon la vitesse
     }
     
     private fun applyPhysicsConstraints() {
@@ -1011,31 +1009,31 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             canvas.drawRect(0f, 0f, w.toFloat(), h * 0.4f, paint)
             paint.shader = null
             
-            // Piste qui défile de haut en bas avec perspective
-            val scrollOffset = pisteScroll % 100f
+            // Piste qui défile de HAUT vers BAS avec perspective (comme le slalom)
+            val scrollOffset = pisteScroll % 150f
             
             paint.color = Color.WHITE
             
-            // Piste principale avec perspective
+            // Piste en perspective qui se rétrécit vers le haut
             reusablePath.reset()
-            reusablePath.moveTo(w * 0.25f, 0f)           // Haut gauche
-            reusablePath.lineTo(w * 0.75f, 0f)           // Haut droite
-            reusablePath.lineTo(w * 0.85f, h.toFloat())   // Bas droite
-            reusablePath.lineTo(w * 0.15f, h.toFloat())   // Bas gauche
+            reusablePath.moveTo(w * 0.45f, 0f)           // Haut étroit (loin)
+            reusablePath.lineTo(w * 0.55f, 0f)           
+            reusablePath.lineTo(w * 0.85f, h.toFloat())   // Bas large (proche)
+            reusablePath.lineTo(w * 0.15f, h.toFloat())   
             reusablePath.close()
             canvas.drawPath(reusablePath, paint)
             
-            // Lignes de défilement pour effet de mouvement
+            // Lignes de défilement qui descendent pour effet de mouvement
             paint.color = Color.parseColor("#EEEEEE")
             paint.strokeWidth = 2f
             paint.style = Paint.Style.STROKE
             
-            for (i in 0..12) {
-                val lineY = i * 60f - scrollOffset
+            for (i in 0..15) {
+                val lineY = i * 80f - scrollOffset // Les lignes descendent
                 if (lineY >= 0f && lineY <= h.toFloat()) {
                     val perspective = lineY / h.toFloat()
-                    val leftX = w * (0.25f + perspective * 0.1f)
-                    val rightX = w * (0.75f - perspective * 0.1f)
+                    val leftX = w * (0.45f + perspective * 0.05f)
+                    val rightX = w * (0.55f - perspective * 0.05f)
                     canvas.drawLine(leftX, lineY, rightX, lineY, paint)
                 }
             }
@@ -1048,18 +1046,22 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
                 val kickerScreenDistance = kicker.distance - distanceTraveled
                 
                 if (kickerScreenDistance > -50f && kickerScreenDistance < 300f) {
-                    // Position sur l'écran
-                    val screenY = kickerScreenDistance * 2f + 100f
-                    val perspective = (screenY / h.toFloat()).coerceIn(0.1f, 1f)
+                    // Position sur l'écran - les kickers descendent vers le skieur
+                    val screenY = (kickerScreenDistance / 300f) * h // Plus proche = plus bas sur l'écran
+                    val perspective = (h - screenY) / h.toFloat()
                     
-                    if (screenY < h.toFloat()) {
+                    if (screenY >= 0f && screenY < h.toFloat()) {
                         val kickerSize = when (kicker.size) {
-                            KickerSize.SMALL -> 30f
-                            KickerSize.MEDIUM -> 45f
-                            KickerSize.LARGE -> 65f
-                        } * perspective
+                            KickerSize.SMALL -> 25f
+                            KickerSize.MEDIUM -> 40f
+                            KickerSize.LARGE -> 60f
+                        } * perspective.coerceIn(0.3f, 1f)
                         
-                        val screenX = w * (0.15f + kicker.x * 0.7f)
+                        // Position sur la piste en perspective
+                        val pisteLeft = w * (0.45f + perspective * 0.05f)
+                        val pisteRight = w * (0.55f - perspective * 0.05f)
+                        val pisteWidth = pisteRight - pisteLeft
+                        val screenX = pisteLeft + kicker.x * pisteWidth
                         
                         // Couleur selon statut
                         paint.color = if (kicker.hit) {
@@ -1077,10 +1079,10 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
                         reusablePath.close()
                         canvas.drawPath(reusablePath, paint)
                         
-                        // Taille indicator
-                        if (perspective > 0.3f) {
+                        // Indicateur de taille
+                        if (perspective > 0.4f) {
                             paint.color = Color.BLACK
-                            paint.textSize = 14f * perspective
+                            paint.textSize = 12f * perspective
                             paint.textAlign = Paint.Align.CENTER
                             val sizeText = when (kicker.size) {
                                 KickerSize.SMALL -> "S"
@@ -1356,12 +1358,12 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             }
             paint.alpha = 255
             
-            // Lignes de vitesse
+            // Lignes de vitesse verticales
             paint.color = Color.parseColor("#66FFFFFF")
             paint.strokeWidth = 3f
             paint.style = Paint.Style.STROKE
             for (line in speedLines) {
-                canvas.drawLine(line.x, line.y, line.x + 30f, line.y, paint)
+                canvas.drawLine(line.x, line.y, line.x, line.y + 25f, paint) // Lignes verticales
             }
             paint.style = Paint.Style.FILL
         }
