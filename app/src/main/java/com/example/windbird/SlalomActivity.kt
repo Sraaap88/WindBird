@@ -182,25 +182,36 @@ class SlalomActivity : Activity(), SensorEventListener {
     }
     
     private fun generateSlalomCourse() {
-        // Générer un parcours de slalom avec COULEURS ALTERNÉES
+        // Générer des PAIRES de drapeaux (vraies portes de slalom)
         var currentDistance = 120f
-        var currentSide = true // true = droite, false = gauche
         
-        repeat(25) { i ->
-            val gateX = if (currentSide) 0.7f else 0.3f
-            val gateType = if (i % 2 == 0) SlalomGate.Type.RED else SlalomGate.Type.BLUE // ALTERNANCE
+        repeat(15) { i -> // Moins de portes mais plus réalistes
+            val gateX = 0.3f + (i % 2) * 0.4f // Alternance gauche-droite
             
+            // PAIRE de drapeaux (porte complète)
             gates.add(SlalomGate(
-                x = gateX,
+                x = gateX - 0.1f, // Drapeau gauche
                 distance = currentDistance,
-                type = gateType,
+                type = SlalomGate.Type.RED,
                 number = i + 1,
                 passed = false,
-                side = if (currentSide) "DROITE" else "GAUCHE" // NOUVEAU
+                side = "GAUCHE",
+                isPair = true,
+                pairIndex = 0
             ))
             
-            currentDistance += 55f + kotlin.random.Random.nextFloat() * 10f
-            currentSide = !currentSide
+            gates.add(SlalomGate(
+                x = gateX + 0.1f, // Drapeau droite  
+                distance = currentDistance,
+                type = SlalomGate.Type.BLUE,
+                number = i + 1,
+                passed = false,
+                side = "DROITE", 
+                isPair = true,
+                pairIndex = 1
+            ))
+            
+            currentDistance += 80f + kotlin.random.Random.nextFloat() * 20f
         }
     }
     
@@ -899,54 +910,66 @@ class SlalomActivity : Activity(), SensorEventListener {
         }
         
         private fun drawSlalomGates(canvas: Canvas, w: Int, h: Int) {
-            // Dessiner les portes visibles AVEC AMÉLIORATIONS - PERSPECTIVE INVERSÉE
-            for (gate in gates) {
-                val gateScreenDistance = gate.distance - distance
-                
-                // Seulement dessiner les portes proches
-                if (gateScreenDistance > -50f && gateScreenDistance < 500f) {
-                    // PERSPECTIVE INVERSÉE : plus on est loin, plus on est vers le haut
-                    val screenY = h * 0.8f - (gateScreenDistance * 1f) // Inversé
-                    val perspectiveFactor = (h - screenY) / h.toFloat() // Plus petit vers le haut
-                    val gateWidth = 20f * perspectiveFactor.coerceIn(0.3f, 1f)
-                    val gateHeight = 100f * perspectiveFactor.coerceIn(0.3f, 1f)
+            // Dessiner les PAIRES de drapeaux (vraies portes de slalom)
+            val gatePairs = gates.chunked(2) // Grouper par paires
+            
+            for (gatePair in gatePairs) {
+                if (gatePair.size == 2) {
+                    val leftGate = gatePair[0]
+                    val rightGate = gatePair[1]
+                    val gateScreenDistance = leftGate.distance - distance
                     
-                    val screenX = w * gate.x
-                    
-                    // COULEURS ALTERNÉES plus contrastées
-                    paint.color = if (gate.type == SlalomGate.Type.RED) 
-                        Color.parseColor("#FF0000") else Color.parseColor("#0044FF")
-                    
-                    // Dessiner le piquet
-                    canvas.drawRect(
-                        screenX - gateWidth/2, screenY - gateHeight,
-                        screenX + gateWidth/2, screenY,
-                        paint
-                    )
-                    
-                    // NOUVEAU - Zone de passage visible
-                    if (gate == gates.getOrNull(nextGateIndex)) {
-                        paint.color = Color.parseColor("#44FFFFFF")
-                        canvas.drawCircle(screenX, screenY - gateHeight/2, 60f * perspectiveFactor, paint)
-                    }
-                    
-                    // NOUVEAU - Flèche directionnelle sur la porte
-                    if (perspectiveFactor > 0.6f) {
-                        paint.color = Color.WHITE
-                        val arrowDirection = if (gate.side == "DROITE") "→" else "←"
-                        paint.textSize = 24f * perspectiveFactor
-                        paint.textAlign = Paint.Align.CENTER
-                        canvas.drawText(arrowDirection, screenX, screenY + 20f, paint)
+                    // Seulement dessiner les portes proches
+                    if (gateScreenDistance > -50f && gateScreenDistance < 500f) {
+                        val screenY = h * 0.8f - (gateScreenDistance * 1f)
+                        val perspectiveFactor = (h - screenY) / h.toFloat()
+                        val gateWidth = 15f * perspectiveFactor.coerceIn(0.3f, 1f)
+                        val gateHeight = 80f * perspectiveFactor.coerceIn(0.3f, 1f)
+                        
+                        // Drapeau ROUGE (gauche)
+                        val leftScreenX = w * leftGate.x
+                        paint.color = Color.parseColor("#FF0000")
+                        canvas.drawRect(
+                            leftScreenX - gateWidth/2, screenY - gateHeight,
+                            leftScreenX + gateWidth/2, screenY,
+                            paint
+                        )
+                        
+                        // Drapeau BLEU (droite)
+                        val rightScreenX = w * rightGate.x
+                        paint.color = Color.parseColor("#0044FF")
+                        canvas.drawRect(
+                            rightScreenX - gateWidth/2, screenY - gateHeight,
+                            rightScreenX + gateWidth/2, screenY,
+                            paint
+                        )
+                        
+                        // Zone de passage entre les drapeaux
+                        if (leftGate.number == nextGateIndex / 2 + 1) {
+                            paint.color = Color.parseColor("#44FFFFFF")
+                            val centerX = (leftScreenX + rightScreenX) / 2f
+                            canvas.drawRect(
+                                leftScreenX + gateWidth/2, screenY - gateHeight/2 - 20f,
+                                rightScreenX - gateWidth/2, screenY - gateHeight/2 + 20f,
+                                paint
+                            )
+                        }
                         
                         // Numéro de porte
-                        paint.textSize = 20f * perspectiveFactor
-                        canvas.drawText("${gate.number}", screenX, screenY - gateHeight/2 + 8f, paint)
-                    }
-                    
-                    // Effet spécial pour porte passée
-                    if (gate.passed) {
-                        paint.color = Color.parseColor("#44FFFF00")
-                        canvas.drawCircle(screenX, screenY - gateHeight/2, gateHeight/2 + 15f, paint)
+                        if (perspectiveFactor > 0.6f) {
+                            paint.color = Color.WHITE
+                            paint.textSize = 20f * perspectiveFactor
+                            paint.textAlign = Paint.Align.CENTER
+                            val centerX = (leftScreenX + rightScreenX) / 2f
+                            canvas.drawText("${leftGate.number}", centerX, screenY + 25f, paint)
+                        }
+                        
+                        // Effet spécial pour porte passée
+                        if (leftGate.passed && rightGate.passed) {
+                            paint.color = Color.parseColor("#44FFFF00")
+                            val centerX = (leftScreenX + rightScreenX) / 2f
+                            canvas.drawCircle(centerX, screenY - gateHeight/2, gateHeight/2 + 15f, paint)
+                        }
                     }
                 }
             }
@@ -965,7 +988,7 @@ class SlalomActivity : Activity(), SensorEventListener {
             
             // Dessiner l'image du skieur si elle est chargée
             currentSkierImage?.let { bitmap ->
-                val scaleFactor = 2.5f // Ajustez la taille selon vos besoins
+                val scaleFactor = 0.5f // Réduit la taille des sprites
                 val scaledWidth = bitmap.width * scaleFactor
                 val scaledHeight = bitmap.height * scaleFactor
                 
@@ -1142,7 +1165,9 @@ class SlalomActivity : Activity(), SensorEventListener {
         val type: Type,
         val number: Int,
         var passed: Boolean,
-        val side: String // NOUVEAU
+        val side: String,
+        val isPair: Boolean = false, // NOUVEAU - fait partie d'une paire
+        val pairIndex: Int = 0       // NOUVEAU - 0=gauche, 1=droite
     ) {
         enum class Type { RED, BLUE }
     }
