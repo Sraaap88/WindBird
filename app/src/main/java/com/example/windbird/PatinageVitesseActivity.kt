@@ -41,26 +41,22 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     // Animation et rythme - CORRIGÉ
     private var playerAnimFrame = 0
     private var lastStrokeTime = 0L
-    private var previousStrokeTime = 0L // AJOUTÉ pour calculer l'intervalle
+    private var previousStrokeTime = 0L
     private var playerRhythm = 0f
     private var strokeCount = 0
     private var perfectStrokes = 0
     
-    // NOUVEAU - Variables pour la bande de performance
+    // Variables pour la bande de performance
     private var currentStrokeQuality = 0f
     private var currentRhythmQuality = 0f
-    private var performanceHistory = mutableListOf<Float>() // Historique des 20 dernières performances
+    private var performanceHistory = mutableListOf<Float>()
     
-    // NOUVEAU - Variables pour l'animation de victoire
+    // Variables pour l'animation de victoire
     private var victoryAnimationProgress = 0f
     private var victoryAnimationStarted = false
     
     // Contrôles gyroscope - LOGIQUE CORRIGÉE
     private var tiltX = 0f
-    private var lastTiltDirection = 0
-    private var expectingLeft = true
-    private var currentTiltState = TiltState.CENTER
-    // Contrôles gyroscope - LOGIQUE CORRIGÉE
     private var lastTiltDirection = 0
     private var expectingLeft = true
     private var currentTiltState = TiltState.CENTER
@@ -253,10 +249,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 
                 // Gain de vitesse
                 val combinedQuality = (strokeQuality * 0.6f + rhythmQuality * 0.4f)
-                val speedGain = combinedQuality * 1.5f // AUGMENTÉ de 1.2f à 1.5f
+                val speedGain = combinedQuality * 1.5f
                 
                 playerSpeed += speedGain
-                playerSpeed = playerSpeed.coerceAtMost(7f) // AUGMENTÉ de 6f à 7f
+                playerSpeed = playerSpeed.coerceAtMost(7f)
                 
                 // Historique de performance pour la bande
                 val overallPerformance = (strokeQuality + rhythmQuality) / 2f
@@ -273,7 +269,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         }
         
         // Décélération naturelle
-        playerSpeed *= 0.995f // MOINS de décélération (était 0.98f)
+        playerSpeed *= 0.995f
     }
     
     private fun calculateStrokeQuality(tilt: Float): Float {
@@ -303,7 +299,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     private fun updatePositions() {
         if (!playerFinished) {
             // CORRECTION : 25% plus rapide pour éviter l'ennui (9 épreuves au total)
-            playerDistance += playerSpeed * 0.025f * 20f // AUGMENTÉ de 15f à 20f
+            playerDistance += playerSpeed * 0.025f * 20f
         }
     }
     
@@ -332,7 +328,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         }
     }
     
-    // NOUVEAU - Animation de victoire
+    // Animation de victoire
     private fun updateVictoryAnimation() {
         if (victoryAnimationStarted && victoryAnimationProgress < 1f) {
             victoryAnimationProgress += 0.015f // Vitesse d'animation
@@ -342,7 +338,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     
     private fun calculateFinalScore() {
         if (!scoreCalculated) {
-            val timeBonus = maxOf(0, 450 - raceTime.toInt()) * 1 // AJUSTÉ : 450s (1.5-2min optimal)
+            val timeBonus = maxOf(0, 450 - raceTime.toInt()) * 1
             val rhythmBonus = (playerRhythm * 120).toInt()
             val perfectStrokeBonus = perfectStrokes * 8
             val completionBonus = if (playerFinished) 80 else 0
@@ -583,11 +579,11 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             drawFrontView(canvas, w, h)
             drawHUD(canvas, w, h)
             
-            // BARRE DE PERFORMANCE EN TEMPS RÉEL - CORRIGÉE
+            // BARRE DE PERFORMANCE EN TEMPS RÉEL
             drawPerformanceBand(canvas, 50f, h.toFloat() - 200f, w.toFloat() * 0.5f, 40f)
         }
         
-        // FONCTION pour la barre de performance - CORRIGÉE
+        // FONCTION pour la barre de performance
         private fun drawPerformanceBand(canvas: Canvas, x: Float, y: Float, width: Float, height: Float) {
             // Fond de la bande
             paint.color = Color.parseColor("#333333")
@@ -818,10 +814,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         
         private fun drawResults(canvas: Canvas, w: Int, h: Int) {
             val timeQuality = when {
-                raceTime < 90f -> "EXCELLENT"   // Moins de 1.5 minutes
-                raceTime < 120f -> "BON"        // 1.5-2 minutes  
-                raceTime < 150f -> "MOYEN"      // 2-2.5 minutes
-                else -> "LENT"                  // Plus de 2.5 minutes
+                raceTime < 90f -> "EXCELLENT"
+                raceTime < 120f -> "BON"
+                raceTime < 150f -> "MOYEN"
+                else -> "LENT"
             }
             
             val bgColor = when (timeQuality) {
@@ -876,18 +872,17 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             }
             canvas.drawText(encouragement, w.toFloat()/2f, h.toFloat() * 0.92f, paint)
             
-            // NOUVELLE - Animation de victoire avec les images
+            // Animation de victoire avec les images
             drawVictoryAnimation(canvas, w, h)
         }
         
-        // NOUVELLE - Animation de victoire
+        // Animation de victoire
         private fun drawVictoryAnimation(canvas: Canvas, w: Int, h: Int) {
             if (!victoryAnimationStarted) return
             
             val centerX = w.toFloat() / 2f
-            val centerY = h.toFloat() * 0.7f // Position verticale au centre-bas
+            val centerY = h.toFloat() * 0.7f
             
-            // Position selon le progrès de l'animation
             when {
                 victoryAnimationProgress < 0.6f -> {
                     // Phase 1: speedskate_happy1 arrive de la gauche jusqu'au 1/4 de l'écran
@@ -929,7 +924,6 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                     }
                 }
             }
-        }
         }
     }
 
