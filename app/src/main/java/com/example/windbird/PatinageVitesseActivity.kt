@@ -920,19 +920,23 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             paint.shader = null
             
+            // DESSIN DU SKIEUR EN ARRIÈRE-PLAN (avant le texte)
+            drawVictoryAnimation(canvas, w, h)
+            
+            // TEXTE ENCORE PLUS GRAND ET GRAS
             paint.color = Color.parseColor("#8B0000")
-            paint.textSize = 56f
+            paint.textSize = 64f  // Augmenté de 56f à 64f
             paint.typeface = Typeface.DEFAULT_BOLD
             paint.textAlign = Paint.Align.CENTER
             
             val resultText = "TEMPS: ${raceTime.toInt()}s - $timeQuality"
             canvas.drawText(resultText, w.toFloat()/2f, h.toFloat() * 0.15f, paint)
             
-            paint.textSize = 92f
+            paint.textSize = 104f  // Augmenté de 92f à 104f
             paint.typeface = Typeface.DEFAULT_BOLD
             canvas.drawText("${finalScore} POINTS", w.toFloat()/2f, h.toFloat() * 0.28f, paint)
             
-            paint.textSize = 38f
+            paint.textSize = 44f  // Augmenté de 38f à 44f
             paint.color = Color.parseColor("#333333")
             paint.typeface = Typeface.DEFAULT_BOLD
             
@@ -941,13 +945,13 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             canvas.drawText("⭐ Coups parfaits: $perfectStrokes", w.toFloat()/2f, h.toFloat() * 0.59f, paint)
             canvas.drawText("🏃 Coups totaux: $strokeCount", w.toFloat()/2f, h.toFloat() * 0.66f, paint)
             
-            paint.textSize = 28f
+            paint.textSize = 32f  // Augmenté de 28f à 32f
             paint.color = Color.parseColor("#666666")
             paint.typeface = Typeface.DEFAULT_BOLD
             canvas.drawText("< 1.5min: Excellent | 1.5-2min: Bon", w.toFloat()/2f, h.toFloat() * 0.78f, paint)
             canvas.drawText("2-2.5min: Moyen | > 2.5min: Lent", w.toFloat()/2f, h.toFloat() * 0.83f, paint)
             
-            paint.textSize = 32f
+            paint.textSize = 36f  // Augmenté de 32f à 36f
             paint.typeface = Typeface.DEFAULT_BOLD
             paint.color = when (timeQuality) {
                 "EXCELLENT" -> Color.parseColor("#FFD700")
@@ -963,15 +967,13 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 else -> "🔥 ENTRAÎNEZ-VOUS ENCORE!"
             }
             canvas.drawText(encouragement, w.toFloat()/2f, h.toFloat() * 0.92f, paint)
-            
-            drawVictoryAnimation(canvas, w, h)
         }
         
         private fun drawVictoryAnimation(canvas: Canvas, w: Int, h: Int) {
             if (!victoryAnimationStarted) return
             
-            val centerX = w.toFloat() / 2f
-            val centerY = h.toFloat() * 0.7f
+            val finalX = w.toFloat() * 0.75f  // 3/4 de l'écran au lieu de 1/2
+            val centerY = h.toFloat() * 0.56f  // 20% plus haut (0.7 -> 0.56)
             
             when {
                 victoryAnimationProgress < 0.6f -> {
@@ -979,7 +981,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                     val skaterX = -100f + progress1 * (w.toFloat() * 0.25f + 100f)
                     
                     speedskateHappy1Bitmap?.let { image ->
-                        val scale = 0.9f
+                        val scale = 0.72f  // 20% plus petit (0.9 -> 0.72)
                         val imageWidth = image.width * scale
                         val imageHeight = image.height * scale
                         
@@ -995,10 +997,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 else -> {
                     val progress2 = (victoryAnimationProgress - 0.6f) / 0.4f
                     val startX = w.toFloat() * 0.25f
-                    val skaterX = startX + progress2 * (centerX - startX)
+                    val skaterX = startX + progress2 * (finalX - startX)  // S'arrête aux 3/4
                     
                     speedskateHappy2Bitmap?.let { image ->
-                        val scale = 0.9f
+                        val scale = 0.72f  // 20% plus petit (0.9 -> 0.72)
                         val imageWidth = image.width * scale
                         val imageHeight = image.height * scale
                         
