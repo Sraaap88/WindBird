@@ -282,12 +282,12 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         }
         paint.style = Paint.Style.FILL
         
-        // NOUVELLE BARRE DE CONTRÔLE D'ANGLE (à gauche)
+        // Barre de contrôle d'angle (seulement après les 2 taps)
         if (activity.getTapCount() >= 2) {
             drawAngleControlBar(canvas, w, h)
         }
         
-        // CORRIGÉ - Position du skieur selon les taps
+        // Position du skieur selon les taps
         val skierX = w / 2f
         val skierY: Float
         val scale: Float
@@ -314,7 +314,6 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
                 skierY + bmp.height * scale / 2f
             )
             canvas.drawBitmap(bmp, null, dstRect, paint)
-            }
         }
         
         // INSTRUCTIONS selon la phase
@@ -343,7 +342,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
             paint.textSize = 70f
             canvas.drawText("${activity.getSpeed().toInt()} KM/H ${if (activity.getInTargetZone()) "✅" else "❌"}", w/2f, h * 0.25f, paint)
             
-            // AJOUT - Indication de l'angle actuel
+            // Indication de l'angle actuel
             paint.color = Color.CYAN
             paint.textSize = 50f
             canvas.drawText("Angle: ${activity.getIntegratedTiltY().toInt()}°", w/2f, h * 0.32f, paint)
@@ -352,7 +351,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         drawSpeedMeter(canvas, w, h)
     }
     
-    // CORRIGÉ - Barre de contrôle d'angle avec angle intégré
+    // Barre de contrôle d'angle avec angle intégré
     private fun drawAngleControlBar(canvas: Canvas, w: Int, h: Int) {
         val barWidth = 80f
         val barHeight = h * 0.6f
@@ -380,7 +379,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         paint.color = if (activity.getInTargetZone()) Color.GREEN else Color.parseColor("#006600")
         canvas.drawRect(barX + 5f, zoneTop, barX + barWidth - 5f, zoneBottom, paint)
         
-        // CORRIGÉ - Position actuelle avec angle intégré
+        // Position actuelle avec angle intégré
         val currentAngle = activity.getIntegratedTiltY().coerceIn(0f, maxAngle)
         val currentPos = (currentAngle / maxAngle) * barHeight
         
@@ -433,10 +432,10 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         val criticalZone = takeoffProgress >= 0.67f
         val userIsPulling = activity.getTiltY() < -0.15f
         
-        // CORRIGÉ - Animation qui DESCEND la pente
+        // Animation qui DESCEND la pente
         val skierX = w * (0.1f + takeoffProgress * 0.7f)
         
-        // CORRIGÉ - Le skieur DESCEND et suit la courbe de la pente
+        // Le skieur DESCEND et suit la courbe de la pente
         val skierY = when {
             takeoffProgress < 0.5f -> {
                 // Début: descend la pente principale
@@ -694,7 +693,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
                 
                 paint.color = Color.CYAN
                 paint.textSize = 70f
-                canvas.drawText("REDRESSEZ LE TÉLÉPHONE", w/2f, h * 0.32f, paint)
+                canvas.drawText("GARDEZ LE TÉLÉPHONE STABLE", w/2f, h * 0.32f, paint)
             }
             1 -> {
                 paint.color = Color.RED
@@ -703,7 +702,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
                 
                 paint.color = Color.YELLOW
                 paint.textSize = 80f
-                canvas.drawText("PENCHEZ VERS VOUS!", w/2f, h * 0.32f, paint)
+                canvas.drawText("PENCHEZ VERS VOUS POUR AMORTIR!", w/2f, h * 0.32f, paint)
             }
             2 -> {
                 paint.color = Color.GREEN
@@ -712,7 +711,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
                 
                 paint.color = Color.CYAN
                 paint.textSize = 70f
-                canvas.drawText("GARDEZ L'ÉQUILIBRE", w/2f, h * 0.32f, paint)
+                canvas.drawText("REMETTEZ TOUT STABLE", w/2f, h * 0.32f, paint)
             }
         }
         
