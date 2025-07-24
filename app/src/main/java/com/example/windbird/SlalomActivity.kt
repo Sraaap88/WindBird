@@ -688,139 +688,161 @@ class SlalomActivity : Activity(), SensorEventListener {
         }
         
         private fun drawSlopePerspective(canvas: Canvas, w: Int, h: Int) {
-            // Piste en perspective avec effet de vitesse AMÉLIORÉ
+            // Piste en perspective avec point de fuite au CENTRE (effet montagne/cylindre)
             paint.color = Color.WHITE
             
             val slopePath = Path()
-            slopePath.moveTo(w * 0.45f, 0f) // Étroit en haut (loin)
-            slopePath.lineTo(w * 0.55f, 0f)
+            // Point de fuite au centre de l'écran
+            val vanishingPointX = w / 2f
+            val vanishingPointY = h * 0.4f // Centre vertical
+            
+            // Piste qui converge vers le point de fuite
+            slopePath.moveTo(vanishingPointX - 10f, vanishingPointY) // Très étroit au centre
+            slopePath.lineTo(vanishingPointX + 10f, vanishingPointY)
             slopePath.lineTo(w * 0.85f, h.toFloat()) // Large en bas (proche)
             slopePath.lineTo(w * 0.15f, h.toFloat())
             slopePath.close()
             canvas.drawPath(slopePath, paint)
             
-            // MEILLEUR EFFET DE VITESSE - Lignes de perspective dynamiques
+            // Lignes de perspective qui défilent avec la progression
             paint.color = Color.parseColor("#EEEEEE")
             paint.strokeWidth = 2f
             paint.style = Paint.Style.STROKE
             
-            // Plus de lignes et mouvement plus rapide selon la vitesse
-            val lineCount = 12 + (speed / 10f).toInt() // Plus de lignes = plus de vitesse
-            val speedMultiplier = 1f + (speed / 30f) // Mouvement plus rapide selon vitesse
+            // Espacement des lignes basé sur la progression du parcours
+            val lineSpacing = 50f // Distance entre les lignes sur le parcours
+            val startPosition = (courseProgress / lineSpacing).toInt() * lineSpacing
             
-            for (i in 1..lineCount) {
-                val lineY = (i * h / (lineCount + 1f) + (courseProgress * speedMultiplier) % (h / (lineCount + 1f)))
-                if (lineY > 0 && lineY < h) {
-                    val perspectiveFactor = lineY / h.toFloat()
-                    val lineLeft = w/2f - (w * 0.35f * perspectiveFactor)
-                    val lineRight = w/2f + (w * 0.35f * perspectiveFactor)
+            for (i in 0..15) {
+                val linePosition = startPosition + i * lineSpacing - courseProgress
+                
+                if (linePosition > 0f && linePosition < 600f) {
+                    // Calcul de la position Y selon la distance
+                    val distanceRatio = linePosition / 600f
+                    val lineY = h - (1f - distanceRatio) * (h - vanishingPointY)
                     
-                    // Épaisseur des lignes selon la perspective et vitesse
-                    paint.strokeWidth = perspectiveFactor * 3f + 1f
-                    
-                    // Transparence selon distance et vitesse
-                    val alpha = (perspectiveFactor * 150f + speed * 2f).toInt().coerceIn(50, 200)
-                    paint.alpha = alpha
-                    
-                    canvas.drawLine(lineLeft, lineY, lineRight, lineY, paint)
+                    if (lineY >= vanishingPointY && lineY <= h) {
+                        // Largeur de la ligne selon la perspective
+                        val perspectiveFactor = (lineY - vanishingPointY) / (h - vanishingPointY)
+                        val lineLeft = vanishingPointX - (w * 0.35f * perspectiveFactor)
+                        val lineRight = vanishingPointX + (w * 0.35f * perspectiveFactor)
+                        
+                        // Épaisseur et transparence selon la distance
+                        paint.strokeWidth = perspectiveFactor * 3f + 0.5f
+                        paint.alpha = (perspectiveFactor * 150f + 50f).toInt()
+                        
+                        canvas.drawLine(lineLeft, lineY, lineRight, lineY, paint)
+                    }
                 }
             }
             
             paint.alpha = 255
             paint.style = Paint.Style.FILL
             
-            // NOUVEAUX EFFETS DE VITESSE - Flou de mouvement sur les bords
+            // Effet de vitesse - flou sur les bords
             if (speed > 35f) {
                 paint.color = Color.parseColor("#66E6F3FF")
                 val blurIntensity = (speed - 35f) / 20f
                 
-                // Flou sur les côtés
-                for (i in 1..5) {
-                    paint.alpha = (blurIntensity * 40f).toInt()
-                    canvas.drawRect(0f, 0f, w * 0.1f * i * blurIntensity, h.toFloat(), paint)
-                    canvas.drawRect(w - w * 0.1f * i * blurIntensity, 0f, w.toFloat(), h.toFloat(), paint)
+                for (i in 1..3) {
+                    paint.alpha = (blurIntensity * 30f).toInt()
+                    canvas.drawRect(0f, 0f, w * 0.08f * i * blurIntensity, h.toFloat(), paint)
+                    canvas.drawRect(w - w * 0.08f * i * blurIntensity, 0f, w.toFloat(), h.toFloat(), paint)
                 }
                 paint.alpha = 255
             }
         }
         
         private fun drawSlalomGates(canvas: Canvas, w: Int, h: Int) {
-            // Dessiner les portes avec vraie perspective progressive - SENS CORRIGÉ
+            // Point de fuite au centre pour cohérence avec la piste
+            val vanishingPointX = w / 2f
+            val vanishingPointY = h * 0.4f
+            
+            // Dessiner les DRAPEAUX FIXES plantés sur le parcours
             for (gate in gates) {
-                val relativePosition = gate.position - courseProgress
+                val distanceToGate = gate.position - courseProgress
                 
-                // Seulement dessiner les portes visibles
-                if (relativePosition > 0f && relativePosition < 400f) {
-                    // SENS CORRIGÉ : plus proche = plus haut sur l'écran (comme la piste)
-                    val screenY = h - (relativePosition * h / 400f)
-                    val perspectiveFactor = (h - screenY) / h.toFloat()
+                // Seulement dessiner les portes visibles devant nous
+                if (distanceToGate > 0f && distanceToGate < 600f) {
+                    // Calcul de la position Y selon la distance (même logique que les lignes)
+                    val distanceRatio = distanceToGate / 600f
+                    val screenY = h - (1f - distanceRatio) * (h - vanishingPointY)
                     
-                    // Taille des drapeaux selon la distance (plus proche = plus gros)
-                    val flagScale = perspectiveFactor * 0.8f + 0.2f
-                    
-                    // Positions écran des drapeaux avec perspective
-                    val leftScreenX = w * (0.5f + (gate.leftX - 0.5f) * perspectiveFactor)
-                    val rightScreenX = w * (0.5f + (gate.rightX - 0.5f) * perspectiveFactor)
-                    
-                    // Dessiner les drapeaux avec les vraies images
-                    flagRed?.let { bitmap ->
-                        val scaledWidth = bitmap.width * flagScale * 0.15f
-                        val scaledHeight = bitmap.height * flagScale * 0.15f
+                    if (screenY >= vanishingPointY && screenY <= h) {
+                        // Facteur de perspective cohérent avec la piste
+                        val perspectiveFactor = (screenY - vanishingPointY) / (h - vanishingPointY)
                         
-                        canvas.drawBitmap(
-                            bitmap,
-                            Rect(0, 0, bitmap.width, bitmap.height),
-                            RectF(
-                                leftScreenX - scaledWidth / 2,
-                                screenY - scaledHeight,
-                                leftScreenX + scaledWidth / 2,
-                                screenY
-                            ),
-                            paint
-                        )
-                    }
-                    
-                    flagBlue?.let { bitmap ->
-                        val scaledWidth = bitmap.width * flagScale * 0.15f
-                        val scaledHeight = bitmap.height * flagScale * 0.15f
+                        // Taille des drapeaux selon la distance
+                        val flagScale = perspectiveFactor * 0.8f + 0.1f
                         
-                        canvas.drawBitmap(
-                            bitmap,
-                            Rect(0, 0, bitmap.width, bitmap.height),
-                            RectF(
-                                rightScreenX - scaledWidth / 2,
-                                screenY - scaledHeight,
-                                rightScreenX + scaledWidth / 2,
-                                screenY
-                            ),
-                            paint
-                        )
-                    }
-                    
-                    // Zone de passage pour la prochaine porte
-                    if (gate == gates.getOrNull(nextGateIndex)) {
-                        paint.color = Color.parseColor("#44FFFFFF")
-                        canvas.drawRect(
-                            leftScreenX, screenY - flagScale * 40f,
-                            rightScreenX, screenY,
-                            paint
-                        )
-                    }
-                    
-                    // Numéro de porte
-                    if (perspectiveFactor > 0.3f) {
-                        paint.color = Color.BLACK
-                        paint.textSize = 18f * flagScale
-                        paint.textAlign = Paint.Align.CENTER
-                        val centerX = (leftScreenX + rightScreenX) / 2f
-                        canvas.drawText("${gate.number}", centerX, screenY + 30f * flagScale, paint)
-                    }
-                    
-                    // Effet pour porte passée
-                    if (gate.passed) {
-                        paint.color = Color.parseColor("#44FFFF00")
-                        val centerX = (leftScreenX + rightScreenX) / 2f
-                        canvas.drawCircle(centerX, screenY - flagScale * 20f, flagScale * 30f, paint)
+                        // Positions X des drapeaux avec perspective correcte
+                        val gateLeftRelative = gate.leftX - 0.5f // Position relative au centre
+                        val gateRightRelative = gate.rightX - 0.5f
+                        
+                        val leftScreenX = vanishingPointX + (gateLeftRelative * w * 0.35f * perspectiveFactor)
+                        val rightScreenX = vanishingPointX + (gateRightRelative * w * 0.35f * perspectiveFactor)
+                        
+                        // Dessiner le drapeau ROUGE (gauche)
+                        flagRed?.let { bitmap ->
+                            val scaledWidth = bitmap.width * flagScale * 0.12f
+                            val scaledHeight = bitmap.height * flagScale * 0.12f
+                            
+                            canvas.drawBitmap(
+                                bitmap,
+                                Rect(0, 0, bitmap.width, bitmap.height),
+                                RectF(
+                                    leftScreenX - scaledWidth / 2,
+                                    screenY - scaledHeight,
+                                    leftScreenX + scaledWidth / 2,
+                                    screenY
+                                ),
+                                paint
+                            )
+                        }
+                        
+                        // Dessiner le drapeau BLEU (droite)
+                        flagBlue?.let { bitmap ->
+                            val scaledWidth = bitmap.width * flagScale * 0.12f
+                            val scaledHeight = bitmap.height * flagScale * 0.12f
+                            
+                            canvas.drawBitmap(
+                                bitmap,
+                                Rect(0, 0, bitmap.width, bitmap.height),
+                                RectF(
+                                    rightScreenX - scaledWidth / 2,
+                                    screenY - scaledHeight,
+                                    rightScreenX + scaledWidth / 2,
+                                    screenY
+                                ),
+                                paint
+                            )
+                        }
+                        
+                        // Zone de passage pour la prochaine porte
+                        if (gate == gates.getOrNull(nextGateIndex)) {
+                            paint.color = Color.parseColor("#44FFFFFF")
+                            canvas.drawRect(
+                                leftScreenX, screenY - flagScale * 30f,
+                                rightScreenX, screenY,
+                                paint
+                            )
+                        }
+                        
+                        // Numéro de porte (seulement si assez proche)
+                        if (perspectiveFactor > 0.25f) {
+                            paint.color = Color.BLACK
+                            paint.textSize = 16f * flagScale
+                            paint.textAlign = Paint.Align.CENTER
+                            val centerX = (leftScreenX + rightScreenX) / 2f
+                            canvas.drawText("${gate.number}", centerX, screenY + 25f * flagScale, paint)
+                        }
+                        
+                        // Effet pour porte passée
+                        if (gate.passed) {
+                            paint.color = Color.parseColor("#44FFFF00")
+                            val centerX = (leftScreenX + rightScreenX) / 2f
+                            canvas.drawCircle(centerX, screenY - flagScale * 15f, flagScale * 25f, paint)
+                        }
                     }
                 }
             }
