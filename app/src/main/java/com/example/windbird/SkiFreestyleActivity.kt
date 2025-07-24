@@ -25,65 +25,85 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     private var gyroscope: Sensor? = null
     private var accelerometer: Sensor? = null
 
-    // Variables de gameplay SKI FREESTYLE - RALENTI
+    // États du jeu
     private var gameState = GameState.PREPARATION
     private var phaseTimer = 0f
     
-    // Phases avec durées TRÈS LONGUES
-    private val preparationDuration = 8f // AUGMENTÉ de 5 à 8
-    private val courseRunDuration = 45f  // AUGMENTÉ de 30 à 45 secondes
-    private val resultsDuration = 10f // AUGMENTÉ de 6 à 10
+    // Durées des phases
+    private val preparationDuration = 5f
+    private val runDuration = 60f
+    private val resultsDuration = 8f
     
-    // Variables de ski freestyle
-    private var skierX = 0.5f // Position horizontale
-    private var skierY = 0.8f // Position verticale
-    private var speed = 0f
+    // Physique réaliste du skieur
+    private var skierX = 0.5f              // Position horizontale (0-1)
+    private var skierY = 0.9f              // Position verticale sur écran
+    private var speed = 0f                 // Vitesse actuelle
+    private var baseSpeed = 15f            // Vitesse de base
+    private var momentum = 0f              // Momentum de descente
+    private var distanceTraveled = 0f      // Distance parcourue
+    
+    // Système de vol avec physique réaliste
     private var isInAir = false
     private var airTime = 0f
-    private var jumpHeight = 0f
-    private var lastJumpTime = 0L
+    private var jumpStartSpeed = 0f        // Vitesse au décollage
+    private var verticalVelocity = 0f      // Vélocité verticale
+    private var horizontalVelocity = 0f    // Vélocité horizontale
+    private var trajectoryPeak = 0f        // Point culminant du saut
+    private var landingZone = 0f           // Zone d'atterrissage prévue
     
-    // Système de sauts et obstacles
-    private val jumps = mutableListOf<FreestyleJump>()
-    private var nextJumpIndex = 0
-    private var jumpsHit = 0
-    private var perfectLandings = 0
+    // Système de pumping pour vitesse
+    private var pumpEnergy = 0f
+    private var pumpTiming = 0f
+    private var pumpWindow = false         // Fenêtre de pumping optimal
+    private var lastPumpTime = 0L
+    private var pumpCombo = 0
     
-    // Système de tricks avancé
-    private var currentTrick = FreestyleTrick.NONE
-    private var trickProgress = 0f
-    private var trickRotation = 0f
-    private var tricksLanded = 0
-    private var comboMultiplier = 1f
-    private var comboActive = false
-    private var comboCount = 0
-    
-    // Contrôles gyroscope/accéléromètre - RÉDUIT SENSIBILITÉ
+    // Contrôles
     private var tiltX = 0f
     private var tiltY = 0f
     private var tiltZ = 0f
     private var accelX = 0f
     private var accelY = 0f
     private var accelZ = 0f
-    private var shakeDetected = false
     
-    // Performance et scoring
-    private var distance = 0f
-    private var totalDistance = 1500f
-    private var style = 100f
-    private var technique = 100f
-    private var creativity = 0f
+    // Système de tricks avec phases
+    private var currentTrick = FreestyleTrick.NONE
+    private var trickPhase = TrickPhase.NONE
+    private var trickProgress = 0f
+    private var trickSetupTime = 0f
+    private var trickHoldTime = 0f         // Temps de maintien pour grabs
+    private var trickRotation = 0f
+    private var tricksCompleted = 0
+    private var lastTrickType = FreestyleTrick.NONE
+    
+    // Parcours et sauts
+    private val kickers = mutableListOf<Kicker>()
+    private var nextKickerIndex = 0
+    private var kickersHit = 0
+    private var currentKicker: Kicker? = null
+    
+    // Scoring réaliste
     private var amplitude = 0f
+    private var difficulty = 0f
+    private var variety = 0f
+    private var execution = 100f
+    private var progression = 0f
+    private var overallImpression = 100f
     private var totalScore = 0f
     private var finalScore = 0
     private var scoreCalculated = false
     
-    // Effets visuels spectaculaires
+    // Progression et qualité
+    private var perfectLandings = 0
+    private var tricksUsed = mutableSetOf<FreestyleTrick>()
+    private var biggestJump = 0f
+    private var progressionPenalty = 0f
+    private var repetitionPenalty = 0f
+    
+    // Effets visuels
+    private var pisteScroll = 0f           // Défilement de la piste
     private var cameraShake = 0f
-    private var backgroundTilt = 0f
-    private val snowClouds = mutableListOf<SnowCloud>()
-    private val trickParticles = mutableListOf<TrickParticle>()
-    private val landingEffects = mutableListOf<LandingEffect>()
+    private val snowSpray = mutableListOf<SnowParticle>()
     private val speedLines = mutableListOf<SpeedLine>()
 
     private lateinit var tournamentData: TournamentData
@@ -111,9 +131,9 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
         statusText = TextView(this).apply {
             text = "🎿 SKI FREESTYLE - ${tournamentData.playerNames[currentPlayerIndex]}"
             setTextColor(Color.WHITE)
-            textSize = 22f // AUGMENTÉ de 18f
+            textSize = 22f
             setBackgroundColor(Color.parseColor("#001122"))
-            setPadding(25, 20, 25, 20) // AUGMENTÉ le padding
+            setPadding(25, 20, 25, 20)
         }
 
         gameView = SkiFreestyleView(this)
@@ -129,62 +149,91 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
         gameState = GameState.PREPARATION
         phaseTimer = 0f
         skierX = 0.5f
-        skierY = 0.8f
+        skierY = 0.9f
         speed = 0f
+        baseSpeed = 15f
+        momentum = 0f
+        distanceTraveled = 0f
+        
         isInAir = false
         airTime = 0f
-        jumpHeight = 0f
-        lastJumpTime = 0L
-        nextJumpIndex = 0
-        jumpsHit = 0
-        perfectLandings = 0
+        jumpStartSpeed = 0f
+        verticalVelocity = 0f
+        horizontalVelocity = 0f
+        trajectoryPeak = 0f
+        landingZone = 0f
+        
+        pumpEnergy = 0f
+        pumpTiming = 0f
+        pumpWindow = false
+        lastPumpTime = 0L
+        pumpCombo = 0
+        
+        tiltX = 0f
+        tiltY = 0f
+        tiltZ = 0f
+        accelX = 0f
+        accelY = 0f
+        accelZ = 0f
+        
         currentTrick = FreestyleTrick.NONE
+        trickPhase = TrickPhase.NONE
         trickProgress = 0f
+        trickSetupTime = 0f
+        trickHoldTime = 0f
         trickRotation = 0f
-        tricksLanded = 0
-        comboMultiplier = 1f
-        comboActive = false
-        comboCount = 0
-        distance = 0f
-        style = 100f
-        technique = 100f
-        creativity = 0f
+        tricksCompleted = 0
+        lastTrickType = FreestyleTrick.NONE
+        
+        nextKickerIndex = 0
+        kickersHit = 0
+        currentKicker = null
+        
         amplitude = 0f
+        difficulty = 0f
+        variety = 0f
+        execution = 100f
+        progression = 0f
+        overallImpression = 100f
         totalScore = 0f
         finalScore = 0
         scoreCalculated = false
-        cameraShake = 0f
-        backgroundTilt = 0f
-        shakeDetected = false
         
-        jumps.clear()
-        snowClouds.clear()
-        trickParticles.clear()
-        landingEffects.clear()
+        perfectLandings = 0
+        tricksUsed.clear()
+        biggestJump = 0f
+        progressionPenalty = 0f
+        repetitionPenalty = 0f
+        
+        pisteScroll = 0f
+        cameraShake = 0f
+        snowSpray.clear()
         speedLines.clear()
         
         generateFreestyleCourse()
     }
     
     private fun generateFreestyleCourse() {
-        // Générer un parcours avec 8 sauts de différentes tailles
-        var currentDistance = 200f
+        kickers.clear()
+        var currentDistance = 100f
         
-        repeat(8) { i ->
-            val jumpSize = when (i % 3) {
-                0 -> FreestyleJump.Size.SMALL
-                1 -> FreestyleJump.Size.MEDIUM
-                else -> FreestyleJump.Size.LARGE
+        // 6 kickers de difficulté progressive
+        repeat(6) { i ->
+            val size = when {
+                i < 2 -> KickerSize.SMALL      // Warm-up
+                i < 4 -> KickerSize.MEDIUM     // Building
+                else -> KickerSize.LARGE       // Money booters
             }
             
-            jumps.add(FreestyleJump(
+            kickers.add(Kicker(
                 distance = currentDistance,
-                size = jumpSize,
-                x = 0.3f + kotlin.random.Random.nextFloat() * 0.4f, // Position variée
-                hit = false
+                size = size,
+                x = 0.3f + kotlin.random.Random.nextFloat() * 0.4f,
+                hit = false,
+                approach = KickerApproach.STRAIGHT
             ))
             
-            currentDistance += 150f + kotlin.random.Random.nextFloat() * 50f
+            currentDistance += 120f + i * 20f // Espacement progressif
         }
     }
 
@@ -202,23 +251,18 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     override fun onSensorChanged(event: SensorEvent) {
         when (event.sensor.type) {
             Sensor.TYPE_GYROSCOPE -> {
-                tiltX = event.values[0]
-                tiltY = event.values[1]
-                tiltZ = event.values[2]
+                tiltX = if (abs(event.values[0]) > 0.1f) event.values[0] else 0f
+                tiltY = if (abs(event.values[1]) > 0.1f) event.values[1] else 0f
+                tiltZ = if (abs(event.values[2]) > 0.1f) event.values[2] else 0f
             }
             Sensor.TYPE_ACCELEROMETER -> {
                 accelX = event.values[0]
                 accelY = event.values[1]
                 accelZ = event.values[2]
-                
-                // Détection de secousses pour tricks spéciaux - MOINS SENSIBLE
-                val totalAccel = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ)
-                shakeDetected = totalAccel > 18f // AUGMENTÉ de 15f à 18f
             }
         }
 
-        // Progression du jeu - RALENTI
-        phaseTimer += 0.016f // RÉDUIT de 0.03f
+        phaseTimer += 0.016f
 
         when (gameState) {
             GameState.PREPARATION -> handlePreparation()
@@ -236,492 +280,487 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
         if (phaseTimer >= preparationDuration) {
             gameState = GameState.SKIING
             phaseTimer = 0f
-            speed = 15f // RÉDUIT de 20f à 15f
+            speed = baseSpeed
         }
     }
     
     private fun handleSkiing() {
+        // Système de pumping pour la vitesse
+        handlePumping()
+        
         // Mouvement du skieur
         handleSkierMovement()
         
-        // Système de sauts
-        handleJumpSystem()
+        // Système de kickers et sauts
+        handleKickerSystem()
         
-        // Système de tricks
+        // Système de tricks avec phases
         handleTrickSystem()
         
-        // Progression de la course
+        // Progression de course
         updateCourseProgress()
         
-        // Gestion de la physique
-        updatePhysics()
+        // Physics et contraintes
+        applyPhysicsConstraints()
         
-        // Fin de course
-        if (distance >= totalDistance) {
+        // Fin de run
+        if (phaseTimer >= runDuration) {
             calculateFinalScore()
             gameState = GameState.RESULTS
             phaseTimer = 0f
         }
     }
     
-    private fun handleSkierMovement() {
-        // Mouvement horizontal basé sur l'inclinaison - MOINS SENSIBLE
-        val steeringInput = tiltX * 0.4f // RÉDUIT de 0.7f
-        skierX += steeringInput * 0.006f // RÉDUIT de 0.01f
-        skierX = skierX.coerceIn(0.1f, 0.9f)
+    private fun handlePumping() {
+        val currentTime = System.currentTimeMillis()
         
-        // Contrôle de vitesse avec inclinaison avant/arrière - MOINS SENSIBLE
-        when {
-            tiltY < -0.5f -> { // AUGMENTÉ de -0.3f
-                // Incliner vers l'avant = accélération
-                speed += 0.8f // RÉDUIT de 1.2f
-                style += 0.01f // RÉDUIT de 0.02f
+        // Détection de la fenêtre de pumping optimal
+        val approachingKicker = getApproachingKicker()
+        pumpWindow = approachingKicker != null && 
+                    approachingKicker.distance - distanceTraveled in 30f..80f
+        
+        // Détection du mouvement de pump (incliner vers l'avant)
+        if (tiltY < -0.4f && currentTime - lastPumpTime > 300L) {
+            if (pumpWindow) {
+                // Pump parfait dans la fenêtre !
+                pumpEnergy = 1f
+                pumpTiming = 1f
+                speed += 5f
+                pumpCombo++
+                execution += 2f
+                
+            } else {
+                // Pump en dehors de la fenêtre
+                pumpEnergy = 0.3f
+                pumpTiming = 0.3f
+                speed += 1f
+                pumpCombo = 0
+                execution -= 1f
             }
-            tiltY > 0.5f -> { // AUGMENTÉ de 0.3f
-                // Incliner vers l'arrière = freinage/contrôle
-                speed -= 0.5f // RÉDUIT de 0.8f
-                technique += 0.005f // RÉDUIT de 0.01f
-            }
-            else -> {
-                // Position neutre
-                speed += 0.2f // RÉDUIT de 0.3f
-            }
+            
+            lastPumpTime = currentTime
+            generatePumpEffect()
         }
         
-        speed = speed.coerceIn(12f, 30f) // RÉDUIT de 15-45 à 12-30
+        // Dégradation du pump
+        pumpEnergy *= 0.95f
+        pumpTiming *= 0.98f
+    }
+    
+    private fun handleSkierMovement() {
+        // Mouvement horizontal (steering)
+        val horizontalInput = tiltX * 0.5f
+        skierX += horizontalInput * 0.008f
+        skierX = skierX.coerceIn(0.1f, 0.9f)
         
-        // Génération d'effets selon la vitesse
-        if (speed > 25f) { // AUGMENTÉ de 30f
+        // Physique de vol ou sur piste
+        if (isInAir) {
+            updateAirPhysics()
+        } else {
+            // Sur la piste
+            skierY = 0.9f
+            
+            // Momentum naturel de descente
+            momentum += 0.1f
+            speed += momentum * 0.02f
+            
+            // Friction naturelle
+            speed *= 0.998f
+        }
+        
+        // Effets de vitesse
+        if (speed > 20f) {
             generateSpeedEffects()
         }
     }
     
-    private fun handleJumpSystem() {
-        // Vérifier les sauts à proximité
-        if (nextJumpIndex < jumps.size) {
-            val nextJump = jumps[nextJumpIndex]
-            val jumpDistance = nextJump.distance - distance
-            
-            // Approche du saut
-            if (jumpDistance < 50f && jumpDistance > -20f) {
-                val distanceToJump = abs(skierX - nextJump.x)
-                
-                if (jumpDistance < 10f && !nextJump.hit && distanceToJump < 0.25f) { // AUGMENTÉ de 0.2f
-                    // Saut touché !
-                    hitJump(nextJump)
-                }
-            }
+    private fun updateAirPhysics() {
+        // Physique réaliste : trajectoire parabolique
+        val gravity = 0.4f
+        
+        airTime += 0.016f
+        
+        // Mouvement vertical (parabole)
+        verticalVelocity -= gravity * 0.016f
+        skierY += verticalVelocity * 0.016f
+        
+        // Mouvement horizontal (conservation)
+        skierX += horizontalVelocity * 0.016f
+        skierX = skierX.coerceIn(0.05f, 0.95f)
+        
+        // Calcul du pic de trajectoire
+        if (verticalVelocity <= 0f && trajectoryPeak == 0f) {
+            trajectoryPeak = skierY
+            amplitude = max(amplitude, 0.9f - trajectoryPeak)
         }
         
-        // Physique de vol
-        if (isInAir) {
-            airTime += 0.016f // RÉDUIT de 0.03f
-            skierY -= 0.002f // RÉDUIT de 0.004f - retombée plus lente
-            
-            // Atterrissage
-            if (skierY >= 0.8f) {
-                landFromJump()
-            }
-        } else {
-            skierY = 0.8f // Sur le sol
+        // Atterrissage
+        val landingY = calculateLandingHeight()
+        if (skierY >= landingY) {
+            landFromJump()
         }
     }
     
-    private fun hitJump(jump: FreestyleJump) {
-        jump.hit = true
-        isInAir = true
-        jumpsHit++
-        nextJumpIndex++
+    private fun calculateLandingHeight(): Float {
+        // Hauteur de la piste selon la position X (pente du kicker)
+        return 0.9f - abs(skierX - 0.5f) * 0.1f
+    }
+    
+    private fun getApproachingKicker(): Kicker? {
+        return if (nextKickerIndex < kickers.size) {
+            val kicker = kickers[nextKickerIndex]
+            val distance = kicker.distance - distanceTraveled
+            if (distance > 0f && distance < 150f) kicker else null
+        } else null
+    }
+    
+    private fun handleKickerSystem() {
+        val approachingKicker = getApproachingKicker()
         
-        // Hauteur selon la taille du saut et la vitesse
-        val baseHeight = when (jump.size) {
-            FreestyleJump.Size.SMALL -> 0.15f
-            FreestyleJump.Size.MEDIUM -> 0.25f
-            FreestyleJump.Size.LARGE -> 0.35f
+        if (approachingKicker != null) {
+            val kickerDistance = approachingKicker.distance - distanceTraveled
+            val distanceToKicker = abs(skierX - approachingKicker.x)
+            
+            // Hit du kicker
+            if (kickerDistance < 5f && !approachingKicker.hit && distanceToKicker < 0.2f) {
+                hitKicker(approachingKicker)
+            }
+        }
+    }
+    
+    private fun hitKicker(kicker: Kicker) {
+        kicker.hit = true
+        currentKicker = kicker
+        isInAir = true
+        airTime = 0f
+        jumpStartSpeed = speed
+        kickersHit++
+        nextKickerIndex++
+        
+        // Calcul de la trajectoire selon vitesse et taille du kicker
+        val kickerPower = when (kicker.size) {
+            KickerSize.SMALL -> 0.15f
+            KickerSize.MEDIUM -> 0.25f
+            KickerSize.LARGE -> 0.35f
         }
         
-        jumpHeight = baseHeight + (speed / 30f) * 0.15f // ADAPTÉ à nouvelle vitesse max
-        skierY = 0.8f - jumpHeight
-        amplitude = maxOf(amplitude, jumpHeight)
+        // Plus de vitesse = trajectoire plus haute et longue
+        val speedFactor = (speed / 30f).coerceIn(0.5f, 1.5f)
+        verticalVelocity = -(kickerPower * speedFactor + pumpEnergy * 0.1f)
+        horizontalVelocity = (skierX - 0.5f) * 0.02f // Légère dérive horizontale
+        trajectoryPeak = 0f
+        
+        // Vérification progression
+        val jumpSize = kickerPower * speedFactor
+        if (jumpSize < biggestJump) {
+            progressionPenalty += 10f // Pénalité si pas de progression
+        }
+        biggestJump = max(biggestJump, jumpSize)
         
         // Effets visuels
-        cameraShake = jumpHeight * 1.5f
-        generateJumpExplosion()
+        cameraShake = kickerPower * 0.8f
+        generateKickerHitEffect()
         
-        // Bonus de score
-        totalScore += when (jump.size) {
-            FreestyleJump.Size.SMALL -> 15f
-            FreestyleJump.Size.MEDIUM -> 25f
-            FreestyleJump.Size.LARGE -> 40f
+        // Score de base du saut
+        val baseJumpScore = when (kicker.size) {
+            KickerSize.SMALL -> 10f
+            KickerSize.MEDIUM -> 20f
+            KickerSize.LARGE -> 35f
         }
         
-        lastJumpTime = System.currentTimeMillis()
+        totalScore += baseJumpScore * speedFactor
+    }
+    
+    private fun handleTrickSystem() {
+        if (!isInAir) {
+            // Reset sur le sol
+            if (currentTrick != FreestyleTrick.NONE) {
+                finalizeTrick()
+            }
+            return
+        }
+        
+        trickSetupTime += 0.016f
+        
+        when (trickPhase) {
+            TrickPhase.NONE -> {
+                // Fenêtre pour initier un trick
+                if (trickSetupTime > 0.1f) {
+                    detectTrickInitiation()
+                }
+            }
+            TrickPhase.SETUP -> {
+                // Phase de setup du trick
+                if (trickSetupTime > 0.3f) {
+                    trickPhase = TrickPhase.EXECUTION
+                }
+            }
+            TrickPhase.EXECUTION -> {
+                // Exécution du trick
+                executeTrick()
+            }
+            TrickPhase.LANDING -> {
+                // Préparation du landing
+                prepareLanding()
+            }
+        }
+    }
+    
+    private fun detectTrickInitiation() {
+        val rotationThreshold = 1.2f
+        val flipThreshold = 1.5f
+        val grabThreshold = 8f
+        
+        when {
+            abs(tiltZ) > rotationThreshold && currentTrick == FreestyleTrick.NONE -> {
+                initiateTrick(FreestyleTrick.SPIN_360)
+            }
+            abs(tiltY) > flipThreshold && currentTrick == FreestyleTrick.NONE -> {
+                initiateTrick(FreestyleTrick.BACKFLIP)
+            }
+            abs(accelZ) > grabThreshold && currentTrick == FreestyleTrick.NONE -> {
+                initiateTrick(FreestyleTrick.INDY_GRAB)
+            }
+            abs(tiltZ) > rotationThreshold && abs(accelZ) > grabThreshold -> {
+                initiateTrick(FreestyleTrick.SPIN_GRAB)
+            }
+        }
+    }
+    
+    private fun initiateTrick(trick: FreestyleTrick) {
+        currentTrick = trick
+        trickPhase = TrickPhase.SETUP
+        trickProgress = 0f
+        trickRotation = 0f
+        trickHoldTime = 0f
+        
+        difficulty += trick.difficultyPoints
+        
+        // Vérification répétition
+        if (trick == lastTrickType) {
+            repetitionPenalty += 20f // Grosse pénalité pour répétition
+        }
+        
+        tricksUsed.add(trick)
+    }
+    
+    private fun executeTrick() {
+        when (currentTrick) {
+            FreestyleTrick.SPIN_360 -> {
+                trickProgress += abs(tiltZ) * 0.02f
+                trickRotation += tiltZ * 2f
+                trickProgress = (abs(trickRotation) / 360f).coerceIn(0f, 3f) // Max 1080°
+            }
+            FreestyleTrick.BACKFLIP -> {
+                trickProgress += abs(tiltY) * 0.015f
+                trickRotation += tiltY * 1.5f
+                trickProgress = (abs(trickRotation) / 360f).coerceIn(0f, 2f)
+            }
+            FreestyleTrick.INDY_GRAB -> {
+                if (abs(accelZ) > 6f) {
+                    trickHoldTime += 0.016f
+                    trickProgress = (trickHoldTime / 0.8f).coerceIn(0f, 1f)
+                } else {
+                    trickProgress *= 0.95f // Decay si pas tenu
+                }
+            }
+            FreestyleTrick.SPIN_GRAB -> {
+                trickRotation += abs(tiltZ) * 1.5f
+                if (abs(accelZ) > 6f) {
+                    trickHoldTime += 0.016f
+                }
+                val spinScore = abs(trickRotation) / 360f
+                val grabScore = trickHoldTime / 0.6f
+                trickProgress = (spinScore * 0.6f + grabScore * 0.4f).coerceIn(0f, 2f)
+            }
+            else -> {}
+        }
+        
+        // Préparation landing si proche du sol
+        if (verticalVelocity > 0f && skierY > 0.7f) {
+            trickPhase = TrickPhase.LANDING
+        }
+    }
+    
+    private fun prepareLanding() {
+        // Le trick doit être "fermé" pour un bon landing
+        // Plus de mouvement = moins bonne préparation
+        val stability = 1f - (abs(tiltX) + abs(tiltY) + abs(tiltZ)) / 6f
+        trickProgress *= 1f + stability * 0.1f
     }
     
     private fun landFromJump() {
         isInAir = false
         airTime = 0f
-        skierY = 0.8f
+        skierY = calculateLandingHeight()
+        verticalVelocity = 0f
+        horizontalVelocity = 0f
         
-        // Évaluation de l'atterrissage
+        // Évaluation de la qualité d'atterrissage
         val landingQuality = evaluateLanding()
         
-        if (landingQuality > 0.8f) {
-            perfectLandings++
-            generatePerfectLandingEffect()
-            style += 5f
-        } else if (landingQuality > 0.5f) {
-            generateGoodLandingEffect()
-            style += 2f
-        } else {
-            // Atterrissage raté
-            style -= 3f
-            cameraShake = 0.3f
+        when {
+            landingQuality > 0.9f -> {
+                perfectLandings++
+                execution += 8f
+                generatePerfectLandingEffect()
+            }
+            landingQuality > 0.7f -> {
+                execution += 4f
+                generateGoodLandingEffect()
+            }
+            landingQuality > 0.4f -> {
+                execution += 1f
+            }
+            else -> {
+                execution -= 5f
+                speed *= 0.8f // Perte de vitesse sur bad landing
+                cameraShake = 0.4f
+            }
         }
         
-        // Finaliser le trick actuel
         if (currentTrick != FreestyleTrick.NONE) {
             finalizeTrick()
         }
+        
+        currentKicker = null
     }
     
     private fun evaluateLanding(): Float {
-        // Évaluation basée sur la stabilité au moment de l'atterrissage
-        val stabilityScore = 1f - (abs(tiltX) + abs(tiltY) + abs(tiltZ)) / 3f
-        val timingScore = if (skierY > 0.75f) 1f else 0.5f
-        return (stabilityScore * timingScore).coerceIn(0f, 1f)
-    }
-    
-    private fun handleTrickSystem() {
-        if (!isInAir) return
+        val stabilityScore = 1f - (abs(tiltX) + abs(tiltY)) / 4f
+        val speedScore = (speed / 25f).coerceIn(0.5f, 1f)
+        val angleScore = 1f - abs(skierY - calculateLandingHeight()) * 5f
         
-        // Détection de nouveaux tricks
-        if (currentTrick == FreestyleTrick.NONE) {
-            detectNewTrick()
-        } else {
-            // Progression du trick en cours
-            updateTrickProgress()
-        }
-    }
-    
-    private fun detectNewTrick() {
-        val rotationThreshold = 1.5f // AUGMENTÉ de 1.0f
-        val flipThreshold = 2.0f // AUGMENTÉ de 1.5f
-        
-        when {
-            abs(tiltZ) > rotationThreshold && abs(tiltX) < 0.8f -> { // AUGMENTÉ de 0.6f
-                startTrick(FreestyleTrick.SPIN_360)
-            }
-            abs(tiltY) > flipThreshold && abs(tiltX) < 0.8f -> {
-                startTrick(FreestyleTrick.BACKFLIP)
-            }
-            abs(tiltX) > rotationThreshold && shakeDetected -> {
-                startTrick(FreestyleTrick.GRAB_TRICK)
-            }
-            abs(tiltX) > 2.0f && abs(tiltZ) > 2.0f -> { // AUGMENTÉ de 1.5f
-                startTrick(FreestyleTrick.CORK_SCREW)
-            }
-            shakeDetected && airTime > 0.5f -> { // AUGMENTÉ de 0.3f
-                startTrick(FreestyleTrick.WILD_TRICK)
-            }
-        }
-    }
-    
-    private fun startTrick(trick: FreestyleTrick) {
-        currentTrick = trick
-        trickProgress = 0f
-        trickRotation = 0f
-        
-        // Effets visuels selon le trick
-        when (trick) {
-            FreestyleTrick.SPIN_360 -> generateSpinEffect()
-            FreestyleTrick.BACKFLIP -> generateFlipEffect()
-            FreestyleTrick.GRAB_TRICK -> generateGrabEffect()
-            FreestyleTrick.CORK_SCREW -> generateCorkscrewEffect()
-            FreestyleTrick.WILD_TRICK -> generateWildEffect()
-            else -> {}
-        }
-        
-        creativity += trick.creativityPoints
-    }
-    
-    private fun updateTrickProgress() {
-        when (currentTrick) {
-            FreestyleTrick.SPIN_360 -> {
-                trickProgress += abs(tiltZ) * 0.015f // RÉDUIT de 0.025f
-                trickRotation += tiltZ * 1.5f // RÉDUIT de 3f
-                backgroundTilt = trickRotation * 0.5f
-            }
-            FreestyleTrick.BACKFLIP -> {
-                trickProgress += abs(tiltY) * 0.012f // RÉDUIT de 0.02f
-                trickRotation += tiltY * 1f // RÉDUIT de 2f
-            }
-            FreestyleTrick.GRAB_TRICK -> {
-                trickProgress += (abs(tiltX) + if (shakeDetected) 0.5f else 0f) * 0.02f // RÉDUIT de 0.03f
-            }
-            FreestyleTrick.CORK_SCREW -> {
-                trickProgress += (abs(tiltX) + abs(tiltZ)) * 0.012f // RÉDUIT de 0.02f
-                trickRotation += (tiltX + tiltZ) * 0.8f // RÉDUIT de 1.5f
-            }
-            FreestyleTrick.WILD_TRICK -> {
-                trickProgress += (abs(tiltX) + abs(tiltY) + abs(tiltZ) + if (shakeDetected) 1f else 0f) * 0.012f // RÉDUIT de 0.02f
-                trickRotation += (tiltX + tiltY + tiltZ) * 0.5f // RÉDUIT de 1f
-            }
-            else -> {}
-        }
-        
-        trickProgress = trickProgress.coerceIn(0f, 1f)
+        return (stabilityScore * 0.5f + speedScore * 0.3f + angleScore * 0.2f).coerceIn(0f, 1f)
     }
     
     private fun finalizeTrick() {
-        if (trickProgress > 0.3f) { // RÉDUIT de 0.4f
+        if (trickProgress > 0.4f) {
             // Trick réussi !
-            tricksLanded++
+            tricksCompleted++
             val trickScore = calculateTrickScore()
             totalScore += trickScore
             
-            // Système de combo
-            if (comboActive) {
-                comboCount++
-                comboMultiplier += 0.3f
-            } else {
-                comboActive = true
-                comboCount = 1
-                comboMultiplier = 1.3f
-            }
+            variety = tricksUsed.size * 15f // Points pour variété
             
-            // Effets selon la qualité
-            if (trickProgress > 0.8f) {
-                generateAmazingTrickEffect()
-                technique += 8f
-            } else if (trickProgress > 0.6f) { // RÉDUIT de 0.7f
-                generateGreatTrickEffect()
-                technique += 5f
-            } else {
-                generateGoodTrickEffect()
-                technique += 2f
-            }
+            lastTrickType = currentTrick
             
         } else {
             // Trick raté
-            comboActive = false
-            comboCount = 0
-            comboMultiplier = 1f
-            technique -= 5f
+            execution -= 8f
+            overallImpression -= 5f
         }
         
         currentTrick = FreestyleTrick.NONE
+        trickPhase = TrickPhase.NONE
         trickProgress = 0f
-        trickRotation = 0f
+        trickSetupTime = 0f
     }
     
     private fun calculateTrickScore(): Float {
         val baseScore = currentTrick.baseScore
-        val progressBonus = trickProgress * 20f
-        val airBonus = airTime * 15f
-        val amplitudeBonus = amplitude * 25f
+        val progressBonus = trickProgress * 30f
+        val airTimeBonus = airTime * 10f
+        val holdBonus = if (currentTrick.isGrab) trickHoldTime * 25f else 0f
+        val amplitudeBonus = amplitude * 20f
         
-        return (baseScore + progressBonus + airBonus + amplitudeBonus) * comboMultiplier
+        return baseScore + progressBonus + airTimeBonus + holdBonus + amplitudeBonus
     }
     
     private fun updateCourseProgress() {
-        distance += speed * 0.05f // RÉDUIT de 0.08f
+        distanceTraveled += speed * 0.03f
+        pisteScroll += speed * 0.05f
     }
     
-    private fun updatePhysics() {
-        // Dégradation naturelle - RÉDUITE
-        style -= 0.02f // RÉDUIT de 0.04f
-        technique -= 0.015f // RÉDUIT de 0.03f
+    private fun applyPhysicsConstraints() {
+        // Contraintes de vitesse
+        speed = speed.coerceIn(8f, 35f)
         
-        // Bonus pour vitesse et fluidité
-        if (speed > 20f && !isInAir) { // RÉDUIT de 25f
-            style += 0.05f
+        // Dégradation naturelle
+        execution = max(70f, execution - 0.01f)
+        overallImpression = max(70f, overallImpression - 0.005f)
+    }
+    
+    private fun generatePumpEffect() {
+        repeat(5) {
+            snowSpray.add(SnowParticle(
+                x = kotlin.random.Random.nextFloat() * 200f + 400f,
+                y = kotlin.random.Random.nextFloat() * 100f + 600f,
+                vx = (kotlin.random.Random.nextFloat() - 0.5f) * 6f,
+                vy = kotlin.random.Random.nextFloat() * -4f - 2f,
+                life = 1f,
+                color = Color.WHITE
+            ))
         }
-        
-        // Contraintes
-        style = style.coerceIn(70f, 130f)
-        technique = technique.coerceIn(70f, 130f)
     }
     
     private fun generateSpeedEffects() {
         speedLines.add(SpeedLine(
             x = kotlin.random.Random.nextFloat() * 800f + 100f,
             y = kotlin.random.Random.nextFloat() * 600f + 100f,
-            speed = speed * 0.5f
+            speed = speed * 0.4f
         ))
         
-        if (speedLines.size > 15) {
+        if (speedLines.size > 12) {
             speedLines.removeFirst()
         }
     }
     
-    private fun generateJumpExplosion() {
-        repeat(15) {
-            snowClouds.add(SnowCloud(
+    private fun generateKickerHitEffect() {
+        repeat(12) {
+            snowSpray.add(SnowParticle(
                 x = kotlin.random.Random.nextFloat() * 300f + 350f,
                 y = kotlin.random.Random.nextFloat() * 150f + 500f,
                 vx = (kotlin.random.Random.nextFloat() - 0.5f) * 8f,
                 vy = kotlin.random.Random.nextFloat() * -6f - 3f,
-                life = 1.5f
-            ))
-        }
-    }
-    
-    private fun generateSpinEffect() {
-        repeat(8) {
-            trickParticles.add(TrickParticle(
-                x = kotlin.random.Random.nextFloat() * 400f + 300f,
-                y = kotlin.random.Random.nextFloat() * 300f + 250f,
-                color = Color.CYAN,
-                type = "SPIN",
-                life = 1.2f
-            ))
-        }
-    }
-    
-    private fun generateFlipEffect() {
-        cameraShake = 0.4f
-        repeat(10) {
-            trickParticles.add(TrickParticle(
-                x = kotlin.random.Random.nextFloat() * 400f + 300f,
-                y = kotlin.random.Random.nextFloat() * 300f + 250f,
-                color = Color.YELLOW,
-                type = "FLIP",
-                life = 1f
-            ))
-        }
-    }
-    
-    private fun generateGrabEffect() {
-        repeat(6) {
-            trickParticles.add(TrickParticle(
-                x = kotlin.random.Random.nextFloat() * 200f + 400f,
-                y = kotlin.random.Random.nextFloat() * 200f + 300f,
-                color = Color.GREEN,
-                type = "GRAB",
-                life = 0.8f
-            ))
-        }
-    }
-    
-    private fun generateCorkscrewEffect() {
-        cameraShake = 0.5f
-        repeat(12) {
-            trickParticles.add(TrickParticle(
-                x = kotlin.random.Random.nextFloat() * 500f + 250f,
-                y = kotlin.random.Random.nextFloat() * 400f + 200f,
-                color = Color.MAGENTA,
-                type = "CORK",
-                life = 1.3f
-            ))
-        }
-    }
-    
-    private fun generateWildEffect() {
-        cameraShake = 0.7f
-        repeat(20) {
-            trickParticles.add(TrickParticle(
-                x = kotlin.random.Random.nextFloat() * 600f + 200f,
-                y = kotlin.random.Random.nextFloat() * 500f + 150f,
-                color = Color.parseColor("#FF6600"),
-                type = "WILD",
-                life = 1.8f
+                life = 1.5f,
+                color = Color.WHITE
             ))
         }
     }
     
     private fun generatePerfectLandingEffect() {
-        repeat(25) {
-            landingEffects.add(LandingEffect(
+        repeat(20) {
+            snowSpray.add(SnowParticle(
                 x = kotlin.random.Random.nextFloat() * 600f + 200f,
                 y = kotlin.random.Random.nextFloat() * 200f + 500f,
-                color = Color.parseColor("#FFD700"),
-                type = "PERFECT",
-                life = 2f
+                vx = (kotlin.random.Random.nextFloat() - 0.5f) * 10f,
+                vy = kotlin.random.Random.nextFloat() * -8f - 2f,
+                life = 2f,
+                color = Color.parseColor("#FFD700")
             ))
         }
     }
     
     private fun generateGoodLandingEffect() {
-        repeat(12) {
-            landingEffects.add(LandingEffect(
+        repeat(10) {
+            snowSpray.add(SnowParticle(
                 x = kotlin.random.Random.nextFloat() * 400f + 300f,
                 y = kotlin.random.Random.nextFloat() * 150f + 550f,
-                color = Color.parseColor("#00FF00"),
-                type = "GOOD",
-                life = 1.2f
-            ))
-        }
-    }
-    
-    private fun generateAmazingTrickEffect() {
-        cameraShake = 0.8f
-        repeat(30) {
-            trickParticles.add(TrickParticle(
-                x = kotlin.random.Random.nextFloat() * 800f + 100f,
-                y = kotlin.random.Random.nextFloat() * 600f + 100f,
-                color = Color.parseColor("#FFD700"),
-                type = "AMAZING",
-                life = 2.5f
-            ))
-        }
-    }
-    
-    private fun generateGreatTrickEffect() {
-        repeat(15) {
-            trickParticles.add(TrickParticle(
-                x = kotlin.random.Random.nextFloat() * 500f + 250f,
-                y = kotlin.random.Random.nextFloat() * 400f + 200f,
-                color = Color.parseColor("#00FFFF"),
-                type = "GREAT",
-                life = 1.5f
-            ))
-        }
-    }
-    
-    private fun generateGoodTrickEffect() {
-        repeat(8) {
-            trickParticles.add(TrickParticle(
-                x = kotlin.random.Random.nextFloat() * 300f + 350f,
-                y = kotlin.random.Random.nextFloat() * 250f + 300f,
-                color = Color.parseColor("#00FF00"),
-                type = "GOOD",
-                life = 1f
+                vx = (kotlin.random.Random.nextFloat() - 0.5f) * 6f,
+                vy = kotlin.random.Random.nextFloat() * -5f - 2f,
+                life = 1.2f,
+                color = Color.parseColor("#00FF00")
             ))
         }
     }
     
     private fun updateEffects() {
-        // Mise à jour des nuages de neige
-        snowClouds.removeAll { cloud ->
-            cloud.x += cloud.vx
-            cloud.y += cloud.vy
-            cloud.life -= 0.01f // RÉDUIT de 0.02f
-            cloud.life <= 0f || cloud.y > 1000f
+        // Particules de neige
+        snowSpray.removeAll { particle ->
+            particle.x += particle.vx
+            particle.y += particle.vy
+            particle.life -= 0.015f
+            particle.life <= 0f || particle.y > 1000f
         }
         
-        // Mise à jour des particules de tricks
-        trickParticles.removeAll { particle ->
-            particle.y -= 1f // RÉDUIT de 2f
-            particle.life -= 0.015f // RÉDUIT de 0.025f
-            particle.life <= 0f
-        }
-        
-        // Mise à jour des effets d'atterrissage
-        landingEffects.removeAll { effect ->
-            effect.y -= 0.8f // RÉDUIT de 1.5f
-            effect.life -= 0.012f // RÉDUIT de 0.02f
-            effect.life <= 0f
-        }
-        
-        // Mise à jour des lignes de vitesse
+        // Lignes de vitesse
         speedLines.removeAll { line ->
             line.x -= line.speed
             line.x < -100f
         }
         
-        cameraShake = maxOf(0f, cameraShake - 0.015f) // RÉDUIT de 0.03f
-        backgroundTilt *= 0.96f // RÉDUIT de 0.92f
+        cameraShake = max(0f, cameraShake - 0.02f)
     }
     
     private fun handleResults() {
@@ -740,15 +779,22 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     
     private fun calculateFinalScore() {
         if (!scoreCalculated) {
-            val tricksBonus = totalScore.toInt()
-            val styleBonus = ((style - 100f) * 3).toInt()
-            val techniqueBonus = ((technique - 100f) * 2).toInt()
-            val creativityBonus = creativity.toInt()
-            val amplitudeBonus = (amplitude * 100).toInt()
-            val perfectLandingBonus = perfectLandings * 20
-            val comboBonus = if (comboCount > 2) comboCount * 25 else 0
+            // Système de notation réaliste
+            val amplitudePoints = (amplitude * 25f).toInt()     // 25%
+            val difficultyPoints = (difficulty * 20f).toInt()   // 20%
+            val varietyPoints = variety.toInt()                  // 15%
+            val executionPoints = ((execution - 100f) * 10f).toInt() // 10%
+            val impressionPoints = ((overallImpression - 100f) * 10f).toInt() // 10%
+            val tricksPoints = totalScore.toInt()                // 20%
             
-            finalScore = maxOf(70, tricksBonus + styleBonus + techniqueBonus + creativityBonus + amplitudeBonus + perfectLandingBonus + comboBonus)
+            val bonusPoints = perfectLandings * 15
+            val penaltyPoints = (progressionPenalty + repetitionPenalty).toInt()
+            
+            finalScore = maxOf(80, 
+                amplitudePoints + difficultyPoints + varietyPoints + 
+                executionPoints + impressionPoints + tricksPoints + 
+                bonusPoints - penaltyPoints
+            )
             scoreCalculated = true
         }
     }
@@ -780,7 +826,7 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
                 startActivity(intent)
                 finish()
             } else {
-                val aiScore = (100..195).random()
+                val aiScore = (120..250).random()
                 tournamentData.addScore(nextPlayer, eventIndex, aiScore)
                 proceedToNextPlayerOrEvent()
             }
@@ -790,7 +836,7 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
                     putExtra("tournament_data", tournamentData)
                     putExtra("tournament_final", true)
                 }
-                startActivity(intent)
+                startActivity(resultIntent)
                 finish()
             } else {
                 val resultIntent = Intent(this, ScoreboardActivity::class.java).apply {
@@ -810,30 +856,53 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             GameState.PREPARATION -> "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | Préparation... ${(preparationDuration - phaseTimer).toInt() + 1}s"
             GameState.SKIING -> {
                 val trickText = if (currentTrick != FreestyleTrick.NONE) " | ${currentTrick.displayName}" else ""
-                val comboText = if (comboActive) " | COMBO x$comboCount" else ""
-                "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | Sauts: $jumpsHit/8 | Tricks: $tricksLanded$trickText$comboText"
+                val speedText = "Speed: ${speed.toInt()}km/h"
+                "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | $speedText | Kickers: $kickersHit/6$trickText"
             }
-            GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | Score: ${finalScore} | Tricks: $tricksLanded"
+            GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | Score: ${finalScore} | Tricks: $tricksCompleted"
             GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Run terminé!"
         }
     }
 
+    private fun getCountryFlag(country: String): String {
+        return when (country.uppercase()) {
+            "FRANCE" -> "🇫🇷"
+            "CANADA" -> "🇨🇦"
+            "USA", "ÉTATS-UNIS", "ETATS-UNIS" -> "🇺🇸"
+            "ALLEMAGNE", "GERMANY" -> "🇩🇪"
+            "ITALIE", "ITALY" -> "🇮🇹"
+            "SUISSE", "SWITZERLAND" -> "🇨🇭"
+            "AUTRICHE", "AUSTRIA" -> "🇦🇹"
+            "NORVÈGE", "NORWAY" -> "🇳🇴"
+            "SUÈDE", "SWEDEN" -> "🇸🇪"
+            "FINLANDE", "FINLAND" -> "🇫🇮"
+            "JAPON", "JAPAN" -> "🇯🇵"
+            "CORÉE", "KOREA" -> "🇰🇷"
+            "RUSSIE", "RUSSIA" -> "🇷🇺"
+            "POLOGNE", "POLAND" -> "🇵🇱"
+            "SLOVÉNIE", "SLOVENIA" -> "🇸🇮"
+            "RÉPUBLIQUE TCHÈQUE", "CZECH REPUBLIC" -> "🇨🇿"
+            else -> "🏴"
+        }
+    }
+
     inner class SkiFreestyleView(context: Context) : View(context) {
-        private val paint = Paint()
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val reusableRectF = RectF()
+        private val reusablePath = Path()
 
         override fun onDraw(canvas: Canvas) {
-            val w = canvas.width
-            val h = canvas.height
+            val w = width
+            val h = height
             
-            // Appliquer effets de caméra
+            // Appliquer shake de caméra
             canvas.save()
             if (cameraShake > 0f) {
                 canvas.translate(
-                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 20f,
-                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 20f
+                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 15f,
+                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 15f
                 )
             }
-            canvas.rotate(backgroundTilt * 0.2f, w/2f, h/2f)
             
             when (gameState) {
                 GameState.PREPARATION -> drawPreparation(canvas, w, h)
@@ -842,261 +911,245 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
                 GameState.FINISHED -> drawResults(canvas, w, h)
             }
             
-            drawAllEffects(canvas, w, h)
+            drawEffects(canvas, w, h)
             canvas.restore()
         }
         
         private fun drawPreparation(canvas: Canvas, w: Int, h: Int) {
-            // Fond montagneux spectaculaire
-            paint.color = Color.parseColor("#E6F3FF")
+            // Fond de montagne
+            val skyGradient = LinearGradient(0f, 0f, 0f, h.toFloat(),
+                Color.parseColor("#87CEEB"), Color.parseColor("#E0F6FF"), Shader.TileMode.CLAMP)
+            paint.shader = skyGradient
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            paint.shader = null
             
-            // Montagnes avec dégradé
-            drawMountainBackground(canvas, w, h)
+            // Vue de dessus de la piste en perspective
+            drawPisteOverview(canvas, w, h)
             
-            // Piste de freestyle en perspective
-            drawFreestylePiste(canvas, w, h)
+            // Drapeau du pays
+            val playerCountry = if (practiceMode) "CANADA" else tournamentData.playerCountries[currentPlayerIndex]
+            val flagText = getCountryFlag(playerCountry)
             
-            // Sauts visibles au loin
-            drawPreviewJumps(canvas, w, h)
+            paint.color = Color.WHITE
+            reusableRectF.set(50f, 50f, 250f, 170f)
+            canvas.drawRoundRect(reusableRectF, 15f, 15f, paint)
             
-            // Instructions spectaculaires - TEXTE PLUS GROS
             paint.color = Color.parseColor("#001122")
-            paint.textSize = 48f // AUGMENTÉ de 36f
+            paint.textSize = 60f
             paint.textAlign = Paint.Align.CENTER
+            canvas.drawText(flagText, 150f, 130f, paint)
+            
+            paint.textSize = 20f
+            canvas.drawText(playerCountry.uppercase(), 150f, 160f, paint)
+            
+            // Titre
+            paint.textSize = 48f
             canvas.drawText("🎿 SKI FREESTYLE 🎿", w/2f, h * 0.15f, paint)
             
-            paint.textSize = 32f // AUGMENTÉ de 22f
-            paint.color = Color.parseColor("#0066CC")
-            canvas.drawText("Préparez-vous pour les figures...", w/2f, h * 0.8f, paint)
+            // Countdown
+            val countdown = (preparationDuration - phaseTimer).toInt() + 1
+            paint.textSize = 80f
+            paint.color = Color.RED
+            canvas.drawText("${countdown}", w/2f, h * 0.7f, paint)
             
-            paint.textSize = 24f // AUGMENTÉ de 16f
-            paint.color = Color.parseColor("#666666")
-            canvas.drawText("📱 Inclinez pour diriger", w/2f, h * 0.85f, paint)
-            canvas.drawText("📱 Bougez en l'air pour tricks!", w/2f, h * 0.9f, paint)
-            canvas.drawText("📱 Secouez pour tricks sauvages!", w/2f, h * 0.95f, paint)
+            // Instructions
+            paint.textSize = 24f
+            paint.color = Color.parseColor("#333333")
+            canvas.drawText("📱 Inclinez vers l'avant pour pumper", w/2f, h * 0.85f, paint)
+            canvas.drawText("📱 Mouvements en l'air = tricks", w/2f, h * 0.9f, paint)
+        }
+        
+        private fun drawPisteOverview(canvas: Canvas, w: Int, h: Int) {
+            // Piste vue de dessus avec perspective
+            paint.color = Color.WHITE
+            
+            reusablePath.reset()
+            reusablePath.moveTo(w * 0.3f, h * 0.3f)
+            reusablePath.lineTo(w * 0.7f, h * 0.3f)
+            reusablePath.lineTo(w * 0.6f, h * 0.7f)
+            reusablePath.lineTo(w * 0.4f, h * 0.7f)
+            reusablePath.close()
+            canvas.drawPath(reusablePath, paint)
+            
+            // Kickers prévisualisés
+            for (i in 0..2) {
+                val y = h * (0.35f + i * 0.1f)
+                val kickerWidth = 40f - i * 8f
+                paint.color = Color.parseColor("#DDDDDD")
+                reusableRectF.set(w/2f - kickerWidth/2f, y, w/2f + kickerWidth/2f, y + kickerWidth/3f)
+                canvas.drawRoundRect(reusableRectF, 5f, 5f, paint)
+            }
         }
         
         private fun drawSkiing(canvas: Canvas, w: Int, h: Int) {
-            // Fond dynamique
-            val bgColor = if (isInAir) Color.parseColor("#F0F8FF") else Color.parseColor("#E6F3FF")
-            paint.color = bgColor
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            // Vue depuis derrière le skieur en perspective
+            drawPisteFromBehind(canvas, w, h)
             
-            // Montagnes
-            drawMountainBackground(canvas, w, h)
+            // Kickers sur la piste
+            drawKickers(canvas, w, h)
             
-            // Piste avec perspective
-            drawFreestylePiste(canvas, w, h)
-            
-            // Sauts du parcours
-            drawCourseJumps(canvas, w, h)
-            
-            // Skieur
-            drawFreestyleSkier(canvas, w, h)
+            // Skieur vu de dos
+            drawSkierFromBehind(canvas, w, h)
             
             // Interface de jeu
             drawGameInterface(canvas, w, h)
             
-            // Instructions dynamiques - TEXTE PLUS GROS
+            // Barre de pump rhythm
+            drawPumpBar(canvas, w, h)
+            
+            // Trajectoire si en l'air
             if (isInAir) {
-                paint.color = Color.parseColor("#FF6600")
-                paint.textSize = 36f // AUGMENTÉ de 26f
-                paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("🌟 TRICKS TIME! BOUGEZ! 🌟", w/2f, 60f, paint)
-            } else {
-                paint.color = Color.parseColor("#001122")
-                paint.textSize = 24f // AUGMENTÉ de 18f
-                canvas.drawText("📱 Dirigez-vous vers les sauts!", w/2f, 50f, paint)
+                drawTrajectory(canvas, w, h)
             }
         }
         
-        private fun drawResults(canvas: Canvas, w: Int, h: Int) {
-            // Fond festif
-            paint.color = Color.parseColor("#FFF8DC")
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
-            
-            // Bandeau doré
-            paint.color = Color.parseColor("#FFD700")
+        private fun drawPisteFromBehind(canvas: Canvas, w: Int, h: Int) {
+            // Fond ciel
+            val skyGradient = LinearGradient(0f, 0f, 0f, h * 0.4f,
+                Color.parseColor("#87CEEB"), Color.parseColor("#E0F6FF"), Shader.TileMode.CLAMP)
+            paint.shader = skyGradient
             canvas.drawRect(0f, 0f, w.toFloat(), h * 0.4f, paint)
+            paint.shader = null
             
-            // Score final - TEXTE PLUS GROS
-            paint.color = Color.parseColor("#001122")
-            paint.textSize = 96f // AUGMENTÉ de 72f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("${finalScore}", w/2f, h * 0.2f, paint)
+            // Piste qui défile de haut en bas avec perspective
+            val scrollOffset = pisteScroll % 100f
             
-            paint.textSize = 40f // AUGMENTÉ de 28f
-            canvas.drawText("POINTS", w/2f, h * 0.3f, paint)
-            
-            // Détails performance - TEXTE PLUS GROS
-            paint.color = Color.parseColor("#333333")
-            paint.textSize = 26f // AUGMENTÉ de 18f
-            canvas.drawText("🎿 Tricks réussis: $tricksLanded", w/2f, h * 0.5f, paint)
-            canvas.drawText("🎯 Sauts touchés: $jumpsHit/8", w/2f, h * 0.55f, paint)
-            canvas.drawText("⭐ Style: ${style.toInt()}%", w/2f, h * 0.6f, paint)
-            canvas.drawText("🛠️ Technique: ${technique.toInt()}%", w/2f, h * 0.65f, paint)
-            canvas.drawText("🎨 Créativité: ${creativity.toInt()}", w/2f, h * 0.7f, paint)
-            canvas.drawText("🏅 Atterrissages parfaits: $perfectLandings", w/2f, h * 0.75f, paint)
-            
-            if (comboCount > 1) {
-                paint.color = Color.parseColor("#FF6600")
-                canvas.drawText("🔥 Meilleur combo: x$comboCount", w/2f, h * 0.8f, paint)
-            }
-        }
-        
-        private fun drawMountainBackground(canvas: Canvas, w: Int, h: Int) {
-            // Montagnes avec dégradé
-            paint.color = Color.parseColor("#CCDDEE")
-            val mountainPath = Path()
-            mountainPath.moveTo(0f, h * 0.25f)
-            mountainPath.lineTo(w * 0.3f, h * 0.1f)
-            mountainPath.lineTo(w * 0.6f, h * 0.2f)
-            mountainPath.lineTo(w * 0.9f, h * 0.05f)
-            mountainPath.lineTo(w.toFloat(), h * 0.15f)
-            mountainPath.lineTo(w.toFloat(), h.toFloat())
-            mountainPath.lineTo(0f, h.toFloat())
-            mountainPath.close()
-            canvas.drawPath(mountainPath, paint)
-        }
-        
-        private fun drawFreestylePiste(canvas: Canvas, w: Int, h: Int) {
-            // Piste en perspective avec effet de profondeur
             paint.color = Color.WHITE
-            val pisteWidth = w * 0.7f
-            val perspectiveOffset = speed * 0.3f // RÉDUIT de 0.6f
             
-            val pistePath = Path()
-            pistePath.moveTo((w - pisteWidth) / 2f - perspectiveOffset, 0f)
-            pistePath.lineTo((w + pisteWidth) / 2f + perspectiveOffset, 0f)
-            pistePath.lineTo(w * 0.9f, h.toFloat())
-            pistePath.lineTo(w * 0.1f, h.toFloat())
-            pistePath.close()
-            canvas.drawPath(pistePath, paint)
+            // Piste principale avec perspective
+            reusablePath.reset()
+            reusablePath.moveTo(w * 0.25f, 0f)           // Haut gauche
+            reusablePath.lineTo(w * 0.75f, 0f)           // Haut droite
+            reusablePath.lineTo(w * 0.85f, h.toFloat())   // Bas droite
+            reusablePath.lineTo(w * 0.15f, h.toFloat())   // Bas gauche
+            reusablePath.close()
+            canvas.drawPath(reusablePath, paint)
             
-            // Lignes de perspective
+            // Lignes de défilement pour effet de mouvement
             paint.color = Color.parseColor("#EEEEEE")
-            paint.strokeWidth = 3f
+            paint.strokeWidth = 2f
             paint.style = Paint.Style.STROKE
             
-            for (i in 1..6) {
-                val lineY = (i * h / 7f + (distance * 0.8f) % (h / 7f)) // RÉDUIT de 1.5f
-                val lineLeft = w * 0.1f + (i * 0.05f * w)
-                val lineRight = w * 0.9f - (i * 0.05f * w)
-                canvas.drawLine(lineLeft, lineY, lineRight, lineY, paint)
+            for (i in 0..12) {
+                val lineY = i * 60f - scrollOffset
+                if (lineY >= 0f && lineY <= h.toFloat()) {
+                    val perspective = lineY / h.toFloat()
+                    val leftX = w * (0.25f + perspective * 0.1f)
+                    val rightX = w * (0.75f - perspective * 0.1f)
+                    canvas.drawLine(leftX, lineY, rightX, lineY, paint)
+                }
             }
             
             paint.style = Paint.Style.FILL
         }
         
-        private fun drawPreviewJumps(canvas: Canvas, w: Int, h: Int) {
-            // Aperçu des sauts dans la préparation
-            for (i in 0..2) {
-                val jumpX = w * (0.2f + i * 0.3f)
-                val jumpY = h * (0.4f + i * 0.15f)
-                val jumpSize = 15f + i * 5f
+        private fun drawKickers(canvas: Canvas, w: Int, h: Int) {
+            for (kicker in kickers) {
+                val kickerScreenDistance = kicker.distance - distanceTraveled
                 
-                paint.color = Color.parseColor("#DDDDDD")
-                canvas.drawRoundRect(jumpX - jumpSize, jumpY, jumpX + jumpSize, jumpY + jumpSize/2, 8f, 8f, paint)
-            }
-        }
-        
-        private fun drawCourseJumps(canvas: Canvas, w: Int, h: Int) {
-            // Dessiner les sauts du parcours
-            for (jump in jumps) {
-                val jumpScreenDistance = jump.distance - distance
-                
-                if (jumpScreenDistance > -100f && jumpScreenDistance < 500f) {
-                    val screenY = h * 0.3f + (jumpScreenDistance * 0.8f) // RÉDUIT de 1.2f
-                    val perspectiveFactor = 1f - (jumpScreenDistance / 500f)
-                    val jumpSize = when (jump.size) {
-                        FreestyleJump.Size.SMALL -> 25f // AUGMENTÉ de 20f
-                        FreestyleJump.Size.MEDIUM -> 40f // AUGMENTÉ de 35f
-                        FreestyleJump.Size.LARGE -> 55f // AUGMENTÉ de 50f
-                    } * perspectiveFactor.coerceIn(0.2f, 1f)
+                if (kickerScreenDistance > -50f && kickerScreenDistance < 300f) {
+                    // Position sur l'écran
+                    val screenY = kickerScreenDistance * 2f + 100f
+                    val perspective = (screenY / h.toFloat()).coerceIn(0.1f, 1f)
                     
-                    val screenX = jump.x * w
-                    
-                    // Couleur selon le statut
-                    paint.color = if (jump.hit) {
-                        Color.parseColor("#00AA00")
-                    } else {
-                        Color.parseColor("#FFFFFF")
-                    }
-                    
-                    // Dessiner le saut
-                    canvas.drawRoundRect(
-                        screenX - jumpSize, screenY,
-                        screenX + jumpSize, screenY + jumpSize/2,
-                        8f, 8f, paint
-                    )
-                    
-                    // Indicateur de taille - TEXTE PLUS GROS
-                    if (perspectiveFactor > 0.5f) {
-                        paint.color = Color.BLACK
-                        paint.textSize = 16f * perspectiveFactor // AUGMENTÉ de 12f
-                        paint.textAlign = Paint.Align.CENTER
-                        val sizeText = when (jump.size) {
-                            FreestyleJump.Size.SMALL -> "S"
-                            FreestyleJump.Size.MEDIUM -> "M"
-                            FreestyleJump.Size.LARGE -> "L"
+                    if (screenY < h.toFloat()) {
+                        val kickerSize = when (kicker.size) {
+                            KickerSize.SMALL -> 30f
+                            KickerSize.MEDIUM -> 45f
+                            KickerSize.LARGE -> 65f
+                        } * perspective
+                        
+                        val screenX = w * (0.15f + kicker.x * 0.7f)
+                        
+                        // Couleur selon statut
+                        paint.color = if (kicker.hit) {
+                            Color.parseColor("#00AA00")
+                        } else {
+                            Color.parseColor("#FFFFFF")
                         }
-                        canvas.drawText(sizeText, screenX, screenY + jumpSize/4, paint)
+                        
+                        // Forme du kicker
+                        reusablePath.reset()
+                        reusablePath.moveTo(screenX - kickerSize, screenY + kickerSize/2f)
+                        reusablePath.lineTo(screenX - kickerSize/3f, screenY)
+                        reusablePath.lineTo(screenX + kickerSize/3f, screenY)
+                        reusablePath.lineTo(screenX + kickerSize, screenY + kickerSize/2f)
+                        reusablePath.close()
+                        canvas.drawPath(reusablePath, paint)
+                        
+                        // Taille indicator
+                        if (perspective > 0.3f) {
+                            paint.color = Color.BLACK
+                            paint.textSize = 14f * perspective
+                            paint.textAlign = Paint.Align.CENTER
+                            val sizeText = when (kicker.size) {
+                                KickerSize.SMALL -> "S"
+                                KickerSize.MEDIUM -> "M"
+                                KickerSize.LARGE -> "L"
+                            }
+                            canvas.drawText(sizeText, screenX, screenY + kickerSize/4f, paint)
+                        }
                     }
                 }
             }
         }
         
-        private fun drawFreestyleSkier(canvas: Canvas, w: Int, h: Int) {
-            val skierScreenX = skierX * w
-            val skierScreenY = skierY * h
+        private fun drawSkierFromBehind(canvas: Canvas, w: Int, h: Int) {
+            val skierScreenX = w * (0.15f + skierX * 0.7f)
+            val skierScreenY = h * skierY
             
             canvas.save()
             canvas.translate(skierScreenX, skierScreenY)
             
-            // Rotation selon les tricks - MOINS INTENSE
+            // Rotation selon tricks
             when (currentTrick) {
-                FreestyleTrick.SPIN_360 -> canvas.rotate(trickRotation * 0.5f) // RÉDUIT
-                FreestyleTrick.BACKFLIP -> canvas.rotate(trickRotation * 0.5f, 1f, 0f) // RÉDUIT
-                FreestyleTrick.CORK_SCREW -> {
-                    canvas.rotate(trickRotation * 0.4f) // RÉDUIT
-                    canvas.scale(1f + trickProgress * 0.1f, 1f + trickProgress * 0.1f) // RÉDUIT
-                }
-                FreestyleTrick.WILD_TRICK -> {
-                    canvas.rotate(trickRotation * 0.8f) // RÉDUIT
-                    canvas.scale(1f + trickProgress * 0.2f, 1f + trickProgress * 0.2f) // RÉDUIT
+                FreestyleTrick.SPIN_360 -> canvas.rotate(trickRotation * 0.5f)
+                FreestyleTrick.BACKFLIP -> canvas.rotate(trickRotation * 0.3f) // Utiliser rotate normal
+                FreestyleTrick.SPIN_GRAB -> {
+                    canvas.rotate(trickRotation * 0.4f)
+                    canvas.scale(1f + trickProgress * 0.1f, 1f + trickProgress * 0.1f)
                 }
                 else -> {}
             }
             
-            // Corps du skieur - PLUS GROS
+            // Corps du skieur (vu de dos)
+            paint.color = Color.parseColor("#FF6600") // Combinaison
+            canvas.drawRect(-12f, -25f, 12f, 15f, paint)
+            
+            // Casque
+            paint.color = Color.parseColor("#FFFFFF")
+            canvas.drawCircle(0f, -30f, 10f, paint)
+            
+            // Bras
             paint.color = Color.parseColor("#FF6600")
-            canvas.drawCircle(0f, 0f, 28f, paint) // AUGMENTÉ de 22f
-            
-            // Skis avec couleur selon le trick
-            paint.color = if (currentTrick != FreestyleTrick.NONE) {
-                Color.parseColor("#FFD700")
-            } else {
-                Color.YELLOW
-            }
-            paint.strokeWidth = 12f // AUGMENTÉ de 10f
+            paint.strokeWidth = 6f
             paint.style = Paint.Style.STROKE
-            canvas.drawLine(-25f, 30f, -25f, 55f, paint) // PLUS LONG
-            canvas.drawLine(25f, 30f, 25f, 55f, paint)
             
-            // Bâtons selon le trick
-            paint.color = Color.parseColor("#8B4513")
-            paint.strokeWidth = 8f // AUGMENTÉ de 6f
-            
-            if (currentTrick == FreestyleTrick.GRAB_TRICK) {
+            if (currentTrick == FreestyleTrick.INDY_GRAB || currentTrick == FreestyleTrick.SPIN_GRAB) {
                 // Position grab
-                canvas.drawLine(-18f, -18f, -30f, 18f, paint)
-                canvas.drawLine(18f, -18f, 30f, 18f, paint)
+                canvas.drawLine(-8f, -8f, -15f, 20f, paint)
+                canvas.drawLine(8f, -8f, 15f, 20f, paint)
             } else {
                 // Position normale
-                canvas.drawLine(-22f, -12f, -35f, -30f, paint)
-                canvas.drawLine(22f, -12f, 35f, -30f, paint)
+                canvas.drawLine(-10f, -12f, -18f, -5f, paint)
+                canvas.drawLine(10f, -12f, 18f, -5f, paint)
             }
+            
+            // Jambes
+            canvas.drawLine(-6f, 10f, -10f, 30f, paint)
+            canvas.drawLine(6f, 10f, 10f, 30f, paint)
+            
+            // Skis
+            paint.color = Color.YELLOW
+            paint.strokeWidth = 8f
+            canvas.drawLine(-15f, 25f, -15f, 45f, paint)
+            canvas.drawLine(15f, 25f, 15f, 45f, paint)
+            
+            // Bâtons
+            paint.color = Color.parseColor("#8B4513")
+            paint.strokeWidth = 4f
+            canvas.drawLine(-20f, -8f, -25f, -20f, paint)
+            canvas.drawLine(20f, -8f, 25f, -20f, paint)
             
             paint.style = Paint.Style.FILL
             canvas.restore()
@@ -1104,165 +1157,251 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             // Ombre si au sol
             if (!isInAir) {
                 paint.color = Color.parseColor("#33000000")
-                canvas.drawOval(skierScreenX - 40f, h * 0.85f, skierScreenX + 40f, h * 0.9f, paint) // PLUS GROS
-            }
-            
-            // Aura spéciale selon le trick
-            if (currentTrick != FreestyleTrick.NONE && trickProgress > 0.5f) {
-                paint.color = Color.parseColor("#44FFD700")
-                canvas.drawCircle(skierScreenX, skierScreenY, 50f + trickProgress * 25f, paint) // PLUS GROS
+                canvas.drawOval(skierScreenX - 25f, h * 0.92f, skierScreenX + 25f, h * 0.95f, paint)
             }
         }
         
         private fun drawGameInterface(canvas: Canvas, w: Int, h: Int) {
-            val baseY = h - 180f // PLUS BAS pour plus d'espace
+            val baseY = h - 160f
             
-            // Score en temps réel - TEXTE PLUS GROS
+            // Scores et stats
             paint.color = Color.parseColor("#001122")
-            paint.textSize = 26f // AUGMENTÉ de 20f
+            paint.textSize = 22f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("Score: ${totalScore.toInt()}", 30f, baseY, paint)
-            canvas.drawText("Sauts: $jumpsHit/8", 30f, baseY + 35f, paint)
-            canvas.drawText("Tricks: $tricksLanded", 30f, baseY + 70f, paint)
+            canvas.drawText("Score: ${totalScore.toInt()}", 20f, baseY, paint)
+            canvas.drawText("Speed: ${speed.toInt()} km/h", 20f, baseY + 25f, paint)
+            canvas.drawText("Kickers: $kickersHit/6", 20f, baseY + 50f, paint)
             
-            // Trick en cours - TEXTE PLUS GROS
+            // Trick en cours
             if (currentTrick != FreestyleTrick.NONE) {
                 paint.color = Color.parseColor("#FF6600")
-                paint.textSize = 36f // AUGMENTÉ de 28f
+                paint.textSize = 28f
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("${currentTrick.displayName}: ${(trickProgress * 100).toInt()}%", w/2f, baseY, paint)
                 
-                // Barre de progression du trick - PLUS GROSSE
-                paint.color = Color.parseColor("#333333")
-                canvas.drawRect(w/2f - 150f, baseY + 20f, w/2f + 150f, baseY + 45f, paint) // PLUS LARGE ET HAUTE
-                
-                val progressColor = when {
-                    trickProgress > 0.8f -> Color.parseColor("#FFD700")
-                    trickProgress > 0.5f -> Color.parseColor("#00FF00")
-                    else -> Color.parseColor("#FFAA00")
+                val trickText = when (currentTrick) {
+                    FreestyleTrick.SPIN_360 -> "${abs(trickRotation).toInt()}° SPIN"
+                    FreestyleTrick.BACKFLIP -> "BACKFLIP ${(trickProgress * 100).toInt()}%"
+                    FreestyleTrick.INDY_GRAB -> "INDY ${(trickHoldTime * 100).toInt()}%"
+                    FreestyleTrick.SPIN_GRAB -> "${abs(trickRotation).toInt()}° GRAB"
+                    else -> currentTrick.displayName
                 }
-                paint.color = progressColor
-                val progressWidth = trickProgress * 300f // ADAPTÉ à nouvelle largeur
-                canvas.drawRect(w/2f - 150f, baseY + 20f, w/2f - 150f + progressWidth, baseY + 45f, paint)
+                
+                canvas.drawText(trickText, w/2f, baseY, paint)
+                
+                // Phase du trick
+                paint.textSize = 16f
+                canvas.drawText("Phase: ${trickPhase.name}", w/2f, baseY + 25f, paint)
             }
             
             // Métriques de performance
-            drawMeter(canvas, w - 250f, baseY, 200f, style / 130f, "STYLE", Color.parseColor("#FF44AA"))
-            drawMeter(canvas, w - 250f, baseY + 40f, 200f, technique / 130f, "TECH", Color.parseColor("#44AAFF"))
-            drawMeter(canvas, w - 250f, baseY + 80f, 200f, (creativity / 50f).coerceAtMost(1f), "CRÉA", Color.parseColor("#AA44FF"))
+            drawPerformanceMeter(canvas, w - 200f, baseY - 30f, 180f, amplitude / 0.4f, "AMPLITUDE", Color.parseColor("#FF4444"))
+            drawPerformanceMeter(canvas, w - 200f, baseY - 5f, 180f, execution / 120f, "EXECUTION", Color.parseColor("#44FF44"))
+            drawPerformanceMeter(canvas, w - 200f, baseY + 20f, 180f, (variety / 90f).coerceAtMost(1f), "VARIETY", Color.parseColor("#4444FF"))
+        }
+        
+        private fun drawPumpBar(canvas: Canvas, w: Int, h: Int) {
+            val barX = 50f
+            val barY = 100f
+            val barWidth = w * 0.4f
+            val barHeight = 25f
             
-            // Combo actif - TEXTE PLUS GROS
-            if (comboActive) {
-                paint.color = Color.parseColor("#FFD700")
-                paint.textSize = 28f // AUGMENTÉ de 22f
-                paint.textAlign = Paint.Align.RIGHT
-                canvas.drawText("🔥 COMBO x$comboCount", w - 30f, baseY + 120f, paint)
+            // Fond
+            paint.color = Color.parseColor("#333333")
+            reusableRectF.set(barX, barY, barX + barWidth, barY + barHeight)
+            canvas.drawRect(reusableRectF, paint)
+            
+            // Zone de pump optimal
+            if (pumpWindow) {
+                paint.color = Color.parseColor("#00FF00")
+                val optimalStart = barWidth * 0.3f
+                val optimalWidth = barWidth * 0.4f
+                reusableRectF.set(barX + optimalStart, barY, barX + optimalStart + optimalWidth, barY + barHeight)
+                canvas.drawRect(reusableRectF, paint)
             }
             
-            // Air time et amplitude - TEXTE PLUS GROS
-            if (isInAir) {
-                paint.color = Color.parseColor("#00FFFF")
-                paint.textSize = 24f // AUGMENTÉ de 18f
-                paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("⏱️ ${airTime.toString().take(4)}s", w/2f, h - 100f, paint)
-                canvas.drawText("📏 ${(amplitude * 100).toInt()}%", w/2f, h - 70f, paint)
+            // Indicateur de vitesse actuelle
+            val speedRatio = (speed / 35f).coerceIn(0f, 1f)
+            val indicatorX = barX + speedRatio * barWidth
+            paint.color = Color.parseColor("#FFFF00")
+            paint.strokeWidth = 4f
+            paint.style = Paint.Style.STROKE
+            canvas.drawLine(indicatorX, barY, indicatorX, barY + barHeight, paint)
+            paint.style = Paint.Style.FILL
+            
+            // Effet de pump
+            if (pumpEnergy > 0f) {
+                paint.color = Color.parseColor("#FF6600")
+                paint.alpha = (pumpEnergy * 180).toInt()
+                val pumpWidth = barWidth * pumpTiming
+                reusableRectF.set(barX, barY, barX + pumpWidth, barY + barHeight)
+                canvas.drawRect(reusableRectF, paint)
+                paint.alpha = 255
+            }
+            
+            // Label
+            paint.color = Color.WHITE
+            paint.textSize = 14f
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("PUMP RHYTHM - VITESSE", barX, barY - 5f, paint)
+            
+            if (pumpCombo > 0) {
+                paint.color = Color.parseColor("#00FF00")
+                canvas.drawText("Perfect Pumps x$pumpCombo", barX, barY + barHeight + 18f, paint)
             }
         }
         
-        private fun drawMeter(canvas: Canvas, x: Float, y: Float, width: Float, 
-                             value: Float, label: String, color: Int) {
+        private fun drawTrajectory(canvas: Canvas, w: Int, h: Int) {
+            // Arc de trajectoire prévisionnelle
+            val startX = w * (0.15f + skierX * 0.7f)
+            val startY = h * skierY
+            
+            // Calcul de la trajectoire restante
+            val remainingTime = (-verticalVelocity / 0.4f).coerceAtLeast(0f)
+            val landingX = startX + horizontalVelocity * remainingTime * 60f
+            val peakY = startY + verticalVelocity * remainingTime * 30f - 0.5f * 0.4f * remainingTime * remainingTime * 900f
+            
+            // Dessiner l'arc
+            paint.color = Color.parseColor("#AAFFFFFF")
+            paint.strokeWidth = 3f
+            paint.style = Paint.Style.STROKE
+            
+            reusablePath.reset()
+            reusablePath.moveTo(startX, startY)
+            reusablePath.quadTo(
+                (startX + landingX) / 2f, 
+                peakY,
+                landingX, 
+                h * 0.9f
+            )
+            canvas.drawPath(reusablePath, paint)
+            
+            paint.style = Paint.Style.FILL
+            
+            // Point d'atterrissage prévu
+            paint.color = Color.parseColor("#FFFF00")
+            canvas.drawCircle(landingX, h * 0.9f, 8f, paint)
+        }
+        
+        private fun drawPerformanceMeter(canvas: Canvas, x: Float, y: Float, width: Float, 
+                                       value: Float, label: String, color: Int) {
             // Fond
             paint.color = Color.parseColor("#333333")
-            canvas.drawRect(x, y, x + width, y + 25f, paint) // PLUS HAUT
+            reusableRectF.set(x, y, x + width, y + 18f)
+            canvas.drawRect(reusableRectF, paint)
             
             // Barre
             paint.color = color
             val filledWidth = value.coerceIn(0f, 1f) * width
-            canvas.drawRect(x, y, x + filledWidth, y + 25f, paint)
+            reusableRectF.set(x, y, x + filledWidth, y + 18f)
+            canvas.drawRect(reusableRectF, paint)
             
-            // Label - TEXTE PLUS GROS
+            // Label
             paint.color = Color.WHITE
-            paint.textSize = 18f // AUGMENTÉ de 14f
+            paint.textSize = 12f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("$label: ${(value * 100).toInt()}%", x, y - 5f, paint)
+            canvas.drawText("$label: ${(value * 100).toInt()}%", x, y - 3f, paint)
         }
         
-        private fun drawAllEffects(canvas: Canvas, w: Int, h: Int) {
-            // Lignes de vitesse
-            paint.color = Color.parseColor("#AACCCCCC")
-            paint.strokeWidth = 4f
-            paint.style = Paint.Style.STROKE
-            for (line in speedLines) {
-                canvas.drawLine(line.x, line.y, line.x + 40f, line.y, paint)
-            }
-            paint.style = Paint.Style.FILL
+        private fun drawResults(canvas: Canvas, w: Int, h: Int) {
+            // Fond avec dégradé
+            val resultGradient = LinearGradient(0f, 0f, 0f, h.toFloat(),
+                Color.parseColor("#FFD700"), Color.parseColor("#FFF8DC"), Shader.TileMode.CLAMP)
+            paint.shader = resultGradient
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            paint.shader = null
             
-            // Nuages de neige
-            paint.color = Color.WHITE
-            for (cloud in snowClouds) {
-                paint.alpha = (cloud.life * 255).toInt()
-                canvas.drawCircle(cloud.x, cloud.y, cloud.life * 12f, paint)
-            }
-            paint.alpha = 255
+            // Score final
+            paint.color = Color.parseColor("#001122")
+            paint.textSize = 72f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("${finalScore}", w/2f, h * 0.2f, paint)
             
-            // Particules de tricks
-            for (particle in trickParticles) {
+            paint.textSize = 32f
+            canvas.drawText("POINTS", w/2f, h * 0.28f, paint)
+            
+            // Breakdown détaillé
+            paint.color = Color.parseColor("#333333")
+            paint.textSize = 22f
+            
+            val startY = h * 0.4f
+            val lineHeight = 30f
+            
+            canvas.drawText("🎿 Kickers touchés: $kickersHit/6", w/2f, startY, paint)
+            canvas.drawText("🎪 Tricks réussis: $tricksCompleted", w/2f, startY + lineHeight, paint)
+            canvas.drawText("📏 Amplitude max: ${(amplitude * 250).toInt()}cm", w/2f, startY + lineHeight * 2, paint)
+            canvas.drawText("🎯 Atterrissages parfaits: $perfectLandings", w/2f, startY + lineHeight * 3, paint)
+            canvas.drawText("🌈 Variété: ${tricksUsed.size} tricks différents", w/2f, startY + lineHeight * 4, paint)
+            canvas.drawText("⚡ Vitesse max: ${speed.toInt()} km/h", w/2f, startY + lineHeight * 5, paint)
+            
+            // Message selon performance
+            val message = when {
+                finalScore >= 300 -> "🏆 RUN LÉGENDAIRE!"
+                finalScore >= 250 -> "🥇 EXCELLENT STYLE!"
+                finalScore >= 200 -> "🥈 TRÈS BON RUN!"
+                finalScore >= 150 -> "🥉 BIEN JOUÉ!"
+                else -> "💪 CONTINUE À PROGRESSER!"
+            }
+            
+            paint.color = Color.parseColor("#FF6600")
+            paint.textSize = 28f
+            canvas.drawText(message, w/2f, h * 0.9f, paint)
+        }
+        
+        private fun drawEffects(canvas: Canvas, w: Int, h: Int) {
+            // Particules de neige
+            for (particle in snowSpray) {
                 paint.alpha = (particle.life * 255).toInt()
                 paint.color = particle.color
-                canvas.drawCircle(particle.x, particle.y, particle.life * 8f, paint)
+                canvas.drawCircle(particle.x, particle.y, particle.life * 6f, paint)
             }
             paint.alpha = 255
             
-            // Effets d'atterrissage
-            for (effect in landingEffects) {
-                paint.alpha = (effect.life * 255).toInt()
-                paint.color = effect.color
-                canvas.drawCircle(effect.x, effect.y, effect.life * 10f, paint)
+            // Lignes de vitesse
+            paint.color = Color.parseColor("#66FFFFFF")
+            paint.strokeWidth = 3f
+            paint.style = Paint.Style.STROKE
+            for (line in speedLines) {
+                canvas.drawLine(line.x, line.y, line.x + 30f, line.y, paint)
             }
-            paint.alpha = 255
+            paint.style = Paint.Style.FILL
         }
     }
 
-    enum class FreestyleTrick(val displayName: String, val baseScore: Float, val creativityPoints: Float) {
-        NONE("", 0f, 0f),
-        SPIN_360("360°", 20f, 2f),
-        BACKFLIP("BACKFLIP", 30f, 4f),
-        GRAB_TRICK("GRAB", 25f, 3f),
-        CORK_SCREW("CORK", 40f, 6f),
-        WILD_TRICK("WILD", 50f, 8f)
+    enum class FreestyleTrick(val displayName: String, val baseScore: Float, val difficultyPoints: Float, val isGrab: Boolean) {
+        NONE("", 0f, 0f, false),
+        SPIN_360("360°", 25f, 2f, false),
+        BACKFLIP("BACKFLIP", 35f, 3f, false),
+        INDY_GRAB("INDY GRAB", 30f, 2.5f, true),
+        SPIN_GRAB("SPIN GRAB", 45f, 4f, true)
     }
     
-    data class FreestyleJump(
+    enum class TrickPhase {
+        NONE, SETUP, EXECUTION, LANDING
+    }
+    
+    enum class KickerSize {
+        SMALL, MEDIUM, LARGE
+    }
+    
+    enum class KickerApproach {
+        STRAIGHT, LEFT, RIGHT
+    }
+    
+    data class Kicker(
         val distance: Float,
-        val size: Size,
+        val size: KickerSize,
         val x: Float,
-        var hit: Boolean
-    ) {
-        enum class Size { SMALL, MEDIUM, LARGE }
-    }
+        var hit: Boolean,
+        val approach: KickerApproach
+    )
     
-    data class SnowCloud(
+    data class SnowParticle(
         var x: Float,
         var y: Float,
         var vx: Float,
         var vy: Float,
-        var life: Float
-    )
-    
-    data class TrickParticle(
-        val x: Float,
-        var y: Float,
-        val color: Int,
-        val type: String,
-        var life: Float
-    )
-    
-    data class LandingEffect(
-        val x: Float,
-        var y: Float,
-        val color: Int,
-        val type: String,
-        var life: Float
+        var life: Float,
+        val color: Int
     )
     
     data class SpeedLine(
