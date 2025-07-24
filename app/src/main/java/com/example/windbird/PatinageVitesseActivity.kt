@@ -51,8 +51,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     private var currentRhythmQuality = 0f
     private var performanceHistory = mutableListOf<Float>() // Historique des 20 dernières performances
     
+    // NOUVEAU - Variables pour l'animation de victoire
+    private var victoryAnimationProgress = 0f
+    private var victoryAnimationStarted = false
     // Contrôles gyroscope - LOGIQUE CORRIGÉE
-    private var tiltX = 0f
     private var lastTiltDirection = 0
     private var expectingLeft = true
     private var currentTiltState = TiltState.CENTER
@@ -114,6 +116,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         currentStrokeQuality = 0f
         currentRhythmQuality = 0f
         performanceHistory.clear()
+        victoryAnimationProgress = 0f
+        victoryAnimationStarted = false
         tiltX = 0f
         lastTiltDirection = 0
         expectingLeft = true
@@ -155,7 +159,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             GameState.PREPARATION -> handlePreparation()
             GameState.COUNTDOWN -> handleCountdown() 
             GameState.RACE -> handleRace()
-            GameState.RESULTS -> handleResults()
+            GameState.RESULTS -> {
+                handleResults()
+                updateVictoryAnimation()
+            }
             GameState.FINISHED -> {}
         }
 
@@ -301,6 +308,11 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     }
     
     private fun handleResults() {
+        if (!victoryAnimationStarted) {
+            victoryAnimationStarted = true
+            victoryAnimationProgress = 0f
+        }
+        
         if (phaseTimer >= resultsDuration) {
             gameState = GameState.FINISHED
             
@@ -311,6 +323,14 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             statusText.postDelayed({
                 proceedToNextPlayerOrEvent()
             }, 3000)
+        }
+    }
+    
+    // NOUVEAU - Animation de victoire
+    private fun updateVictoryAnimation() {
+        if (victoryAnimationStarted && victoryAnimationProgress < 1f) {
+            victoryAnimationProgress += 0.015f // Vitesse d'animation
+            victoryAnimationProgress = victoryAnimationProgress.coerceAtMost(1f)
         }
     }
     
@@ -423,6 +443,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         private var speedskatingRightBitmap: Bitmap? = null
         private var speedskatingFrontLeftBitmap: Bitmap? = null
         private var speedskatingFrontRightBitmap: Bitmap? = null
+        private var speedskateHappy1Bitmap: Bitmap? = null
+        private var speedskateHappy2Bitmap: Bitmap? = null
         
         init {
             try {
@@ -436,6 +458,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 flagFranceBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_france)
                 flagNorvegeBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_norvege)
                 flagJapanBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_japan)
+                speedskateHappy1Bitmap = BitmapFactory.decodeResource(resources, R.drawable.speedskate_happy1)
+                speedskateHappy2Bitmap = BitmapFactory.decodeResource(resources, R.drawable.speedskate_happy2)
             } catch (e: Exception) {
                 preparationBackground = null
             }
@@ -845,6 +869,61 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 else -> "🔥 ENTRAÎNEZ-VOUS ENCORE!"
             }
             canvas.drawText(encouragement, w.toFloat()/2f, h.toFloat() * 0.92f, paint)
+            
+            // NOUVELLE - Animation de victoire avec les images
+            drawVictoryAnimation(canvas, w, h)
+        }
+        
+        // NOUVELLE - Animation de victoire
+        private fun drawVictoryAnimation(canvas: Canvas, w: Int, h: Int) {
+            if (!victoryAnimationStarted) return
+            
+            val centerX = w.toFloat() / 2f
+            val centerY = h.toFloat() * 0.7f // Position verticale au centre-bas
+            
+            // Position selon le progrès de l'animation
+            when {
+                victoryAnimationProgress < 0.6f -> {
+                    // Phase 1: speedskate_happy1 arrive de la gauche jusqu'au 1/4 de l'écran
+                    val progress1 = victoryAnimationProgress / 0.6f
+                    val skaterX = -100f + progress1 * (w.toFloat() * 0.25f + 100f)
+                    
+                    speedskateHappy1Bitmap?.let { image ->
+                        val scale = 0.8f
+                        val imageWidth = image.width * scale
+                        val imageHeight = image.height * scale
+                        
+                        val dstRect = RectF(
+                            skaterX - imageWidth/2f,
+                            centerY - imageHeight/2f,
+                            skaterX + imageWidth/2f,
+                            centerY + imageHeight/2f
+                        )
+                        canvas.drawBitmap(image, null, dstRect, paint)
+                    }
+                }
+                else -> {
+                    // Phase 2: speedskate_happy2 glisse du 1/4 vers le centre
+                    val progress2 = (victoryAnimationProgress - 0.6f) / 0.4f
+                    val startX = w.toFloat() * 0.25f
+                    val skaterX = startX + progress2 * (centerX - startX)
+                    
+                    speedskateHappy2Bitmap?.let { image ->
+                        val scale = 0.8f
+                        val imageWidth = image.width * scale
+                        val imageHeight = image.height * scale
+                        
+                        val dstRect = RectF(
+                            skaterX - imageWidth/2f,
+                            centerY - imageHeight/2f,
+                            skaterX + imageWidth/2f,
+                            centerY + imageHeight/2f
+                        )
+                        canvas.drawBitmap(image, null, dstRect, paint)
+                    }
+                }
+            }
+        }
         }
     }
 
