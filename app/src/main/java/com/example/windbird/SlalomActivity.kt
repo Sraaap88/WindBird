@@ -688,7 +688,7 @@ class SlalomActivity : Activity(), SensorEventListener {
         }
         
         private fun drawSlopePerspective(canvas: Canvas, w: Int, h: Int) {
-            // Piste en perspective avec effet de vitesse
+            // Piste en perspective avec effet de vitesse AMÉLIORÉ
             paint.color = Color.WHITE
             
             val slopePath = Path()
@@ -699,39 +699,66 @@ class SlalomActivity : Activity(), SensorEventListener {
             slopePath.close()
             canvas.drawPath(slopePath, paint)
             
-            // Lignes de perspective pour effet de vitesse
+            // MEILLEUR EFFET DE VITESSE - Lignes de perspective dynamiques
             paint.color = Color.parseColor("#EEEEEE")
             paint.strokeWidth = 2f
             paint.style = Paint.Style.STROKE
             
-            for (i in 1..8) {
-                val lineY = (i * h / 9f + (courseProgress * 0.5f) % (h / 9f))
+            // Plus de lignes et mouvement plus rapide selon la vitesse
+            val lineCount = 12 + (speed / 10f).toInt() // Plus de lignes = plus de vitesse
+            val speedMultiplier = 1f + (speed / 30f) // Mouvement plus rapide selon vitesse
+            
+            for (i in 1..lineCount) {
+                val lineY = (i * h / (lineCount + 1f) + (courseProgress * speedMultiplier) % (h / (lineCount + 1f)))
                 if (lineY > 0 && lineY < h) {
                     val perspectiveFactor = lineY / h.toFloat()
                     val lineLeft = w/2f - (w * 0.35f * perspectiveFactor)
                     val lineRight = w/2f + (w * 0.35f * perspectiveFactor)
+                    
+                    // Épaisseur des lignes selon la perspective et vitesse
+                    paint.strokeWidth = perspectiveFactor * 3f + 1f
+                    
+                    // Transparence selon distance et vitesse
+                    val alpha = (perspectiveFactor * 150f + speed * 2f).toInt().coerceIn(50, 200)
+                    paint.alpha = alpha
+                    
                     canvas.drawLine(lineLeft, lineY, lineRight, lineY, paint)
                 }
             }
             
+            paint.alpha = 255
             paint.style = Paint.Style.FILL
+            
+            // NOUVEAUX EFFETS DE VITESSE - Flou de mouvement sur les bords
+            if (speed > 35f) {
+                paint.color = Color.parseColor("#66E6F3FF")
+                val blurIntensity = (speed - 35f) / 20f
+                
+                // Flou sur les côtés
+                for (i in 1..5) {
+                    paint.alpha = (blurIntensity * 40f).toInt()
+                    canvas.drawRect(0f, 0f, w * 0.1f * i * blurIntensity, h.toFloat(), paint)
+                    canvas.drawRect(w - w * 0.1f * i * blurIntensity, 0f, w.toFloat(), h.toFloat(), paint)
+                }
+                paint.alpha = 255
+            }
         }
         
         private fun drawSlalomGates(canvas: Canvas, w: Int, h: Int) {
-            // Dessiner les portes avec vraie perspective progressive
+            // Dessiner les portes avec vraie perspective progressive - SENS CORRIGÉ
             for (gate in gates) {
                 val relativePosition = gate.position - courseProgress
                 
                 // Seulement dessiner les portes visibles
                 if (relativePosition > 0f && relativePosition < 400f) {
-                    // Calcul de la perspective : plus proche = plus bas et plus gros
-                    val screenY = relativePosition * h / 400f
-                    val perspectiveFactor = screenY / h.toFloat()
+                    // SENS CORRIGÉ : plus proche = plus haut sur l'écran (comme la piste)
+                    val screenY = h - (relativePosition * h / 400f)
+                    val perspectiveFactor = (h - screenY) / h.toFloat()
                     
-                    // Taille des drapeaux selon la distance
+                    // Taille des drapeaux selon la distance (plus proche = plus gros)
                     val flagScale = perspectiveFactor * 0.8f + 0.2f
                     
-                    // Positions écran des drapeaux
+                    // Positions écran des drapeaux avec perspective
                     val leftScreenX = w * (0.5f + (gate.leftX - 0.5f) * perspectiveFactor)
                     val rightScreenX = w * (0.5f + (gate.rightX - 0.5f) * perspectiveFactor)
                     
@@ -801,7 +828,11 @@ class SlalomActivity : Activity(), SensorEventListener {
         
         private fun drawSkier(canvas: Canvas, w: Int, h: Int) {
             val skierScreenX = skierX * w
-            val skierScreenY = h * 0.9f // Fixe en bas de l'écran
+            
+            // NOUVEAU : Position Y variable selon la vitesse (repère visuel)
+            val baseY = h * 0.8f // Position plus haute
+            val speedOffset = (speed - 35f) * 0.8f // Décalage selon vitesse
+            val skierScreenY = baseY - speedOffset.coerceIn(-40f, 40f)
             
             // Choisir l'image selon la direction
             val currentSkierImage = when {
@@ -810,9 +841,9 @@ class SlalomActivity : Activity(), SensorEventListener {
                 else -> skierNoTurn              // Tout droit
             }
             
-            // Dessiner l'image du skieur
+            // Dessiner l'image du skieur - TAILLE RÉDUITE
             currentSkierImage?.let { bitmap ->
-                val scaleFactor = 0.6f
+                val scaleFactor = 0.4f // Réduit de 0.6f à 0.4f
                 val scaledWidth = bitmap.width * scaleFactor
                 val scaledHeight = bitmap.height * scaleFactor
                 
@@ -830,14 +861,37 @@ class SlalomActivity : Activity(), SensorEventListener {
             } ?: run {
                 // Fallback si les images ne sont pas chargées
                 paint.color = Color.parseColor("#FF6600")
-                canvas.drawCircle(skierScreenX, skierScreenY, 25f, paint)
+                canvas.drawCircle(skierScreenX, skierScreenY, 20f, paint) // Plus petit aussi
             }
             
-            // Effet de vitesse
-            if (speed > 30f) {
-                paint.color = Color.parseColor("#66FFFFFF")
-                for (i in 1..3) {
-                    canvas.drawCircle(skierScreenX, skierScreenY - i * 15f, 15f - i * 3f, paint)
+            // MEILLEUR EFFET DE VITESSE - Traces plus nombreuses et dynamiques
+            if (speed > 25f) {
+                paint.color = Color.parseColor("#88FFFFFF")
+                val trailCount = ((speed - 25f) / 5f).toInt().coerceIn(1, 8) // Plus de traces = plus de vitesse
+                
+                for (i in 1..trailCount) {
+                    val alpha = (255 * (1f - i.toFloat() / trailCount)).toInt()
+                    paint.alpha = alpha
+                    val trailSize = (25f - i * 2f) * (speed / 50f) // Taille variable selon vitesse
+                    canvas.drawCircle(
+                        skierScreenX + (kotlin.random.Random.nextFloat() - 0.5f) * 10f, 
+                        skierScreenY + i * 12f, 
+                        trailSize.coerceAtLeast(3f), 
+                        paint
+                    )
+                }
+                paint.alpha = 255
+                
+                // Particules de neige supplémentaires selon vitesse
+                if (speed > 40f) {
+                    paint.color = Color.WHITE
+                    repeat((speed / 10f).toInt()) {
+                        val particleX = skierScreenX + (kotlin.random.Random.nextFloat() - 0.5f) * 60f
+                        val particleY = skierScreenY + kotlin.random.Random.nextFloat() * 30f
+                        paint.alpha = kotlin.random.Random.nextInt(100, 200)
+                        canvas.drawCircle(particleX, particleY, kotlin.random.Random.nextFloat() * 4f + 1f, paint)
+                    }
+                    paint.alpha = 255
                 }
             }
         }
