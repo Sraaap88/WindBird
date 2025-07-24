@@ -762,6 +762,7 @@ class BobsledActivity : Activity(), SensorEventListener {
             var bobHorizontalOffset = 0f
             var bobVerticalOffset = 0f
             var bobRotation = 0f
+            var bankingHeight = 0f // Déclaration de la variable
             
             val curveType = getCurveType(currentCurveIntensity)
             
@@ -773,7 +774,7 @@ class BobsledActivity : Activity(), SensorEventListener {
                 bobHorizontalOffset = currentCurveIntensity * speedFactor * 80f
                 
                 // NOUVEAU : Banking - montée sur les bords
-                val bankingHeight = centrifugalForce * speedFactor * 60f // Plus prononcé
+                bankingHeight = centrifugalForce * speedFactor * 60f // Plus prononcé
                 bobVerticalOffset = -bankingHeight // Négatif = vers le haut
                 
                 // Rotation du bobsleigh
