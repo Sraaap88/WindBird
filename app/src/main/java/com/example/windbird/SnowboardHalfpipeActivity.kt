@@ -36,11 +36,12 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
     
     // Variables de physique réaliste du halfpipe
     private var riderPosition = 0.5f      // Position sur le halfpipe (0.0 = gauche max, 1.0 = droite max)
-    private var riderHeight = 0.8f        // Hauteur dans le halfpipe (0.0 = fond, 1.0 = coping)
+    private var riderHeight = 0.8f        // Hauteur dans le halfpipe (0.8 = fond, 0.2 = coping)
     private var speed = 8f                // Vitesse actuelle (démarrage avec vitesse de base)
     private var momentum = 0f             // Momentum pour les oscillations
     private var pipeDistance = 0f         // Distance parcourue dans le pipe
     private var verticalVelocity = 0f     // Vélocité verticale (gravity)
+    private var direction = 1f            // Direction du mouvement (-1 = gauche, 1 = droite)
     
     // État physique du rider
     private var isInAir = false
@@ -287,42 +288,54 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
     }
     
     private fun updateHalfpipePhysics() {
-        // Gravité et momentum selon position dans le pipe
-        val pipeAngle = (riderPosition - 0.5f) * PI.toFloat() // Angle de la rampe
-        val gravity = 0.3f
-        
+        // Mouvement de pendule dans le halfpipe
         if (!isInAir) {
-            // Sur la rampe : conversion entre énergie potentielle et cinétique
-            val heightFactor = (1f - riderHeight) // Plus bas = plus de vitesse
-            speed += heightFactor * gravity * cos(pipeAngle)
+            // Calcul de la hauteur selon la position (forme en U)
+            riderHeight = 0.8f - abs(riderPosition - 0.5f) * 0.6f // Plus on s'éloigne du centre, plus on monte
             
-            // Oscillation naturelle du pendule
-            momentum += sin(pipeAngle) * 0.1f
-            riderPosition += momentum * 0.01f
+            // Mouvement oscillatoire de gauche à droite
+            momentum += direction * 0.008f * speed / 15f
+            riderPosition += momentum * 0.02f
             
-            // Contraintes du pipe
-            riderPosition = riderPosition.coerceIn(0.05f, 0.95f)
-            riderHeight = 0.8f + abs(riderPosition - 0.5f) * 0.4f // Forme en U
+            // Rebond sur les bords avec changement de direction
+            if (riderPosition <= 0.1f) {
+                riderPosition = 0.1f
+                direction = 1f // Va vers la droite
+                if (speed > 12f && momentum < -0.3f) {
+                    takeoff() // Envol du mur gauche
+                }
+            } else if (riderPosition >= 0.9f) {
+                riderPosition = 0.9f
+                direction = -1f // Va vers la gauche
+                if (speed > 12f && momentum > 0.3f) {
+                    takeoff() // Envol du mur droit
+                }
+            }
+            
+            // Friction naturelle
+            momentum *= 0.98f
+            
         } else {
             // En l'air : gravité pure
-            verticalVelocity -= gravity * 0.016f
-            riderHeight += verticalVelocity * 0.016f
+            verticalVelocity += 0.015f // Gravité vers le bas
+            riderHeight += verticalVelocity
             airTime += 0.016f
-            altimeter = max(0f, riderHeight - 0.8f) * 100f // Hauteur en "mètres"
+            altimeter = max(0f, (0.8f - riderHeight) * 100f) // Hauteur au-dessus du pipe
             
-            // Atterrissage
-            if (riderHeight <= 0.8f + abs(riderPosition - 0.5f) * 0.4f) {
+            // Mouvement horizontal continue en l'air
+            riderPosition += momentum * 0.01f
+            riderPosition = riderPosition.coerceIn(0.05f, 0.95f)
+            
+            // Atterrissage sur la rampe
+            val expectedHeight = 0.8f - abs(riderPosition - 0.5f) * 0.6f
+            if (riderHeight >= expectedHeight) {
                 landTrick()
             }
         }
         
-        // Mise à jour distance parcourue
+        // Mise à jour distance parcourue pour progression
         pipeDistance += speed * 0.016f
-        pipeScroll = pipeDistance * 0.1f
-        
-        // Historique de vitesse pour analyse
-        speedHistory.add(speed)
-        if (speedHistory.size > 100) speedHistory.removeAt(0)
+        pipeScroll = pipeDistance * 0.05f
     }
     
     private fun handlePumping() {
@@ -390,14 +403,15 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
     
     private fun takeoff() {
         isInAir = true
-        verticalVelocity = speed * 0.08f + pumpEnergy * 0.05f // Hauteur selon vitesse et pump
+        verticalVelocity = -(speed * 0.04f + pumpEnergy * 0.03f) // Vitesse vers le haut
         airTime = 0f
         wallBounceEffect = 0.5f
         
+        // Conserver le momentum horizontal
+        // momentum reste inchangé pour continuer le mouvement en l'air
+        
         // Métriques d'amplitude
-        val projectedHeight = verticalVelocity * 8f
-        amplitude = max(amplitude, projectedHeight)
-        maxHeight = max(maxHeight, projectedHeight)
+        amplitude = max(amplitude, abs(momentum) * speed * 0.1f)
         
         // Préparation pour tricks
         trickPhase = TrickPhase.TAKEOFF
@@ -522,7 +536,9 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         isInAir = false
         airTime = 0f
         verticalVelocity = 0f
-        riderHeight = 0.8f + abs(riderPosition - 0.5f) * 0.4f
+        
+        // Remettre à la bonne hauteur sur la rampe
+        riderHeight = 0.8f - abs(riderPosition - 0.5f) * 0.6f
         maxAirTime = max(maxAirTime, airTime)
         
         if (currentTrick != TrickType.NONE && trickProgress > 0.3f) {
@@ -540,8 +556,8 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
                 variety -= 1f // Pénalité répétition
             }
             
-            // Quality du landing
-            val landingQuality = 1f - abs(landingBalance - 0.5f) * 2f
+            // Quality du landing basée sur l'équilibre
+            val landingQuality = 1f - abs(tiltX) * 0.5f - abs(tiltY) * 0.3f
             if (landingQuality > 0.8f) {
                 perfectLandings++
                 style += 3f
@@ -549,6 +565,7 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
                 style += 1f
             } else {
                 style -= 2f // Mauvais landing
+                speed *= 0.9f // Perte de vitesse
             }
             
             lastTrickType = currentTrick
@@ -558,6 +575,7 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             style -= 3f
             flow -= 2f
             trickCombo = 0
+            speed *= 0.85f
         }
         
         currentTrick = TrickType.NONE
@@ -891,89 +909,74 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             canvas.drawRect(0f, 0f, w.toFloat(), h * 0.3f, paint)
             paint.shader = null
             
-            // Halfpipe qui défile avec forme en U améliorée
-            val scrollOffset = (pipeScroll * 2f) % 150f // Plus rapide et visible
-            
-            // Mur gauche du halfpipe (forme en U)
-            reusablePath.reset()
-            reusablePath.moveTo(0f, h * 0.3f)
-            reusablePath.quadTo(w * 0.15f, h * 0.45f, w * 0.3f, h * 0.7f) // Courbe plus douce
-            reusablePath.quadTo(w * 0.35f, h * 0.85f, w * 0.4f, h.toFloat()) // Transition vers le fond
-            reusablePath.lineTo(0f, h.toFloat())
-            reusablePath.close()
-            
+            // Vue depuis l'intérieur du halfpipe - forme en U claire
             paint.color = Color.WHITE
-            paint.style = Paint.Style.FILL
+            
+            // Mur gauche du halfpipe (courbe douce)
+            reusablePath.reset()
+            reusablePath.moveTo(0f, h * 0.3f)                    // Haut gauche
+            reusablePath.quadTo(w * 0.1f, h * 0.6f, w * 0.3f, h * 0.85f)  // Courbe vers le fond
+            reusablePath.lineTo(w * 0.3f, h.toFloat())           // Bas
+            reusablePath.lineTo(0f, h.toFloat())                 // Coin bas gauche
+            reusablePath.close()
             canvas.drawPath(reusablePath, paint)
             
             // Mur droit du halfpipe (symétrique)
             reusablePath.reset()
-            reusablePath.moveTo(w.toFloat(), h * 0.3f)
-            reusablePath.quadTo(w * 0.85f, h * 0.45f, w * 0.7f, h * 0.7f)
-            reusablePath.quadTo(w * 0.65f, h * 0.85f, w * 0.6f, h.toFloat())
-            reusablePath.lineTo(w.toFloat(), h.toFloat())
+            reusablePath.moveTo(w.toFloat(), h * 0.3f)           // Haut droit
+            reusablePath.quadTo(w * 0.9f, h * 0.6f, w * 0.7f, h * 0.85f)  // Courbe vers le fond
+            reusablePath.lineTo(w * 0.7f, h.toFloat())           // Bas
+            reusablePath.lineTo(w.toFloat(), h.toFloat())        // Coin bas droit
             reusablePath.close()
-            
             canvas.drawPath(reusablePath, paint)
             
-            // Fond du halfpipe (partie plate)
+            // Fond plat du halfpipe (milieu)
             paint.color = Color.parseColor("#F8F8F8")
-            reusableRectF.set(w * 0.4f, h * 0.85f, w * 0.6f, h.toFloat())
+            reusableRectF.set(w * 0.3f, h * 0.85f, w * 0.7f, h.toFloat())
             canvas.drawRect(reusableRectF, paint)
             
-            // Lignes de perspective qui BOUGENT pour montrer la vitesse
+            // Lignes de perspective qui montrent la progression
             paint.color = Color.parseColor("#DDDDDD")
-            paint.strokeWidth = 3f
+            paint.strokeWidth = 2f
             paint.style = Paint.Style.STROKE
             
-            for (i in 0..12) {
-                val lineDistance = i * 60f - scrollOffset
-                val yPos = h * 0.6f + lineDistance * 1.5f
-                
-                if (yPos > h * 0.3f && yPos < h.toFloat()) {
-                    val perspective = (yPos - h * 0.3f) / (h * 0.7f)
-                    val width = w * (0.2f + perspective * 0.4f)
-                    val centerX = w / 2f
-                    
-                    // Ligne courbée pour suivre la forme du halfpipe
+            val scrollOffset = pipeScroll % 80f
+            for (i in 0..8) {
+                val lineY = h * 0.85f + i * 40f - scrollOffset
+                if (lineY < h.toFloat() && lineY > h * 0.3f) {
+                    // Ligne qui suit la forme du U
                     reusablePath.reset()
-                    reusablePath.moveTo(centerX - width/2f, yPos)
-                    reusablePath.quadTo(centerX, yPos + perspective * 15f, centerX + width/2f, yPos)
+                    reusablePath.moveTo(w * 0.3f, lineY)                    // Gauche du fond
+                    reusablePath.quadTo(w * 0.5f, lineY + 5f, w * 0.7f, lineY)  // Courbe légère
                     canvas.drawPath(reusablePath, paint)
                 }
             }
             
-            // Bords du halfpipe
+            // Bords/copings du halfpipe
             paint.color = Color.parseColor("#CCCCCC")
             paint.strokeWidth = 4f
             
-            // Bord gauche
-            reusablePath.reset()
-            reusablePath.moveTo(0f, h * 0.3f)
-            reusablePath.quadTo(w * 0.15f, h * 0.45f, w * 0.3f, h * 0.7f)
-            canvas.drawPath(reusablePath, paint)
-            
-            // Bord droit
-            reusablePath.reset()
-            reusablePath.moveTo(w.toFloat(), h * 0.3f)
-            reusablePath.quadTo(w * 0.85f, h * 0.45f, w * 0.7f, h * 0.7f)
-            canvas.drawPath(reusablePath, paint)
+            // Coping gauche
+            canvas.drawLine(0f, h * 0.3f, w * 0.3f, h * 0.85f, paint)
+            // Coping droit
+            canvas.drawLine(w.toFloat(), h * 0.3f, w * 0.7f, h * 0.85f, paint)
             
             paint.style = Paint.Style.FILL
         }
         
         private fun drawSnowboarderFromBehind(canvas: Canvas, w: Int, h: Int) {
-            // Position du snowboarder sur l'écran
-            val riderScreenX = w * riderPosition
-            val riderScreenY = h * riderHeight
+            // Position du snowboarder qui suit la forme du halfpipe
+            val riderScreenX = w * riderPosition // Position horizontale selon riderPosition
+            val riderScreenY = h * riderHeight   // Position verticale selon riderHeight
             
             canvas.save()
             canvas.translate(riderScreenX, riderScreenY)
             
-            // Rotation selon les tricks et position dans le halfpipe
-            val baseRotation = (riderPosition - 0.5f) * 20f // Inclinaison selon position
-            canvas.rotate(baseRotation)
+            // Rotation selon la position sur la rampe (inclinaison naturelle)
+            val slopeAngle = (riderPosition - 0.5f) * 30f // Plus on s'éloigne du centre, plus on s'incline
+            canvas.rotate(slopeAngle)
             
+            // Rotations pour les tricks
             when (currentTrick) {
                 TrickType.SPIN -> canvas.rotate(trickRotation * 0.8f)
                 TrickType.FLIP -> canvas.rotate(trickFlip * 0.6f)
@@ -983,8 +986,8 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
                 else -> {}
             }
             
-            // Échelle selon la distance (effet de profondeur)
-            val scale = if (isInAir) 1.2f + altimeter * 0.02f else 1f
+            // Échelle selon si en l'air ou pas
+            val scale = if (isInAir) 1.1f else 1f
             canvas.scale(scale, scale)
             
             // Utiliser l'image du snowboarder
@@ -995,8 +998,7 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             }
             
             snowboarderImage?.let { image ->
-                // Ajuster l'échelle de l'image
-                val imageScale = 0.8f // Échelle de base
+                val imageScale = 0.6f
                 val imageWidth = image.width * imageScale
                 val imageHeight = image.height * imageScale
                 
@@ -1011,34 +1013,25 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             } ?: run {
                 // Fallback si pas d'image
                 paint.color = Color.parseColor("#FF6600")
-                canvas.drawCircle(0f, 0f, 25f, paint)
+                canvas.drawCircle(0f, 0f, 20f, paint)
                 
                 // Snowboard
                 paint.color = Color.parseColor("#4400FF")
-                canvas.drawRoundRect(-30f, 25f, 30f, 35f, 5f, 5f, paint)
+                canvas.drawRoundRect(-25f, 15f, 25f, 25f, 5f, 5f, paint)
             }
             
             canvas.restore()
             
-            // Effet de mur si proche des bords avec plus de visibilité
-            if (wallBounceEffect > 0f) {
+            // Trail de mouvement selon la direction
+            if (abs(momentum) > 0.1f) {
                 paint.color = Color.parseColor("#60FFFFFF")
-                paint.alpha = (wallBounceEffect * 200).toInt()
-                canvas.drawCircle(riderScreenX, riderScreenY, wallBounceEffect * 80f, paint)
-                paint.alpha = 255
-            }
-            
-            // Trainée de vitesse si rapide
-            if (speed > 15f) {
-                paint.color = Color.parseColor("#40FFFFFF")
                 for (i in 1..3) {
-                    canvas.drawCircle(
-                        riderScreenX, 
-                        riderScreenY + i * 20f, 
-                        (4f - i) * (speed / 25f) * 8f, 
-                        paint
-                    )
+                    val trailX = riderScreenX - momentum * i * 30f
+                    val trailAlpha = (255 * (1f - i * 0.3f)).toInt()
+                    paint.alpha = trailAlpha
+                    canvas.drawCircle(trailX, riderScreenY, (4f - i) * 6f, paint)
                 }
+                paint.alpha = 255
             }
         }
         
