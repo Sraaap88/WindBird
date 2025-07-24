@@ -30,8 +30,12 @@ class BiathlonActivity : Activity(), SensorEventListener {
     private var distance = 0f
     private val screenDistance = 600f // Distance pour traverser un écran
     private var backgroundOffset = 0f
-    private var currentScreen = 1 // 1-6 (Écran 1, 2, TIR, 4, 5, STATS)
+    private var currentScreen = 0 // 0=PREPARATION, 1-6 (Écran 1, 2, TIR, 4, 5, STATS)
     private var skierX = 0.1f // Position relative du skieur (0.0 à 1.0)
+    
+    // NOUVEAU - Variables pour la préparation
+    private var preparationTimer = 0L
+    private var preparationStarted = false
     
     // NOUVEAU - Système de poussées rythmées avec performance
     private var pushDirection = 0 // -1=gauche, 0=neutre, 1=droite
@@ -107,10 +111,15 @@ class BiathlonActivity : Activity(), SensorEventListener {
         layout.addView(statusText)
         layout.addView(gameView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         setContentView(layout)
+        
+        // NOUVEAU - Démarrer la phase de préparation
+        preparationTimer = System.currentTimeMillis()
+        preparationStarted = true
     }
 
     private fun getScreenName(): String {
         return when (currentScreen) {
+            0 -> "🏁 Préparation"
             1 -> "🌲 Forêt - Écran 1"
             2 -> "🏔️ Montagne - Écran 2" 
             3 -> "🎯 Zone de tir"
@@ -128,13 +137,13 @@ class BiathlonActivity : Activity(), SensorEventListener {
             val totalWidth = spriteSheet.width
             val totalHeight = spriteSheet.height
             
-            // CORRECTION : Éliminer complètement le cadre noir - 2 pixels supplémentaires par côté
-            val frameWidth = (totalWidth - 21) / 2  // -21 = cadres + marges supplémentaires
-            val frameHeight = totalHeight - 14      // -14 = cadres haut/bas + marges
+            // CORRECTION : Éliminer complètement le cadre noir - encore 2 pixels supplémentaires
+            val frameWidth = (totalWidth - 25) / 2  // -25 = cadres + marges supplémentaires
+            val frameHeight = totalHeight - 18      // -18 = cadres haut/bas + marges
             
-            // Extraire les frames en évitant les bordures noires - décalage augmenté
-            leftFrame = Bitmap.createBitmap(spriteSheet, 7, 7, frameWidth, frameHeight)
-            rightFrame = Bitmap.createBitmap(spriteSheet, 14 + frameWidth, 7, frameWidth, frameHeight)
+            // Extraire les frames en évitant les bordures noires - décalage encore augmenté
+            leftFrame = Bitmap.createBitmap(spriteSheet, 9, 9, frameWidth, frameHeight)
+            rightFrame = Bitmap.createBitmap(spriteSheet, 16 + frameWidth, 9, frameWidth, frameHeight)
             
             // Redimensionner
             val newWidth = frameWidth / 3
@@ -143,15 +152,17 @@ class BiathlonActivity : Activity(), SensorEventListener {
             leftFrame = Bitmap.createScaledBitmap(leftFrame, newWidth, newHeight, true)
             rightFrame = Bitmap.createScaledBitmap(rightFrame, newWidth, newHeight, true)
             
-            // NOUVEAU - Charger l'image happy pour l'écran final
+            // NOUVEAU - Charger l'image happy pour l'écran final (plus petite)
             try {
                 val happyBitmap = BitmapFactory.decodeResource(resources, R.drawable.skidefond_happy)
-                val happyWidth = happyBitmap.width / 3
-                val happyHeight = happyBitmap.height / 3
+                val happyWidth = happyBitmap.width / 4  // Plus petit que les autres (÷4 au lieu de ÷3)
+                val happyHeight = happyBitmap.height / 4
                 happyFrame = Bitmap.createScaledBitmap(happyBitmap, happyWidth, happyHeight, true)
             } catch (e: Exception) {
-                // Si l'image happy n'existe pas, utiliser leftFrame
-                happyFrame = leftFrame
+                // Si l'image happy n'existe pas, utiliser leftFrame mais plus petit
+                val smallWidth = leftFrame.width * 3 / 4  // 75% de la taille normale
+                val smallHeight = leftFrame.height * 3 / 4
+                happyFrame = Bitmap.createScaledBitmap(leftFrame, smallWidth, smallHeight, true)
             }
             
             currentFrame = leftFrame
@@ -176,6 +187,14 @@ class BiathlonActivity : Activity(), SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent) {
+        // NOUVEAU - Pas de contrôles pendant la préparation
+        if (currentScreen == 0) {
+            handleScreenTransitions()
+            updateStatus()
+            gameView.invalidate()
+            return
+        }
+        
         when (event.sensor.type) {
             Sensor.TYPE_GYROSCOPE -> {
                 val x = event.values[0]
@@ -207,6 +226,16 @@ class BiathlonActivity : Activity(), SensorEventListener {
     }
 
     private fun handleScreenTransitions() {
+        // NOUVEAU - Gestion de l'écran de préparation
+        if (currentScreen == 0 && preparationStarted) {
+            if (System.currentTimeMillis() - preparationTimer > 5000) {
+                currentScreen = 1 // Passer au premier écran de ski
+                preparationStarted = false
+                gameState = GameState.SKIING
+            }
+            return
+        }
+        
         when (gameState) {
             GameState.SKIING -> {
                 // Écrans 1 et 2 : passer au tir après écran 2
@@ -385,11 +414,13 @@ class BiathlonActivity : Activity(), SensorEventListener {
     }
 
     private fun updateStatus() {
-        statusText.text = when (gameState) {
-            GameState.SKIING -> "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | ${getScreenName()} | Rythme: ${(rhythmBonus * 100).toInt()}%"
-            GameState.SHOOTING -> "🎯 ${tournamentData.playerNames[currentPlayerIndex]} | Tir ${shotsFired}/5 | Score: ${totalScore} pts"
-            GameState.FINAL_SKIING -> "🏁 ${tournamentData.playerNames[currentPlayerIndex]} | ${getScreenName()} | Sprint final!"
-            GameState.FINISHED -> "📊 ${tournamentData.playerNames[currentPlayerIndex]} | Analyse des performances..."
+        statusText.text = when {
+            currentScreen == 0 -> "🏁 ${tournamentData.playerNames[currentPlayerIndex]} | Préparation - ${5 - (System.currentTimeMillis() - preparationTimer) / 1000}s"
+            gameState == GameState.SKIING -> "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | ${getScreenName()} | Rythme: ${(rhythmBonus * 100).toInt()}%"
+            gameState == GameState.SHOOTING -> "🎯 ${tournamentData.playerNames[currentPlayerIndex]} | Tir ${shotsFired}/5 | Score: ${totalScore} pts"
+            gameState == GameState.FINAL_SKIING -> "🏁 ${tournamentData.playerNames[currentPlayerIndex]} | ${getScreenName()} | Sprint final!"
+            gameState == GameState.FINISHED -> "📊 ${tournamentData.playerNames[currentPlayerIndex]} | Analyse des performances..."
+            else -> "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | ${getScreenName()}"
         }
     }
 
@@ -465,6 +496,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
             val h = canvas.height
             
             when (currentScreen) {
+                0 -> drawPreparationScreen(canvas, w, h)
                 1 -> drawForestScreen(canvas, w, h)
                 2 -> drawMountainScreen(canvas, w, h) 
                 3 -> drawShootingScreen(canvas, w, h)
@@ -472,6 +504,133 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 5 -> drawFinishScreen(canvas, w, h)
                 6 -> drawStatsScreen(canvas, w, h)
             }
+        }
+        
+        // NOUVEAU - Écran de préparation avec image et instructions
+        private fun drawPreparationScreen(canvas: Canvas, w: Int, h: Int) {
+            // Fond blanc
+            paint.color = Color.WHITE
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            
+            // Charger et afficher l'image biathlon_track.png
+            try {
+                val trackImage = BitmapFactory.decodeResource(context.resources, R.drawable.biathlon_track)
+                val scaledTrack = Bitmap.createScaledBitmap(trackImage, w, h, true)
+                canvas.drawBitmap(scaledTrack, 0f, 0f, null)
+            } catch (e: Exception) {
+                // Si l'image n'existe pas, fond bleu hivernal
+                paint.color = Color.parseColor("#87CEEB")
+                canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            }
+            
+            // DRAPEAU DU PAYS en haut à gauche (GROS)
+            val flagSize = 120f
+            val flagX = 30f
+            val flagY = 50f
+            
+            // Dessiner le drapeau selon le pays du joueur
+            val playerCountry = tournamentData.playerCountries[currentPlayerIndex]
+            drawCountryFlag(canvas, flagX, flagY, flagSize, playerCountry)
+            
+            // Temps restant en très gros
+            val timeLeft = 5 - (System.currentTimeMillis() - preparationTimer) / 1000
+            paint.color = Color.parseColor("#FF0000")
+            paint.textSize = 120f
+            paint.textAlign = Paint.Align.CENTER
+            paint.isFakeBoldText = true
+            canvas.drawText("$timeLeft", w/2f, h * 0.25f, paint)
+            
+            // TITRE PRINCIPAL
+            paint.color = Color.parseColor("#000080")
+            paint.textSize = 60f
+            canvas.drawText("🎿 BIATHLON 🎯", w/2f, h * 0.4f, paint)
+            
+            // INSTRUCTIONS EN GROS ET GRAS
+            paint.color = Color.parseColor("#8B0000")
+            paint.textSize = 45f
+            paint.isFakeBoldText = true
+            
+            val instructions = listOf(
+                "📱 TOURNEZ LE TÉLÉPHONE",
+                "🔄 ALTERNEZ GAUCHE-DROITE",
+                "🎯 VISEZ LE CENTRE ROUGE",
+                "🏃 GARDEZ LE RYTHME!"
+            )
+            
+            var yPos = h * 0.55f
+            for (instruction in instructions) {
+                canvas.drawText(instruction, w/2f, yPos, paint)
+                yPos += 60f
+            }
+            
+            // Message de départ
+            paint.color = Color.parseColor("#006400")
+            paint.textSize = 50f
+            canvas.drawText("PRÉPAREZ-VOUS!", w/2f, h * 0.9f, paint)
+            
+            paint.isFakeBoldText = false
+        }
+        
+        // NOUVEAU - Fonction pour dessiner les drapeaux de pays
+        private fun drawCountryFlag(canvas: Canvas, x: Float, y: Float, size: Float, country: String) {
+            when (country.uppercase()) {
+                "FRANCE", "FR" -> {
+                    // Drapeau français
+                    paint.color = Color.parseColor("#0055A4") // Bleu
+                    canvas.drawRect(x, y, x + size/3, y + size * 0.7f, paint)
+                    paint.color = Color.WHITE // Blanc
+                    canvas.drawRect(x + size/3, y, x + 2*size/3, y + size * 0.7f, paint)
+                    paint.color = Color.parseColor("#EF4135") // Rouge
+                    canvas.drawRect(x + 2*size/3, y, x + size, y + size * 0.7f, paint)
+                }
+                "CANADA", "CA" -> {
+                    // Drapeau canadien
+                    paint.color = Color.parseColor("#FF0000") // Rouge
+                    canvas.drawRect(x, y, x + size/4, y + size * 0.7f, paint)
+                    canvas.drawRect(x + 3*size/4, y, x + size, y + size * 0.7f, paint)
+                    paint.color = Color.WHITE // Blanc
+                    canvas.drawRect(x + size/4, y, x + 3*size/4, y + size * 0.7f, paint)
+                    // Feuille d'érable simplifiée
+                    paint.color = Color.parseColor("#FF0000")
+                    canvas.drawCircle(x + size/2, y + size * 0.35f, 15f, paint)
+                }
+                "USA", "US" -> {
+                    // Drapeau américain simplifié
+                    paint.color = Color.parseColor("#B22234") // Rouge
+                    canvas.drawRect(x, y, x + size, y + size * 0.7f, paint)
+                    paint.color = Color.WHITE // Bandes blanches
+                    for (i in 1..6) {
+                        canvas.drawRect(x, y + i * size * 0.7f / 13 * 2, x + size, y + (i * 2 + 1) * size * 0.7f / 13, paint)
+                    }
+                    paint.color = Color.parseColor("#3C3B6E") // Bleu
+                    canvas.drawRect(x, y, x + size * 0.4f, y + size * 0.35f, paint)
+                }
+                "GERMANY", "DE" -> {
+                    // Drapeau allemand
+                    paint.color = Color.BLACK
+                    canvas.drawRect(x, y, x + size, y + size * 0.7f / 3, paint)
+                    paint.color = Color.parseColor("#DD0000") // Rouge
+                    canvas.drawRect(x, y + size * 0.7f / 3, x + size, y + 2 * size * 0.7f / 3, paint)
+                    paint.color = Color.parseColor("#FFCE00") // Jaune
+                    canvas.drawRect(x, y + 2 * size * 0.7f / 3, x + size, y + size * 0.7f, paint)
+                }
+                else -> {
+                    // Drapeau générique (bleu-blanc-rouge)
+                    paint.color = Color.parseColor("#0055A4")
+                    canvas.drawRect(x, y, x + size/3, y + size * 0.7f, paint)
+                    paint.color = Color.WHITE
+                    canvas.drawRect(x + size/3, y, x + 2*size/3, y + size * 0.7f, paint)
+                    paint.color = Color.parseColor("#EF4135")
+                    canvas.drawRect(x + 2*size/3, y, x + size, y + size * 0.7f, paint)
+                }
+            }
+            
+            // Bordure du drapeau
+            paint.color = Color.BLACK
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 3f
+            canvas.drawRect(x, y, x + size, y + size * 0.7f, paint)
+            paint.style = Paint.Style.FILL
         }
         
         private fun drawForestScreen(canvas: Canvas, w: Int, h: Int) {
@@ -749,9 +908,9 @@ class BiathlonActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#FFD700")
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
-            // Skieur au centre (utilise happyFrame automatiquement)
+            // Skieur au centre (utilise happyFrame automatiquement) - PLUS PETIT ET PLUS HAUT
             val skierScreenX = w * skierX
-            val skierY = h * 0.7f
+            val skierY = h * 0.6f  // Plus haut (était 0.7f)
             
             currentFrame?.let { frame ->
                 val destX = skierScreenX - frame.width / 2f
