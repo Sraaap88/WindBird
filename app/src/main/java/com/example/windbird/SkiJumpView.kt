@@ -295,7 +295,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         if (activity.getTapCount() < 2) {
             // RESTE EN BAS jusqu'aux 2 taps
             skierY = h * 0.9f
-            scale = 1.2f // TRÈS GROS au début (10x plus gros qu'en haut)
+            scale = 0.84f // 30% plus petit que 1.2f
         } else {
             // PROGRESSION normale après les 2 taps
             val approachProgress = activity.getPhaseTimer() / activity.getApproachDuration()
@@ -303,7 +303,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
             val combinedProgress = (speedProgress * 0.7f + approachProgress * 0.3f).coerceIn(0f, 1f)
             
             skierY = h * (0.9f - combinedProgress * 0.85f)
-            scale = 1.2f - combinedProgress * 1.08f // De 1.2f à 0.12f (10x plus petit)
+            scale = 0.84f - combinedProgress * 0.72f // De 0.84f à 0.12f
         }
         
         skierBitmap?.let { bmp ->
@@ -466,8 +466,8 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         canvas.translate(skierX, skierY)
         canvas.rotate(rotation)
         
-        // PERSPECTIVE - de très gros à petit
-        val scale = 4.0f - takeoffProgress * 3.85f // De 4.0f à 0.15f
+        // PERSPECTIVE - dimension fixe comme avant (pas de changement)
+        val scale = 0.4f // Taille constante pendant le saut
         
         val currentBitmap = if (criticalZone && userIsPulling) {
             skierFlightBitmap
