@@ -38,7 +38,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     private val totalDistance = 1500f
     private var playerSpeed = 0f
     
-    // Animation et rythme - CORRIGÉ
+    // Animation et rythme - OPTIMISÉ
     private var playerAnimFrame = 0
     private var lastStrokeTime = 0L
     private var previousStrokeTime = 0L
@@ -55,11 +55,21 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     private var victoryAnimationProgress = 0f
     private var victoryAnimationStarted = false
     
-    // Contrôles gyroscope - LOGIQUE CORRIGÉE
+    // Contrôles gyroscope - DÉTECTION AMÉLIORÉE
     private var tiltX = 0f
     private var lastTiltDirection = 0
     private var expectingLeft = true
     private var currentTiltState = TiltState.CENTER
+    
+    // OPTIMISATION : Seuils unifiés et calibration
+    private val TILT_THRESHOLD = 0.5f  // Seuil unifié pour détection et état
+    private val DETECTION_THRESHOLD = 0.6f  // Seuil plus élevé pour validation du mouvement
+    private val MIN_STROKE_INTERVAL = 200L  // Minimum entre deux coups
+    
+    // OPTIMISATION : Variables pour réduire les calculs
+    private var lastFrameTime = 0L
+    private val TARGET_FRAME_INTERVAL = 40L // ~25 FPS pour les animations
+    private var needsRedraw = true
     
     private var raceTime = 0f
     private var playerFinished = false
@@ -128,6 +138,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         playerFinished = false
         finalScore = 0
         scoreCalculated = false
+        lastFrameTime = 0L
+        needsRedraw = true
     }
 
     override fun onResume() {
@@ -143,13 +155,28 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type != Sensor.TYPE_GYROSCOPE) return
 
-        tiltX = event.values[0]
+        // OPTIMISATION : Contrôle de framerate
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastFrameTime < TARGET_FRAME_INTERVAL) {
+            return
+        }
+        lastFrameTime = currentTime
+
+        // AMÉLIORATION DÉTECTION : Filtrage du bruit gyroscope
+        val filteredTiltX = if (abs(event.values[0]) > 0.1f) event.values[0] else 0f
+        tiltX = tiltX * 0.8f + filteredTiltX * 0.2f // Lissage
         
-        // Mise à jour de l'état d'inclinaison
-        currentTiltState = when {
-            tiltX < -0.4f -> TiltState.LEFT
-            tiltX > 0.4f -> TiltState.RIGHT
+        // AMÉLIORATION : Mise à jour de l'état d'inclinaison avec seuils unifiés
+        val newTiltState = when {
+            tiltX < -TILT_THRESHOLD -> TiltState.LEFT
+            tiltX > TILT_THRESHOLD -> TiltState.RIGHT
             else -> TiltState.CENTER
+        }
+        
+        // OPTIMISATION : Ne redessiner que si l'état change
+        if (newTiltState != currentTiltState) {
+            currentTiltState = newTiltState
+            needsRedraw = true
         }
 
         phaseTimer += 0.025f
@@ -169,13 +196,19 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         }
 
         updateStatus()
-        gameView.invalidate()
+        
+        // OPTIMISATION : Redessiner seulement si nécessaire
+        if (needsRedraw) {
+            gameView.invalidate()
+            needsRedraw = false
+        }
     }
     
     private fun handlePreparation() {
         if (phaseTimer >= preparationDuration) {
-            gameState = GameState.COUNTDOWN
+            gameState = GameState.PREPARATION
             phaseTimer = 0f
+            needsRedraw = true
         }
     }
     
@@ -184,6 +217,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             gameState = GameState.RACE
             phaseTimer = 0f
             raceTime = 0f
+            needsRedraw = true
         }
     }
     
@@ -192,6 +226,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             calculateFinalScore()
             gameState = GameState.RESULTS
             phaseTimer = 0f
+            needsRedraw = true
             return
         }
         
@@ -200,112 +235,120 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         checkFinishLine()
     }
     
-    // LOGIQUE CORRIGÉE du rythme
+    // LOGIQUE AMÉLIORÉE du rythme avec détection optimisée
     private fun handleRhythmicSkating() {
         val currentTime = System.currentTimeMillis()
-        val minInterval = 200L
         
-        if (currentTime - lastStrokeTime > minInterval) {
-            var strokeDetected = false
-            var strokeQuality = 0f
+        // AMÉLIORATION : Vérification d'intervalle minimum plus robuste
+        if (currentTime - lastStrokeTime <= MIN_STROKE_INTERVAL) {
+            return
+        }
+        
+        var strokeDetected = false
+        var strokeQuality = 0f
+        
+        // AMÉLIORATION DÉTECTION : Seuils plus précis et validation croisée
+        if (expectingLeft && tiltX < -DETECTION_THRESHOLD && currentTiltState == TiltState.LEFT) {
+            strokeDetected = true
+            strokeQuality = calculateStrokeQuality(tiltX)
+            expectingLeft = false
+            lastTiltDirection = -1
             
-            // Détection des poussées avec seuils corrigés
-            if (expectingLeft && tiltX < -0.6f) {
-                strokeDetected = true
-                strokeQuality = calculateStrokeQuality(tiltX)
-                expectingLeft = false
-                lastTiltDirection = -1
-                
-            } else if (!expectingLeft && tiltX > 0.6f) {
-                strokeDetected = true
-                strokeQuality = calculateStrokeQuality(tiltX)
-                expectingLeft = true
-                lastTiltDirection = 1
+        } else if (!expectingLeft && tiltX > DETECTION_THRESHOLD && currentTiltState == TiltState.RIGHT) {
+            strokeDetected = true
+            strokeQuality = calculateStrokeQuality(tiltX)
+            expectingLeft = true
+            lastTiltDirection = 1
+        }
+        
+        if (strokeDetected) {
+            // CORRECTION : Calcul d'intervalle fixé
+            val intervalSinceLastStroke = if (previousStrokeTime > 0) {
+                currentTime - previousStrokeTime
+            } else {
+                500L // Premier coup - intervalle de référence
             }
             
-            if (strokeDetected) {
-                // CORRECTION : Calculer l'intervalle avec le coup PRÉCÉDENT
-                val intervalSinceLastStroke = if (previousStrokeTime > 0) {
-                    currentTime - previousStrokeTime
-                } else {
-                    500L // Premier coup - intervalle par défaut
-                }
-                
-                // Mettre à jour les temps
-                previousStrokeTime = lastStrokeTime
-                lastStrokeTime = currentTime
-                strokeCount++
-                
-                // Animation
-                playerAnimFrame = (playerAnimFrame + 1) % 8
-                
-                // CALCUL CORRIGÉ du rythme
-                val rhythmQuality = calculateRhythmQuality(intervalSinceLastStroke)
-                currentStrokeQuality = strokeQuality
-                currentRhythmQuality = rhythmQuality
-                
-                // Mise à jour du rythme global avec pondération
-                playerRhythm = (playerRhythm * 0.7f + rhythmQuality * 0.3f).coerceIn(0f, 1f)
-                
-                // Gain de vitesse
-                val combinedQuality = (strokeQuality * 0.6f + rhythmQuality * 0.4f)
-                val speedGain = combinedQuality * 1.5f
-                
-                playerSpeed += speedGain
-                playerSpeed = playerSpeed.coerceAtMost(7f)
-                
-                // Historique de performance pour la bande
-                val overallPerformance = (strokeQuality + rhythmQuality) / 2f
-                performanceHistory.add(overallPerformance)
-                if (performanceHistory.size > 20) {
-                    performanceHistory.removeAt(0)
-                }
-                
-                // Bonus pour coups parfaits
-                if (strokeQuality > 0.7f && rhythmQuality > 0.7f) {
-                    perfectStrokes++
-                }
+            // Mettre à jour les temps CORRECTEMENT
+            previousStrokeTime = lastStrokeTime
+            lastStrokeTime = currentTime
+            strokeCount++
+            
+            // Animation
+            playerAnimFrame = (playerAnimFrame + 1) % 8
+            
+            // CALCUL AMÉLIORÉ du rythme
+            val rhythmQuality = calculateRhythmQuality(intervalSinceLastStroke)
+            currentStrokeQuality = strokeQuality
+            currentRhythmQuality = rhythmQuality
+            
+            // Mise à jour du rythme global avec pondération améliorée
+            playerRhythm = (playerRhythm * 0.75f + rhythmQuality * 0.25f).coerceIn(0f, 1f)
+            
+            // Gain de vitesse optimisé
+            val combinedQuality = (strokeQuality * 0.6f + rhythmQuality * 0.4f)
+            val speedGain = combinedQuality * 1.5f
+            
+            playerSpeed += speedGain
+            playerSpeed = playerSpeed.coerceAtMost(7f)
+            
+            // OPTIMISATION : Gérer l'historique plus efficacement
+            performanceHistory.add((strokeQuality + rhythmQuality) / 2f)
+            if (performanceHistory.size > 20) {
+                performanceHistory.removeFirst() // Plus efficace que removeAt(0)
             }
+            
+            // Bonus pour coups parfaits
+            if (strokeQuality > 0.7f && rhythmQuality > 0.7f) {
+                perfectStrokes++
+            }
+            
+            needsRedraw = true
         }
         
         // Décélération naturelle
         playerSpeed *= 0.995f
     }
     
+    // AMÉLIORATION : Calcul de qualité plus précis
     private fun calculateStrokeQuality(tilt: Float): Float {
         val amplitude = abs(tilt)
         return when {
-            amplitude >= 1.0f -> 1f        // Excellent - gros mouvement
-            amplitude >= 0.8f -> 0.85f     // Très bon
-            amplitude >= 0.6f -> 0.7f      // Bon
-            amplitude >= 0.4f -> 0.5f      // Moyen
-            else -> 0.3f                   // Faible
+            amplitude >= 1.2f -> 1f        // Excellent - mouvement très ample
+            amplitude >= 1.0f -> 0.9f      // Très bon
+            amplitude >= 0.8f -> 0.75f     // Bon
+            amplitude >= 0.6f -> 0.6f      // Correct (seuil de détection)
+            amplitude >= 0.4f -> 0.4f      // Faible
+            else -> 0.2f                   // Très faible
         }.coerceIn(0f, 1f)
     }
     
-    // NOUVEAU calcul du rythme plus clair
+    // AMÉLIORATION : Calcul du rythme avec tolérances ajustées
     private fun calculateRhythmQuality(intervalMs: Long): Float {
-        // Rythme idéal : 400-600ms entre les coups
+        // Rythme idéal : 400-600ms entre les coups avec tolérance élargie
         return when {
-            intervalMs < 250L -> 0.2f      // Trop rapide
-            intervalMs < 350L -> 0.6f      // Un peu rapide
+            intervalMs < 200L -> 0.1f      // Beaucoup trop rapide
+            intervalMs < 300L -> 0.4f      // Trop rapide
+            intervalMs < 350L -> 0.7f      // Un peu rapide mais acceptable
             intervalMs in 350L..650L -> 1f  // PARFAIT
-            intervalMs < 900L -> 0.7f      // Un peu lent
-            intervalMs < 1200L -> 0.4f     // Trop lent
+            intervalMs < 800L -> 0.8f      // Un peu lent mais bon
+            intervalMs < 1000L -> 0.5f     // Lent
+            intervalMs < 1500L -> 0.3f     // Trop lent
             else -> 0.1f                   // Beaucoup trop lent
         }.coerceIn(0f, 1f)
     }
     
     private fun updatePositions() {
         if (!playerFinished) {
-            // CORRECTION : 25% plus rapide pour éviter l'ennui (9 épreuves au total)
             playerDistance += playerSpeed * 0.025f * 20f
+            needsRedraw = true
         }
     }
     
     private fun checkFinishLine() {
         if (playerDistance >= totalDistance && !playerFinished) {
             playerFinished = true
+            needsRedraw = true
         }
     }
     
@@ -328,11 +371,12 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         }
     }
     
-    // Animation de victoire
+    // OPTIMISATION : Animation de victoire avec contrôle de framerate
     private fun updateVictoryAnimation() {
         if (victoryAnimationStarted && victoryAnimationProgress < 1f) {
-            victoryAnimationProgress += 0.015f // Vitesse d'animation
+            victoryAnimationProgress += 0.015f
             victoryAnimationProgress = victoryAnimationProgress.coerceAtMost(1f)
+            needsRedraw = true
         }
     }
     
@@ -435,6 +479,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     inner class PatinageVitesseView(context: Context) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         
+        // OPTIMISATION : Cache des bitmaps pour éviter les fuites mémoire
         private var preparationBackground: Bitmap? = null
         private var flagCanadaBitmap: Bitmap? = null
         private var flagUsaBitmap: Bitmap? = null
@@ -448,7 +493,16 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         private var speedskateHappy1Bitmap: Bitmap? = null
         private var speedskateHappy2Bitmap: Bitmap? = null
         
+        // OPTIMISATION : Cache des objets réutilisables
+        private val reusableRectF = RectF()
+        private val reusableRect = Rect()
+        
         init {
+            loadBitmaps()
+        }
+        
+        // OPTIMISATION : Chargement des bitmaps séparé et avec gestion d'erreur
+        private fun loadBitmaps() {
             try {
                 preparationBackground = BitmapFactory.decodeResource(resources, R.drawable.speekskating_preparation)
                 speedskatingLeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.speedskating_left)
@@ -463,8 +517,25 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 speedskateHappy1Bitmap = BitmapFactory.decodeResource(resources, R.drawable.speedskate_happy1)
                 speedskateHappy2Bitmap = BitmapFactory.decodeResource(resources, R.drawable.speedskate_happy2)
             } catch (e: Exception) {
-                preparationBackground = null
+                // Les bitmaps resteront null, le fallback sera utilisé
             }
+        }
+        
+        // OPTIMISATION : Nettoyage des ressources
+        override fun onDetachedFromWindow() {
+            super.onDetachedFromWindow()
+            preparationBackground?.recycle()
+            flagCanadaBitmap?.recycle()
+            flagUsaBitmap?.recycle()
+            flagFranceBitmap?.recycle()
+            flagNorvegeBitmap?.recycle()
+            flagJapanBitmap?.recycle()
+            speedskatingLeftBitmap?.recycle()
+            speedskatingRightBitmap?.recycle()
+            speedskatingFrontLeftBitmap?.recycle()
+            speedskatingFrontRightBitmap?.recycle()
+            speedskateHappy1Bitmap?.recycle()
+            speedskateHappy2Bitmap?.recycle()
         }
 
         private fun getPlayerFlagBitmap(): Bitmap? {
@@ -498,8 +569,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         
         private fun drawPreparation(canvas: Canvas, w: Int, h: Int) {
             preparationBackground?.let { bg ->
-                val dstRect = RectF(0f, 0f, w.toFloat(), h.toFloat())
-                canvas.drawBitmap(bg, null, dstRect, paint)
+                reusableRectF.set(0f, 0f, w.toFloat(), h.toFloat())
+                canvas.drawBitmap(bg, null, reusableRectF, paint)
             } ?: run {
                 paint.color = Color.parseColor("#87CEEB")
                 canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
@@ -520,13 +591,13 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 val flagX = 30f
                 val flagY = 30f
                 
-                val flagRect = RectF(flagX, flagY, flagX + flagWidth, flagY + flagHeight)
-                canvas.drawBitmap(flag, null, flagRect, paint)
+                reusableRectF.set(flagX, flagY, flagX + flagWidth, flagY + flagHeight)
+                canvas.drawBitmap(flag, null, reusableRectF, paint)
                 
                 paint.color = Color.parseColor("#FFD700")
                 paint.style = Paint.Style.STROKE
                 paint.strokeWidth = 6f
-                canvas.drawRect(flagRect, paint)
+                canvas.drawRect(reusableRectF, paint)
                 paint.style = Paint.Style.FILL
                 
                 paint.color = Color.parseColor("#000066")
@@ -535,7 +606,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 canvas.drawText(playerCountry.uppercase(), flagX + flagWidth/2f, flagY + flagHeight + 35f, paint)
             }
             
-            // INSTRUCTIONS AMÉLIORÉES avec explication du rythme
+            // Instructions
             paint.color = Color.parseColor("#000066")
             paint.textSize = 44f
             paint.textAlign = Paint.Align.CENTER
@@ -550,7 +621,6 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             canvas.drawText("⏱️ RYTHME IDÉAL: 1 poussée toutes les 0.5 secondes", w.toFloat()/2f, h.toFloat() * 0.22f, paint)
             canvas.drawText("💪 FORT + RÉGULIER = Plus rapide!", w.toFloat()/2f, h.toFloat() * 0.28f, paint)
             
-            // Indicateur de rythme en temps réel pendant la préparation
             paint.color = Color.parseColor("#FF6600")
             paint.textSize = 32f
             canvas.drawText("TESTEZ VOTRE RYTHME:", w.toFloat()/2f, h.toFloat() * 0.36f, paint)
@@ -578,60 +648,58 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             drawSkaterOnTrack(canvas, w, h)
             drawFrontView(canvas, w, h)
             drawHUD(canvas, w, h)
-            
-            // BARRE DE PERFORMANCE EN TEMPS RÉEL
             drawPerformanceBand(canvas, 50f, h.toFloat() - 200f, w.toFloat() * 0.5f, 40f)
         }
         
-        // FONCTION pour la barre de performance
+        // OPTIMISATION : Barre de performance optimisée
         private fun drawPerformanceBand(canvas: Canvas, x: Float, y: Float, width: Float, height: Float) {
             // Fond de la bande
             paint.color = Color.parseColor("#333333")
             paint.style = Paint.Style.FILL
-            canvas.drawRect(x, y, x + width, y + height, paint)
+            reusableRectF.set(x, y, x + width, y + height)
+            canvas.drawRect(reusableRectF, paint)
             
-            // Performance en temps réel SEULEMENT
-            val currentWidth = width
-            val currentX = x
+            // Performance en temps réel optimisée
+            val halfWidth = width / 2f
             
             // Qualité du coup actuel (moitié gauche)
-            val strokeColor = getPerformanceColor(currentStrokeQuality)
-            paint.color = strokeColor
-            canvas.drawRect(currentX, y, currentX + currentWidth/2f, y + height, paint)
+            paint.color = getPerformanceColor(currentStrokeQuality)
+            reusableRectF.set(x, y, x + halfWidth, y + height)
+            canvas.drawRect(reusableRectF, paint)
             
             // Qualité du rythme actuel (moitié droite)
-            val rhythmColor = getPerformanceColor(currentRhythmQuality)
-            paint.color = rhythmColor
-            canvas.drawRect(currentX + currentWidth/2f, y, currentX + currentWidth, y + height, paint)
+            paint.color = getPerformanceColor(currentRhythmQuality)
+            reusableRectF.set(x + halfWidth, y, x + width, y + height)
+            canvas.drawRect(reusableRectF, paint)
             
-            // Labels
+            // Labels et valeurs
             paint.color = Color.WHITE
             paint.textSize = 14f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("COUP", currentX + currentWidth/4f, y - 5f, paint)
-            canvas.drawText("RYTHME", currentX + 3*currentWidth/4f, y - 5f, paint)
+            canvas.drawText("COUP", x + halfWidth/2f, y - 5f, paint)
+            canvas.drawText("RYTHME", x + halfWidth + halfWidth/2f, y - 5f, paint)
             
-            // Valeurs numériques
             paint.color = Color.BLACK
             paint.textSize = 12f
-            canvas.drawText("${(currentStrokeQuality * 100).toInt()}%", currentX + currentWidth/4f, y + height/2f + 4f, paint)
-            canvas.drawText("${(currentRhythmQuality * 100).toInt()}%", currentX + 3*currentWidth/4f, y + height/2f + 4f, paint)
+            canvas.drawText("${(currentStrokeQuality * 100).toInt()}%", x + halfWidth/2f, y + height/2f + 4f, paint)
+            canvas.drawText("${(currentRhythmQuality * 100).toInt()}%", x + halfWidth + halfWidth/2f, y + height/2f + 4f, paint)
             
             // Bordure
             paint.color = Color.WHITE
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = 2f
-            canvas.drawRect(x, y, x + width, y + height, paint)
+            reusableRectF.set(x, y, x + width, y + height)
+            canvas.drawRect(reusableRectF, paint)
             paint.style = Paint.Style.FILL
         }
         
         private fun getPerformanceColor(performance: Float): Int {
             return when {
-                performance >= 0.8f -> Color.parseColor("#00FF00") // Vert - Excellent
-                performance >= 0.6f -> Color.parseColor("#88FF00") // Vert clair - Bon  
-                performance >= 0.4f -> Color.parseColor("#FFFF00") // Jaune - Moyen
-                performance >= 0.2f -> Color.parseColor("#FF8800") // Orange - Faible
-                else -> Color.parseColor("#FF0000") // Rouge - Très faible
+                performance >= 0.8f -> Color.parseColor("#00FF00")
+                performance >= 0.6f -> Color.parseColor("#88FF00")
+                performance >= 0.4f -> Color.parseColor("#FFFF00")
+                performance >= 0.2f -> Color.parseColor("#FF8800")
+                else -> Color.parseColor("#FF0000")
             }
         }
         
@@ -687,13 +755,13 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 val imageWidth = image.width * scale
                 val imageHeight = image.height * scale
                 
-                val dstRect = RectF(
+                reusableRectF.set(
                     playerX - imageWidth/2f,
                     playerY - imageHeight/2f,
                     playerX + imageWidth/2f,
                     playerY + imageHeight/2f
                 )
-                canvas.drawBitmap(image, null, dstRect, paint)
+                canvas.drawBitmap(image, null, reusableRectF, paint)
             } ?: run {
                 paint.color = Color.parseColor("#0066FF")
                 paint.style = Paint.Style.FILL
@@ -713,12 +781,13 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             
             paint.color = Color.parseColor("#000066")
             paint.style = Paint.Style.FILL
-            canvas.drawRect(viewX, viewY, viewX + viewWidth, viewY + viewHeight, paint)
+            reusableRectF.set(viewX, viewY, viewX + viewWidth, viewY + viewHeight)
+            canvas.drawRect(reusableRectF, paint)
             
             paint.color = Color.WHITE
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = 4f
-            canvas.drawRect(viewX, viewY, viewX + viewWidth, viewY + viewHeight, paint)
+            canvas.drawRect(reusableRectF, paint)
             paint.style = Paint.Style.FILL
             
             paint.color = Color.WHITE
@@ -747,8 +816,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 val imageX = viewX + (viewWidth - imageWidth) / 2f
                 val imageY = viewY + 40f + (availableHeight - imageHeight) / 2f
                 
-                val dstRect = RectF(imageX, imageY, imageX + imageWidth, imageY + imageHeight)
-                canvas.drawBitmap(image, null, dstRect, paint)
+                reusableRectF.set(imageX, imageY, imageX + imageWidth, imageY + imageHeight)
+                canvas.drawBitmap(image, null, reusableRectF, paint)
             } ?: run {
                 paint.color = Color.YELLOW
                 paint.style = Paint.Style.FILL
@@ -789,20 +858,19 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             val progressBarHeight = 25f
             
             paint.color = Color.parseColor("#333333")
-            canvas.drawRect(progressBarX, progressBarY, progressBarX + progressBarWidth, 
-                           progressBarY + progressBarHeight, paint)
+            reusableRectF.set(progressBarX, progressBarY, progressBarX + progressBarWidth, progressBarY + progressBarHeight)
+            canvas.drawRect(reusableRectF, paint)
             
             val progress = (playerDistance / totalDistance).coerceIn(0f, 1f)
             paint.color = Color.parseColor("#00FF00")
-            canvas.drawRect(progressBarX, progressBarY, 
-                           progressBarX + progressBarWidth * progress, 
-                           progressBarY + progressBarHeight, paint)
+            reusableRectF.set(progressBarX, progressBarY, progressBarX + progressBarWidth * progress, progressBarY + progressBarHeight)
+            canvas.drawRect(reusableRectF, paint)
             
             paint.color = Color.WHITE
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = 3f
-            canvas.drawRect(progressBarX, progressBarY, progressBarX + progressBarWidth, 
-                           progressBarY + progressBarHeight, paint)
+            reusableRectF.set(progressBarX, progressBarY, progressBarX + progressBarWidth, progressBarY + progressBarHeight)
+            canvas.drawRect(reusableRectF, paint)
             paint.style = Paint.Style.FILL
             
             paint.color = Color.WHITE
@@ -872,11 +940,9 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             }
             canvas.drawText(encouragement, w.toFloat()/2f, h.toFloat() * 0.92f, paint)
             
-            // Animation de victoire avec les images
             drawVictoryAnimation(canvas, w, h)
         }
         
-        // Animation de victoire
         private fun drawVictoryAnimation(canvas: Canvas, w: Int, h: Int) {
             if (!victoryAnimationStarted) return
             
@@ -885,7 +951,6 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             
             when {
                 victoryAnimationProgress < 0.6f -> {
-                    // Phase 1: speedskate_happy1 arrive de la gauche jusqu'au 1/4 de l'écran
                     val progress1 = victoryAnimationProgress / 0.6f
                     val skaterX = -100f + progress1 * (w.toFloat() * 0.25f + 100f)
                     
@@ -894,17 +959,16 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                         val imageWidth = image.width * scale
                         val imageHeight = image.height * scale
                         
-                        val dstRect = RectF(
+                        reusableRectF.set(
                             skaterX - imageWidth/2f,
                             centerY - imageHeight/2f,
                             skaterX + imageWidth/2f,
                             centerY + imageHeight/2f
                         )
-                        canvas.drawBitmap(image, null, dstRect, paint)
+                        canvas.drawBitmap(image, null, reusableRectF, paint)
                     }
                 }
                 else -> {
-                    // Phase 2: speedskate_happy2 glisse du 1/4 vers le centre
                     val progress2 = (victoryAnimationProgress - 0.6f) / 0.4f
                     val startX = w.toFloat() * 0.25f
                     val skaterX = startX + progress2 * (centerX - startX)
@@ -914,13 +978,13 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                         val imageWidth = image.width * scale
                         val imageHeight = image.height * scale
                         
-                        val dstRect = RectF(
+                        reusableRectF.set(
                             skaterX - imageWidth/2f,
                             centerY - imageHeight/2f,
                             skaterX + imageWidth/2f,
                             centerY + imageHeight/2f
                         )
-                        canvas.drawBitmap(image, null, dstRect, paint)
+                        canvas.drawBitmap(image, null, reusableRectF, paint)
                     }
                 }
             }
