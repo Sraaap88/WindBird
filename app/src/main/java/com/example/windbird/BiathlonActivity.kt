@@ -158,7 +158,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
             val scaledWidth = fallback.width / 3
             val scaledHeight = fallback.height / 3
             currentFrame = Bitmap.createScaledBitmap(fallback, scaledWidth, scaledHeight, true)
-            happyFrame = currentFrame!!
+            happyFrame = currentFrame  // Assigner la même image de fallback
         }
     }
 
