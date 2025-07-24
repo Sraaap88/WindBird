@@ -100,7 +100,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         statusText = TextView(this).apply {
             text = "⛸️ PATINAGE VITESSE 1500M - ${tournamentData.playerNames[currentPlayerIndex]}"
             setTextColor(Color.WHITE)
-            textSize = 24f
+            textSize = 28f
+            setTypeface(null, Typeface.BOLD)
             setBackgroundColor(Color.parseColor("#000066"))
             setPadding(25, 20, 25, 20)
         }
@@ -204,9 +205,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         }
     }
     
+    // CORRECTION : Fonction corrigée pour passer au countdown
     private fun handlePreparation() {
         if (phaseTimer >= preparationDuration) {
-            gameState = GameState.PREPARATION
+            gameState = GameState.COUNTDOWN  // CORRECTION : Passer au countdown, pas rester en préparation
             phaseTimer = 0f
             needsRedraw = true
         }
@@ -586,48 +588,54 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             val flagBitmap = getPlayerFlagBitmap()
             
             flagBitmap?.let { flag ->
-                val flagWidth = 180f
-                val flagHeight = 120f
-                val flagX = 30f
-                val flagY = 30f
+                val flagWidth = 200f
+                val flagHeight = 140f
+                val flagX = 40f
+                val flagY = 40f
                 
                 reusableRectF.set(flagX, flagY, flagX + flagWidth, flagY + flagHeight)
                 canvas.drawBitmap(flag, null, reusableRectF, paint)
                 
                 paint.color = Color.parseColor("#FFD700")
                 paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 6f
+                paint.strokeWidth = 8f
                 canvas.drawRect(reusableRectF, paint)
                 paint.style = Paint.Style.FILL
                 
                 paint.color = Color.parseColor("#000066")
-                paint.textSize = 24f
+                paint.textSize = 32f
+                paint.typeface = Typeface.DEFAULT_BOLD
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText(playerCountry.uppercase(), flagX + flagWidth/2f, flagY + flagHeight + 35f, paint)
+                canvas.drawText(playerCountry.uppercase(), flagX + flagWidth/2f, flagY + flagHeight + 45f, paint)
             }
             
-            // Instructions
+            // Instructions - TEXTE PLUS GROS ET GRAS
             paint.color = Color.parseColor("#000066")
-            paint.textSize = 44f
+            paint.textSize = 52f
+            paint.typeface = Typeface.DEFAULT_BOLD
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("⛸️ PATINAGE VITESSE 1500M ⛸️", w.toFloat()/2f, h.toFloat() * 0.08f, paint)
             
             paint.color = Color.parseColor("#FF0000")
-            paint.textSize = 36f
+            paint.textSize = 42f
+            paint.typeface = Typeface.DEFAULT_BOLD
             canvas.drawText("📱 ALTERNEZ GAUCHE-DROITE", w.toFloat()/2f, h.toFloat() * 0.15f, paint)
             
             paint.color = Color.parseColor("#0000FF")
-            paint.textSize = 28f
+            paint.textSize = 32f
+            paint.typeface = Typeface.DEFAULT_BOLD
             canvas.drawText("⏱️ RYTHME IDÉAL: 1 poussée toutes les 0.5 secondes", w.toFloat()/2f, h.toFloat() * 0.22f, paint)
             canvas.drawText("💪 FORT + RÉGULIER = Plus rapide!", w.toFloat()/2f, h.toFloat() * 0.28f, paint)
             
             paint.color = Color.parseColor("#FF6600")
-            paint.textSize = 32f
+            paint.textSize = 38f
+            paint.typeface = Typeface.DEFAULT_BOLD
             canvas.drawText("TESTEZ VOTRE RYTHME:", w.toFloat()/2f, h.toFloat() * 0.36f, paint)
             
             val countdown = (preparationDuration - phaseTimer).toInt() + 1
-            paint.textSize = 60f
+            paint.textSize = 72f
             paint.color = Color.RED
+            paint.typeface = Typeface.DEFAULT_BOLD
             canvas.drawText("DÉBUT DANS ${countdown}s", w.toFloat()/2f, h.toFloat() * 0.55f, paint)
         }
         
@@ -635,9 +643,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             drawRaceBackground(canvas, w, h)
             
             val count = (countdownDuration - phaseTimer).toInt() + 1
-            paint.textSize = 120f
+            paint.textSize = 140f
             paint.color = Color.RED
             paint.textAlign = Paint.Align.CENTER
+            paint.typeface = Typeface.DEFAULT_BOLD
             
             val countText = if (count > 0) count.toString() else "GO!"
             canvas.drawText(countText, w.toFloat()/2f, h.toFloat()/2f, paint)
@@ -648,10 +657,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             drawSkaterOnTrack(canvas, w, h)
             drawFrontView(canvas, w, h)
             drawHUD(canvas, w, h)
-            drawPerformanceBand(canvas, 50f, h.toFloat() - 200f, w.toFloat() * 0.5f, 40f)
+            drawPerformanceBand(canvas, 60f, h.toFloat() - 220f, w.toFloat() * 0.55f, 50f)
         }
         
-        // OPTIMISATION : Barre de performance optimisée
+        // OPTIMISATION : Barre de performance optimisée avec texte plus gros
         private fun drawPerformanceBand(canvas: Canvas, x: Float, y: Float, width: Float, height: Float) {
             // Fond de la bande
             paint.color = Color.parseColor("#333333")
@@ -672,22 +681,24 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             reusableRectF.set(x + halfWidth, y, x + width, y + height)
             canvas.drawRect(reusableRectF, paint)
             
-            // Labels et valeurs
+            // Labels et valeurs - TEXTE PLUS GROS ET GRAS
             paint.color = Color.WHITE
-            paint.textSize = 14f
+            paint.textSize = 20f
+            paint.typeface = Typeface.DEFAULT_BOLD
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("COUP", x + halfWidth/2f, y - 5f, paint)
-            canvas.drawText("RYTHME", x + halfWidth + halfWidth/2f, y - 5f, paint)
+            canvas.drawText("COUP", x + halfWidth/2f, y - 8f, paint)
+            canvas.drawText("RYTHME", x + halfWidth + halfWidth/2f, y - 8f, paint)
             
             paint.color = Color.BLACK
-            paint.textSize = 12f
-            canvas.drawText("${(currentStrokeQuality * 100).toInt()}%", x + halfWidth/2f, y + height/2f + 4f, paint)
-            canvas.drawText("${(currentRhythmQuality * 100).toInt()}%", x + halfWidth + halfWidth/2f, y + height/2f + 4f, paint)
+            paint.textSize = 18f
+            paint.typeface = Typeface.DEFAULT_BOLD
+            canvas.drawText("${(currentStrokeQuality * 100).toInt()}%", x + halfWidth/2f, y + height/2f + 6f, paint)
+            canvas.drawText("${(currentRhythmQuality * 100).toInt()}%", x + halfWidth + halfWidth/2f, y + height/2f + 6f, paint)
             
             // Bordure
             paint.color = Color.WHITE
             paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 2f
+            paint.strokeWidth = 3f
             reusableRectF.set(x, y, x + width, y + height)
             canvas.drawRect(reusableRectF, paint)
             paint.style = Paint.Style.FILL
@@ -714,7 +725,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             paint.shader = null
             
             paint.color = Color.parseColor("#CCCCCC")
-            paint.strokeWidth = 3f
+            paint.strokeWidth = 4f
             val laneTop = h.toFloat() * 0.45f
             val laneBottom = h.toFloat() * 0.85f
             canvas.drawLine(0f, laneTop, w.toFloat(), laneTop, paint)
@@ -722,7 +733,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             
             val scrollOffset = playerDistance % 50f
             paint.color = Color.parseColor("#DDDDDD")
-            paint.strokeWidth = 2f
+            paint.strokeWidth = 3f
             
             for (i in -2..12) {
                 val x = w.toFloat() * 0.1f + i * (w.toFloat() * 0.8f / 10f) - scrollOffset * (w.toFloat() * 0.8f / 50f)
@@ -731,8 +742,9 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                     
                     val distance = (playerDistance + i * 150f).toInt()
                     if (distance >= 0 && distance <= 1600) {
-                        paint.textSize = 12f
+                        paint.textSize = 16f
                         paint.color = Color.BLACK
+                        paint.typeface = Typeface.DEFAULT_BOLD
                         paint.textAlign = Paint.Align.CENTER
                         canvas.drawText("${distance}m", x, h.toFloat() * 0.28f, paint)
                     }
@@ -751,7 +763,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             }
             
             skaterImage?.let { image ->
-                val scale = 0.4f
+                val scale = 0.5f
                 val imageWidth = image.width * scale
                 val imageHeight = image.height * scale
                 
@@ -765,19 +777,19 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             } ?: run {
                 paint.color = Color.parseColor("#0066FF")
                 paint.style = Paint.Style.FILL
-                canvas.drawCircle(playerX, playerY, 20f, paint)
+                canvas.drawCircle(playerX, playerY, 25f, paint)
             }
             
             paint.color = Color.parseColor("#40000000")
             paint.style = Paint.Style.FILL
-            canvas.drawOval(playerX - 15f, playerY + 25f, playerX + 15f, playerY + 30f, paint)
+            canvas.drawOval(playerX - 18f, playerY + 30f, playerX + 18f, playerY + 35f, paint)
         }
         
         private fun drawFrontView(canvas: Canvas, w: Int, h: Int) {
-            val viewWidth = w.toFloat() * 0.35f
-            val viewHeight = h.toFloat() * 0.45f
-            val viewX = w.toFloat() - viewWidth - 20f
-            val viewY = 20f
+            val viewWidth = w.toFloat() * 0.4f
+            val viewHeight = h.toFloat() * 0.5f
+            val viewX = w.toFloat() - viewWidth - 25f
+            val viewY = 25f
             
             paint.color = Color.parseColor("#000066")
             paint.style = Paint.Style.FILL
@@ -786,14 +798,15 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             
             paint.color = Color.WHITE
             paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 4f
+            paint.strokeWidth = 5f
             canvas.drawRect(reusableRectF, paint)
             paint.style = Paint.Style.FILL
             
             paint.color = Color.WHITE
-            paint.textSize = 16f
+            paint.textSize = 20f
+            paint.typeface = Typeface.DEFAULT_BOLD
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("VUE DE FACE", viewX + viewWidth/2f, viewY + 20f, paint)
+            canvas.drawText("VUE DE FACE", viewX + viewWidth/2f, viewY + 25f, paint)
             
             val frontImage = when (currentTiltState) {
                 TiltState.LEFT -> speedskatingFrontLeftBitmap
@@ -802,60 +815,65 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             }
             
             frontImage?.let { image ->
-                val imageMargin = 20f
+                val imageMargin = 25f
                 val availableWidth = viewWidth - imageMargin * 2f
-                val availableHeight = viewHeight - 50f
+                val availableHeight = viewHeight - 60f
                 
                 val scaleX = availableWidth / image.width
                 val scaleY = availableHeight / image.height
-                val scale = minOf(scaleX, scaleY) * 0.8f
+                val scale = minOf(scaleX, scaleY) * 0.85f
                 
                 val imageWidth = image.width * scale
                 val imageHeight = image.height * scale
                 
                 val imageX = viewX + (viewWidth - imageWidth) / 2f
-                val imageY = viewY + 40f + (availableHeight - imageHeight) / 2f
+                val imageY = viewY + 50f + (availableHeight - imageHeight) / 2f
                 
                 reusableRectF.set(imageX, imageY, imageX + imageWidth, imageY + imageHeight)
                 canvas.drawBitmap(image, null, reusableRectF, paint)
             } ?: run {
                 paint.color = Color.YELLOW
                 paint.style = Paint.Style.FILL
-                canvas.drawCircle(viewX + viewWidth/2f, viewY + viewHeight/2f, 30f, paint)
+                canvas.drawCircle(viewX + viewWidth/2f, viewY + viewHeight/2f, 35f, paint)
             }
             
-            // Prochaine direction avec code couleur
-            paint.textSize = 20f
+            // Prochaine direction avec code couleur - TEXTE PLUS GROS ET GRAS
+            paint.textSize = 24f
+            paint.typeface = Typeface.DEFAULT_BOLD
             paint.textAlign = Paint.Align.CENTER
             paint.color = if (expectingLeft) Color.parseColor("#FF6666") else Color.parseColor("#66FF66")
             val nextMove = if (expectingLeft) "⬅️ GAUCHE" else "➡️ DROITE"
-            canvas.drawText(nextMove, viewX + viewWidth/2f, viewY + viewHeight - 15f, paint)
+            canvas.drawText(nextMove, viewX + viewWidth/2f, viewY + viewHeight - 20f, paint)
             
-            // Rythme avec code couleur
+            // Rythme avec code couleur - TEXTE PLUS GROS ET GRAS
             paint.color = getPerformanceColor(playerRhythm)
-            paint.textSize = 14f
-            canvas.drawText("RYTHME: ${(playerRhythm * 100).toInt()}%", viewX + viewWidth/2f, viewY + viewHeight - 35f, paint)
+            paint.textSize = 18f
+            paint.typeface = Typeface.DEFAULT_BOLD
+            canvas.drawText("RYTHME: ${(playerRhythm * 100).toInt()}%", viewX + viewWidth/2f, viewY + viewHeight - 45f, paint)
         }
         
         private fun drawHUD(canvas: Canvas, w: Int, h: Int) {
             paint.color = Color.WHITE
             paint.style = Paint.Style.FILL
-            paint.textSize = 28f
+            paint.textSize = 34f
+            paint.typeface = Typeface.DEFAULT_BOLD
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("${(totalDistance - playerDistance).toInt()}m restants", 30f, h.toFloat() - 250f, paint)
+            canvas.drawText("${(totalDistance - playerDistance).toInt()}m restants", 40f, h.toFloat() - 280f, paint)
+            
+            paint.textSize = 28f
+            paint.typeface = Typeface.DEFAULT_BOLD
+            canvas.drawText("Temps: ${raceTime.toInt()}s", 40f, h.toFloat() - 245f, paint)
             
             paint.textSize = 24f
-            canvas.drawText("Temps: ${raceTime.toInt()}s", 30f, h.toFloat() - 220f, paint)
+            paint.typeface = Typeface.DEFAULT_BOLD
+            canvas.drawText("Parfaits: $perfectStrokes", 40f, h.toFloat() - 140f, paint)
+            canvas.drawText("Total coups: $strokeCount", 40f, h.toFloat() - 115f, paint)
             
-            paint.textSize = 20f
-            canvas.drawText("Parfaits: $perfectStrokes", 30f, h.toFloat() - 120f, paint)
-            canvas.drawText("Total coups: $strokeCount", 30f, h.toFloat() - 100f, paint)
-            
-            // Barre de progression
-            val progressBarX = 50f
-            val progressBarY = h.toFloat() - 160f
-            val progressBarWidth = w.toFloat() * 0.5f
-            val progressBarHeight = 25f
+            // Barre de progression - PLUS GRANDE
+            val progressBarX = 60f
+            val progressBarY = h.toFloat() - 180f
+            val progressBarWidth = w.toFloat() * 0.55f
+            val progressBarHeight = 30f
             
             paint.color = Color.parseColor("#333333")
             reusableRectF.set(progressBarX, progressBarY, progressBarX + progressBarWidth, progressBarY + progressBarHeight)
@@ -868,16 +886,17 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             
             paint.color = Color.WHITE
             paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 3f
+            paint.strokeWidth = 4f
             reusableRectF.set(progressBarX, progressBarY, progressBarX + progressBarWidth, progressBarY + progressBarHeight)
             canvas.drawRect(reusableRectF, paint)
             paint.style = Paint.Style.FILL
             
             paint.color = Color.WHITE
-            paint.textSize = 16f
+            paint.textSize = 20f
+            paint.typeface = Typeface.DEFAULT_BOLD
             paint.textAlign = Paint.Align.LEFT
             canvas.drawText("PROGRESSION: ${playerDistance.toInt()}m / ${totalDistance.toInt()}m", 
-                           progressBarX, progressBarY - 10f, paint)
+                           progressBarX, progressBarY - 12f, paint)
         }
         
         private fun drawResults(canvas: Canvas, w: Int, h: Int) {
@@ -902,29 +921,34 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             paint.shader = null
             
             paint.color = Color.parseColor("#8B0000")
-            paint.textSize = 48f
+            paint.textSize = 56f
+            paint.typeface = Typeface.DEFAULT_BOLD
             paint.textAlign = Paint.Align.CENTER
             
             val resultText = "TEMPS: ${raceTime.toInt()}s - $timeQuality"
             canvas.drawText(resultText, w.toFloat()/2f, h.toFloat() * 0.15f, paint)
             
-            paint.textSize = 80f
+            paint.textSize = 92f
+            paint.typeface = Typeface.DEFAULT_BOLD
             canvas.drawText("${finalScore} POINTS", w.toFloat()/2f, h.toFloat() * 0.28f, paint)
             
-            paint.textSize = 32f
+            paint.textSize = 38f
             paint.color = Color.parseColor("#333333")
+            paint.typeface = Typeface.DEFAULT_BOLD
             
             canvas.drawText("📏 Distance: ${playerDistance.toInt()}m / ${totalDistance.toInt()}m", w.toFloat()/2f, h.toFloat() * 0.45f, paint)
             canvas.drawText("🎵 Rythme moyen: ${(playerRhythm * 100).toInt()}%", w.toFloat()/2f, h.toFloat() * 0.52f, paint)
             canvas.drawText("⭐ Coups parfaits: $perfectStrokes", w.toFloat()/2f, h.toFloat() * 0.59f, paint)
             canvas.drawText("🏃 Coups totaux: $strokeCount", w.toFloat()/2f, h.toFloat() * 0.66f, paint)
             
-            paint.textSize = 24f
+            paint.textSize = 28f
             paint.color = Color.parseColor("#666666")
+            paint.typeface = Typeface.DEFAULT_BOLD
             canvas.drawText("< 1.5min: Excellent | 1.5-2min: Bon", w.toFloat()/2f, h.toFloat() * 0.78f, paint)
             canvas.drawText("2-2.5min: Moyen | > 2.5min: Lent", w.toFloat()/2f, h.toFloat() * 0.83f, paint)
             
-            paint.textSize = 28f
+            paint.textSize = 32f
+            paint.typeface = Typeface.DEFAULT_BOLD
             paint.color = when (timeQuality) {
                 "EXCELLENT" -> Color.parseColor("#FFD700")
                 "BON" -> Color.parseColor("#32CD32")
@@ -955,7 +979,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                     val skaterX = -100f + progress1 * (w.toFloat() * 0.25f + 100f)
                     
                     speedskateHappy1Bitmap?.let { image ->
-                        val scale = 0.8f
+                        val scale = 0.9f
                         val imageWidth = image.width * scale
                         val imageHeight = image.height * scale
                         
@@ -974,7 +998,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                     val skaterX = startX + progress2 * (centerX - startX)
                     
                     speedskateHappy2Bitmap?.let { image ->
-                        val scale = 0.8f
+                        val scale = 0.9f
                         val imageWidth = image.width * scale
                         val imageHeight = image.height * scale
                         
