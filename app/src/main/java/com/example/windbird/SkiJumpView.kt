@@ -283,18 +283,28 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         paint.style = Paint.Style.FILL
         
         // NOUVELLE BARRE DE CONTRÔLE D'ANGLE (à gauche)
-        drawAngleControlBar(canvas, w, h)
+        if (activity.getTapCount() >= 2) {
+            drawAngleControlBar(canvas, w, h)
+        }
         
-        // Position du skieur avec PERSPECTIVE
-        val approachProgress = activity.getPhaseTimer() / activity.getApproachDuration()
-        val speedProgress = activity.getSpeed() / activity.getMaxSpeed()
-        val combinedProgress = (speedProgress * 0.7f + approachProgress * 0.3f).coerceIn(0f, 1f)
-        
-        val skierY = h * (0.9f - combinedProgress * 0.85f)
+        // CORRIGÉ - Position du skieur selon les taps
         val skierX = w / 2f
+        val skierY: Float
+        val scale: Float
         
-        // PERSPECTIVE - gros au début, petit à la fin
-        val scale = 0.12f - combinedProgress * 0.06f
+        if (activity.getTapCount() < 2) {
+            // RESTE EN BAS jusqu'aux 2 taps
+            skierY = h * 0.9f
+            scale = 0.12f // Gros au début
+        } else {
+            // PROGRESSION normale après les 2 taps
+            val approachProgress = activity.getPhaseTimer() / activity.getApproachDuration()
+            val speedProgress = activity.getSpeed() / activity.getMaxSpeed()
+            val combinedProgress = (speedProgress * 0.7f + approachProgress * 0.3f).coerceIn(0f, 1f)
+            
+            skierY = h * (0.9f - combinedProgress * 0.85f)
+            scale = 0.12f - combinedProgress * 0.06f // Devient plus petit
+        }
         
         skierBitmap?.let { bmp ->
             val dstRect = RectF(
@@ -304,6 +314,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
                 skierY + bmp.height * scale / 2f
             )
             canvas.drawBitmap(bmp, null, dstRect, paint)
+            }
         }
         
         // INSTRUCTIONS selon la phase
@@ -331,12 +342,17 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
             paint.color = if (activity.getInTargetZone()) Color.GREEN else Color.RED
             paint.textSize = 70f
             canvas.drawText("${activity.getSpeed().toInt()} KM/H ${if (activity.getInTargetZone()) "✅" else "❌"}", w/2f, h * 0.25f, paint)
+            
+            // AJOUT - Indication de l'angle actuel
+            paint.color = Color.CYAN
+            paint.textSize = 50f
+            canvas.drawText("Angle: ${activity.getIntegratedTiltY().toInt()}°", w/2f, h * 0.32f, paint)
         }
         
         drawSpeedMeter(canvas, w, h)
     }
     
-    // NOUVELLE FONCTION : Barre de contrôle d'angle
+    // CORRIGÉ - Barre de contrôle d'angle avec angle intégré
     private fun drawAngleControlBar(canvas: Canvas, w: Int, h: Int) {
         val barWidth = 80f
         val barHeight = h * 0.6f
@@ -353,7 +369,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         val zoneSize = activity.getTargetZoneSize()
         
         // Convertir les angles en positions sur la barre
-        val maxAngle = 50f // Angle maximum affiché
+        val maxAngle = 50f
         val zoneCenterPos = (zoneCenter / maxAngle) * barHeight
         val zoneSizePos = (zoneSize / maxAngle) * barHeight
         
@@ -364,8 +380,8 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         paint.color = if (activity.getInTargetZone()) Color.GREEN else Color.parseColor("#006600")
         canvas.drawRect(barX + 5f, zoneTop, barX + barWidth - 5f, zoneBottom, paint)
         
-        // Position actuelle du téléphone
-        val currentAngle = activity.getCurrentTiltAngle().coerceIn(0f, maxAngle)
+        // CORRIGÉ - Position actuelle avec angle intégré
+        val currentAngle = activity.getIntegratedTiltY().coerceIn(0f, maxAngle)
         val currentPos = (currentAngle / maxAngle) * barHeight
         
         paint.color = if (activity.getInTargetZone()) Color.YELLOW else Color.RED
@@ -417,29 +433,34 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         val criticalZone = takeoffProgress >= 0.67f
         val userIsPulling = activity.getTiltY() < -0.15f
         
-        // Animation CONTINUE avec PERSPECTIVE
+        // CORRIGÉ - Animation qui DESCEND la pente
         val skierX = w * (0.1f + takeoffProgress * 0.7f)
         
+        // CORRIGÉ - Le skieur DESCEND et suit la courbe de la pente
         val skierY = when {
-            takeoffProgress < 0.7f -> {
-                val rampProgress = takeoffProgress / 0.7f
-                h * (0.9f - rampProgress * 0.45f)
+            takeoffProgress < 0.5f -> {
+                // Début: descend la pente principale
+                val rampProgress = takeoffProgress / 0.5f
+                h * (0.9f - rampProgress * 0.3f) // De 90% à 60% de l'écran
             }
-            takeoffProgress < 0.85f -> {
-                val endRampProgress = (takeoffProgress - 0.7f) / 0.15f
-                h * (0.45f - endRampProgress * 0.05f)
+            takeoffProgress < 0.8f -> {
+                // Milieu: suit la courbe
+                val curveProgress = (takeoffProgress - 0.5f) / 0.3f
+                h * (0.6f - curveProgress * 0.15f) // De 60% à 45%
             }
             else -> {
-                val jumpProgress = (takeoffProgress - 0.85f) / 0.15f
-                val baseY = h * 0.4f
-                baseY - jumpProgress * h * 0.2f + (jumpProgress * jumpProgress) * h * 0.1f
+                // Fin: s'envole
+                val jumpProgress = (takeoffProgress - 0.8f) / 0.2f
+                val baseY = h * 0.45f
+                baseY - jumpProgress * h * 0.25f // Monte vers 20% de l'écran
             }
         }
         
+        // Rotation selon la progression sur la pente
         val rotation = when {
-            takeoffProgress < 0.7f -> -takeoffProgress * 12f
-            takeoffProgress < 0.85f -> -8.4f
-            else -> (activity.getTakeoffPower() / 120f) * 25f - 12f
+            takeoffProgress < 0.5f -> -takeoffProgress * 20f // Penche de plus en plus
+            takeoffProgress < 0.8f -> -10f // Maintient l'angle
+            else -> (activity.getTakeoffPower() / 120f) * 15f - 10f // S'ajuste selon la puissance
         }
         
         canvas.save()
