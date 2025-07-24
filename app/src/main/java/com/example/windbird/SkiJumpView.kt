@@ -295,7 +295,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         if (activity.getTapCount() < 2) {
             // RESTE EN BAS jusqu'aux 2 taps
             skierY = h * 0.9f
-            scale = 0.12f // Gros au début
+            scale = 1.2f // TRÈS GROS au début (10x plus gros qu'en haut)
         } else {
             // PROGRESSION normale après les 2 taps
             val approachProgress = activity.getPhaseTimer() / activity.getApproachDuration()
@@ -303,7 +303,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
             val combinedProgress = (speedProgress * 0.7f + approachProgress * 0.3f).coerceIn(0f, 1f)
             
             skierY = h * (0.9f - combinedProgress * 0.85f)
-            scale = 0.12f - combinedProgress * 0.06f // Devient plus petit
+            scale = 1.2f - combinedProgress * 1.08f // De 1.2f à 0.12f (10x plus petit)
         }
         
         skierBitmap?.let { bmp ->
@@ -466,8 +466,8 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         canvas.translate(skierX, skierY)
         canvas.rotate(rotation)
         
-        // PERSPECTIVE - de gros à petit
-        val scale = 0.4f - takeoffProgress * 0.15f
+        // PERSPECTIVE - de très gros à petit
+        val scale = 4.0f - takeoffProgress * 3.85f // De 4.0f à 0.15f
         
         val currentBitmap = if (criticalZone && userIsPulling) {
             skierFlightBitmap
@@ -552,8 +552,8 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         val windEffect = activity.getWindDirection() * activity.getWindStrength() * activity.getWindTransition()
         canvas.rotate(windEffect * 8f)
         
-        // PERSPECTIVE - devient plus petit
-        val scale = 0.45f - flightProgress * 0.1f
+        // PERSPECTIVE - devient plus petit mais pas trop
+        val scale = 0.8f - flightProgress * 0.3f // De 0.8f à 0.5f
         
         skierFlightBitmap?.let { bmp ->
             val dstRect = RectF(
@@ -638,14 +638,14 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
                 skierX = w * (0.2f + descentProgress * 0.3f)
                 skierY = h * (0.3f + descentProgress * 0.45f)
                 currentBitmap = skierLand1Bitmap
-                scale = 0.9f - descentProgress * 0.3f // PERSPECTIVE
+                scale = 1.5f - descentProgress * 0.9f // De 1.5f à 0.6f - GROS puis diminue
             }
             landingProgress < 0.82f -> {
                 val impactProgress = (landingProgress - 0.3f) / 0.52f
                 skierX = w * (0.5f + impactProgress * 0.1f)
                 skierY = h * 0.75f
                 currentBitmap = skierLand2Bitmap
-                scale = 0.6f
+                scale = 0.6f // Taille normale à l'atterrissage
                 
                 // Explosion de neige
                 paint.color = Color.WHITE
@@ -663,7 +663,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
                 skierX = w * (0.6f + standingProgress * 0.1f)
                 skierY = h * 0.75f
                 currentBitmap = skierLand3Bitmap
-                scale = 0.65f
+                scale = 0.65f // Légèrement plus grand pour célébration
             }
         }
         
