@@ -126,13 +126,13 @@ class BiathlonActivity : Activity(), SensorEventListener {
             val totalWidth = spriteSheet.width
             val totalHeight = spriteSheet.height
             
-            // CORRECTION : Éliminer complètement le cadre noir de 5px
-            val frameWidth = (totalWidth - 15) / 2  // -15 = cadres gauche + milieu + droite
-            val frameHeight = totalHeight - 10      // -10 = cadres haut + bas
+            // CORRECTION : Éliminer complètement le cadre noir - 2 pixels supplémentaires par côté
+            val frameWidth = (totalWidth - 21) / 2  // -21 = cadres + marges supplémentaires
+            val frameHeight = totalHeight - 14      // -14 = cadres haut/bas + marges
             
-            // Extraire les frames en évitant les bordures noires
-            leftFrame = Bitmap.createBitmap(spriteSheet, 5, 5, frameWidth, frameHeight)
-            rightFrame = Bitmap.createBitmap(spriteSheet, 10 + frameWidth, 5, frameWidth, frameHeight)
+            // Extraire les frames en évitant les bordures noires - décalage augmenté
+            leftFrame = Bitmap.createBitmap(spriteSheet, 7, 7, frameWidth, frameHeight)
+            rightFrame = Bitmap.createBitmap(spriteSheet, 14 + frameWidth, 7, frameWidth, frameHeight)
             
             // Redimensionner
             val newWidth = frameWidth / 3
@@ -141,12 +141,24 @@ class BiathlonActivity : Activity(), SensorEventListener {
             leftFrame = Bitmap.createScaledBitmap(leftFrame, newWidth, newHeight, true)
             rightFrame = Bitmap.createScaledBitmap(rightFrame, newWidth, newHeight, true)
             
+            // NOUVEAU - Charger l'image happy pour l'écran final
+            try {
+                val happyBitmap = BitmapFactory.decodeResource(resources, R.drawable.skidefond_happy)
+                val happyWidth = happyBitmap.width / 3
+                val happyHeight = happyBitmap.height / 3
+                happyFrame = Bitmap.createScaledBitmap(happyBitmap, happyWidth, happyHeight, true)
+            } catch (e: Exception) {
+                // Si l'image happy n'existe pas, utiliser leftFrame
+                happyFrame = leftFrame
+            }
+            
             currentFrame = leftFrame
         } catch (e: Exception) {
             val fallback = BitmapFactory.decodeResource(resources, R.drawable.skieur_pixel)
             val scaledWidth = fallback.width / 3
             val scaledHeight = fallback.height / 3
             currentFrame = Bitmap.createScaledBitmap(fallback, scaledWidth, scaledHeight, true)
+            happyFrame = currentFrame!!
         }
     }
 
@@ -230,14 +242,20 @@ class BiathlonActivity : Activity(), SensorEventListener {
                     currentScreen = 6
                     skierX = 0.1f
                     autoMovement = true
+                    movementSpeed = 0.02f  // Vitesse initiale
                     finalScreenTimer = System.currentTimeMillis()
+                    // NOUVEAU - Utiliser l'image happy dès l'entrée dans l'écran final
+                    currentFrame = happyFrame
                 }
             }
             
             GameState.FINISHED -> {
-                // Mouvement automatique vers le centre
+                // Mouvement automatique vers le centre avec ralentissement progressif
                 if (autoMovement && skierX < 0.5f) {
-                    skierX += 0.01f // Mouvement automatique lent
+                    skierX += movementSpeed
+                    // Ralentissement progressif : plus on approche du centre, plus on ralentit
+                    val distanceToCenter = 0.5f - skierX
+                    movementSpeed = (distanceToCenter * 0.04f).coerceAtLeast(0.003f)
                 } else if (autoMovement) {
                     autoMovement = false
                     // Calculer le rythme moyen
