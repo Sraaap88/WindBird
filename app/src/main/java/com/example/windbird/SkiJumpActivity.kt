@@ -178,17 +178,25 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         tiltZ = event.values[2]
         
         // CORRIGÉ - Calcul de l'angle intégré
-        if (!hasBaseline && gameState == GameState.APPROACH) {
-            // Établir la baseline au début de l'approche
-            baselineTiltY = tiltY
+        if (!hasBaseline && gameState == GameState.APPROACH && tapCount >= 2) {
+            // Établir la baseline SEULEMENT après les 2 taps
+            integratedTiltY = 0f // Reset l'angle à zéro
             hasBaseline = true
         }
         
         if (hasBaseline) {
-            // Intégrer la vitesse angulaire pour obtenir l'angle absolu
-            val deltaTime = 0.025f // 25ms entre les mesures
-            integratedTiltY += (tiltY - baselineTiltY) * deltaTime * 57.3f // Conversion en degrés
-            integratedTiltY = integratedTiltY.coerceIn(-60f, 60f) // Limiter l'angle
+            // CORRIGÉ - Intégrer seulement la vitesse angulaire Y
+            val deltaTime = 0.025f
+            val angularVelocity = tiltY // Vitesse angulaire brute
+            
+            // Intégrer pour obtenir l'angle (en degrés)
+            integratedTiltY += angularVelocity * deltaTime * 57.3f
+            
+            // Appliquer un petit filtre pour éviter la dérive
+            integratedTiltY *= 0.995f
+            
+            // Limiter l'angle
+            integratedTiltY = integratedTiltY.coerceIn(-60f, 60f)
         }
 
         // Progression du jeu
@@ -408,8 +416,9 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 speed += 15f + (tapBonus * 10f)
                 cameraShake = 0.5f
                 
-                // NOUVEAU - Établir la baseline maintenant que le jeu commence vraiment
-                hasBaseline = false // Reset pour que ça se refasse
+                // NOUVEAU - Reset l'angle intégré pour un nouveau départ
+                integratedTiltY = 0f
+                hasBaseline = false // Va se réinitialiser au prochain cycle
             }
         }
     }
