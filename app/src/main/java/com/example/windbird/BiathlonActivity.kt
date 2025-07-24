@@ -50,6 +50,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
     private lateinit var spriteSheet: Bitmap
     private lateinit var leftFrame: Bitmap
     private lateinit var rightFrame: Bitmap
+    private var happyFrame: Bitmap? = null  // Image pour l'écran final
     private var currentFrame: Bitmap? = null
     private var animationTimer = 0L
     private var useLeftFrame = true
@@ -67,6 +68,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
     // Variables pour l'écran final
     private var finalScreenTimer = 0L
     private var autoMovement = false
+    private var movementSpeed = 0.02f  // Vitesse variable pour ralentissement
 
     private lateinit var tournamentData: TournamentData
     private var eventIndex: Int = 0
@@ -747,7 +749,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#FFD700")
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             
-            // Skieur au centre
+            // Skieur au centre (utilise happyFrame automatiquement)
             val skierScreenX = w * skierX
             val skierY = h * 0.7f
             
