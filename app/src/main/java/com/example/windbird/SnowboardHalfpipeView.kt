@@ -296,34 +296,28 @@ class SnowboardHalfpipeView(
             val trackFrames = activity.getTrackFrames()
             if (trackFrames.isEmpty()) return
             
-            val scrollSpeed = activity.getSpeed() * 0.8f
-            val scrollOffset = (activity.getPipeScroll() * scrollSpeed) % (trackFrames.size * 100f)
+            val scrollSpeed = activity.getSpeed() * 2f
+            val scrollOffset = (activity.getPipeScroll() * scrollSpeed) % h.toFloat()
             
-            // Dessiner plusieurs segments de piste pour couvrir l'écran
-            val trackWidth = w * 0.5f // La piste prend 50% de la largeur
-            val trackX = w * 0.25f    // Centrée horizontalement
+            // Dessiner plusieurs segments de piste plein écran pour couvrir tout l'écran
+            val segmentHeight = h.toFloat() // Hauteur d'un segment = hauteur de l'écran
+            val numberOfSegments = 3 // 3 segments pour assurer la couverture complète
             
-            for (i in -2..8) { // Segments qui couvrent tout l'écran
-                val segmentY = i * 120f - scrollOffset
+            for (i in -1..numberOfSegments) {
+                val segmentY = i * segmentHeight - scrollOffset
                 
-                if (segmentY < h + 120f && segmentY > -120f) {
-                    // Sélectionner la frame selon la position (cycle à travers les 12 frames)
-                    val frameIndex = ((scrollOffset / 100f + i).toInt() % trackFrames.size + trackFrames.size) % trackFrames.size
+                // Vérifier si le segment est visible
+                if (segmentY < h + segmentHeight && segmentY > -segmentHeight) {
+                    // Sélectionner la frame selon la position (cycle à travers les frames disponibles)
+                    val frameIndex = ((scrollOffset / segmentHeight + i).toInt() % trackFrames.size + trackFrames.size) % trackFrames.size
                     val frame = trackFrames[frameIndex]
                     
-                    // Perspective : plus proche = plus grand
-                    val perspective = (segmentY + 120f) / (h + 240f)
-                    val scale = 0.3f + perspective * 0.7f // De 30% à 100% de taille
-                    
-                    val scaledWidth = trackWidth * scale
-                    val scaledHeight = 120f * scale
-                    val scaledX = trackX + (trackWidth - scaledWidth) / 2f
-                    
+                    // Dessiner le segment en plein écran
                     reusableRectF.set(
-                        scaledX,
+                        0f,
                         segmentY,
-                        scaledX + scaledWidth,
-                        segmentY + scaledHeight
+                        w.toFloat(),
+                        segmentY + segmentHeight
                     )
                     
                     canvas.drawBitmap(trackBitmap, frame, reusableRectF, paint)
