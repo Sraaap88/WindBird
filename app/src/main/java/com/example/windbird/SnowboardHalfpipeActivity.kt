@@ -909,57 +909,91 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             canvas.drawRect(0f, 0f, w.toFloat(), h * 0.3f, paint)
             paint.shader = null
             
-            // Vue depuis l'intérieur du halfpipe - forme en U claire
+            // Halfpipe avec VRAIES courbes concaves (creusées vers l'intérieur)
             paint.color = Color.WHITE
             
-            // Mur gauche du halfpipe (courbe douce)
+            // Mur gauche - courbe CONCAVE (creusée vers la droite)
             reusablePath.reset()
             reusablePath.moveTo(0f, h * 0.3f)                    // Haut gauche
-            reusablePath.quadTo(w * 0.1f, h * 0.6f, w * 0.3f, h * 0.85f)  // Courbe vers le fond
-            reusablePath.lineTo(w * 0.3f, h.toFloat())           // Bas
+            reusablePath.quadTo(w * 0.2f, h * 0.4f, w * 0.35f, h * 0.85f)  // Courbe creusée vers l'intérieur
+            reusablePath.lineTo(w * 0.35f, h.toFloat())           // Bas
             reusablePath.lineTo(0f, h.toFloat())                 // Coin bas gauche
             reusablePath.close()
             canvas.drawPath(reusablePath, paint)
             
-            // Mur droit du halfpipe (symétrique)
+            // Mur droit - courbe CONCAVE (creusée vers la gauche)
             reusablePath.reset()
             reusablePath.moveTo(w.toFloat(), h * 0.3f)           // Haut droit
-            reusablePath.quadTo(w * 0.9f, h * 0.6f, w * 0.7f, h * 0.85f)  // Courbe vers le fond
-            reusablePath.lineTo(w * 0.7f, h.toFloat())           // Bas
+            reusablePath.quadTo(w * 0.8f, h * 0.4f, w * 0.65f, h * 0.85f)  // Courbe creusée vers l'intérieur
+            reusablePath.lineTo(w * 0.65f, h.toFloat())           // Bas
             reusablePath.lineTo(w.toFloat(), h.toFloat())        // Coin bas droit
             reusablePath.close()
             canvas.drawPath(reusablePath, paint)
             
             // Fond plat du halfpipe (milieu)
             paint.color = Color.parseColor("#F8F8F8")
-            reusableRectF.set(w * 0.3f, h * 0.85f, w * 0.7f, h.toFloat())
+            reusableRectF.set(w * 0.35f, h * 0.85f, w * 0.65f, h.toFloat())
             canvas.drawRect(reusableRectF, paint)
             
-            // Lignes de perspective qui montrent la progression
+            // DÉFILEMENT DU DÉCOR - Lignes qui descendent pour montrer l'avancement
             paint.color = Color.parseColor("#DDDDDD")
-            paint.strokeWidth = 2f
+            paint.strokeWidth = 3f
             paint.style = Paint.Style.STROKE
             
-            val scrollOffset = pipeScroll % 80f
-            for (i in 0..8) {
-                val lineY = h * 0.85f + i * 40f - scrollOffset
-                if (lineY < h.toFloat() && lineY > h * 0.3f) {
-                    // Ligne qui suit la forme du U
+            val scrollOffset = (pipeScroll * 3f) % 120f // Plus rapide et visible
+            for (i in 0..15) {
+                val lineDistance = i * 80f - scrollOffset
+                val lineY = lineDistance
+                
+                if (lineY >= h * 0.3f && lineY <= h.toFloat()) {
+                    // Ligne qui suit la forme concave du halfpipe
                     reusablePath.reset()
-                    reusablePath.moveTo(w * 0.3f, lineY)                    // Gauche du fond
-                    reusablePath.quadTo(w * 0.5f, lineY + 5f, w * 0.7f, lineY)  // Courbe légère
+                    reusablePath.moveTo(w * 0.35f, lineY)  // Gauche du fond plat
+                    
+                    // Courbe qui suit les murs concaves
+                    reusablePath.quadTo(w * 0.25f, lineY - 20f, 0f, lineY - 50f)  // Vers mur gauche
+                    
+                    // Ligne droite du fond
+                    reusablePath.moveTo(w * 0.35f, lineY)
+                    reusablePath.lineTo(w * 0.65f, lineY)
+                    
+                    // Vers mur droit
+                    reusablePath.moveTo(w * 0.65f, lineY)
+                    reusablePath.quadTo(w * 0.75f, lineY - 20f, w.toFloat(), lineY - 50f)
+                    
                     canvas.drawPath(reusablePath, paint)
                 }
             }
             
-            // Bords/copings du halfpipe
-            paint.color = Color.parseColor("#CCCCCC")
-            paint.strokeWidth = 4f
+            // LIGNES DE BORD qui descendent aussi
+            for (i in 0..10) {
+                val lineY = i * 100f - scrollOffset
+                if (lineY >= h * 0.3f && lineY <= h.toFloat()) {
+                    paint.strokeWidth = 2f
+                    paint.color = Color.parseColor("#BBBBBB")
+                    
+                    // Bord gauche qui descend
+                    canvas.drawLine(w * 0.35f, lineY, w * 0.3f, lineY + 20f, paint)
+                    // Bord droit qui descend  
+                    canvas.drawLine(w * 0.65f, lineY, w * 0.7f, lineY + 20f, paint)
+                }
+            }
             
-            // Coping gauche
-            canvas.drawLine(0f, h * 0.3f, w * 0.3f, h * 0.85f, paint)
-            // Coping droit
-            canvas.drawLine(w.toFloat(), h * 0.3f, w * 0.7f, h * 0.85f, paint)
+            // Copings (bords) du halfpipe
+            paint.color = Color.parseColor("#CCCCCC")
+            paint.strokeWidth = 6f
+            
+            // Coping gauche - courbe concave
+            reusablePath.reset()
+            reusablePath.moveTo(0f, h * 0.3f)
+            reusablePath.quadTo(w * 0.2f, h * 0.4f, w * 0.35f, h * 0.85f)
+            canvas.drawPath(reusablePath, paint)
+            
+            // Coping droit - courbe concave
+            reusablePath.reset()
+            reusablePath.moveTo(w.toFloat(), h * 0.3f)
+            reusablePath.quadTo(w * 0.8f, h * 0.4f, w * 0.65f, h * 0.85f)
+            canvas.drawPath(reusablePath, paint)
             
             paint.style = Paint.Style.FILL
         }
