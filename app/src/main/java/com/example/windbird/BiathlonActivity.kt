@@ -37,12 +37,18 @@ class BiathlonActivity : Activity(), SensorEventListener {
     private var preparationTimer = 0L
     private var preparationStarted = false
     
-    // NOUVEAU - Système de poussées rythmées avec performance
+    // NOUVEAU - Système de poussées rythmées avec performance ET GLISSE
     private var pushDirection = 0 // -1=gauche, 0=neutre, 1=droite
     private var lastPushTime = 0L
     private var previousPushTime = 0L
     private var rhythmBonus = 1f
     private var pushCount = 0
+    
+    // NOUVEAU - Variables pour la glisse fluide
+    private var currentSpeed = 0f // Vitesse actuelle du skieur
+    private var targetSpeed = 0f // Vitesse cible après une poussée
+    private var isGliding = false // En train de glisser
+    private var lastGlideUpdate = 0L
     
     // NOUVEAU - Variables pour la bande de performance
     private var currentPushQuality = 0f
@@ -104,7 +110,26 @@ class BiathlonActivity : Activity(), SensorEventListener {
             textSize = 18f
             setBackgroundColor(Color.parseColor("#001122"))
             setPadding(20, 15, 20, 15)
+        // NOUVEAU - Système de glisse fluide et réaliste
+    private fun updateGliding() {
+        val currentTime = System.currentTimeMillis()
+        
+        if (isGliding && currentTime - lastGlideUpdate > 16) { // 60 FPS
+            // Décélération progressive de la glisse
+            currentSpeed *= 0.985f // Friction de la neige
+            
+            if (currentSpeed > 0.001f) {
+                skierX += currentSpeed
+                distance += currentSpeed * screenDistance
+                backgroundOffset -= currentSpeed * 200f
+            } else {
+                isGliding = false
+                currentSpeed = 0f
+            }
+            
+            lastGlideUpdate = currentTime
         }
+    }
 
         gameView = BiathlonView(this)
 
@@ -137,13 +162,13 @@ class BiathlonActivity : Activity(), SensorEventListener {
             val totalWidth = spriteSheet.width
             val totalHeight = spriteSheet.height
             
-            // CORRECTION : Éliminer complètement le cadre noir - encore 2 pixels supplémentaires
-            val frameWidth = (totalWidth - 25) / 2  // -25 = cadres + marges supplémentaires
-            val frameHeight = totalHeight - 18      // -18 = cadres haut/bas + marges
+            // CORRECTION : Éliminer complètement le cadre noir - encore 3 pixels supplémentaires
+            val frameWidth = (totalWidth - 31) / 2  // -31 = cadres + marges supplémentaires
+            val frameHeight = totalHeight - 24      // -24 = cadres haut/bas + marges
             
             // Extraire les frames en évitant les bordures noires - décalage encore augmenté
-            leftFrame = Bitmap.createBitmap(spriteSheet, 9, 9, frameWidth, frameHeight)
-            rightFrame = Bitmap.createBitmap(spriteSheet, 16 + frameWidth, 9, frameWidth, frameHeight)
+            leftFrame = Bitmap.createBitmap(spriteSheet, 12, 12, frameWidth, frameHeight)
+            rightFrame = Bitmap.createBitmap(spriteSheet, 19 + frameWidth, 12, frameWidth, frameHeight)
             
             // Redimensionner
             val newWidth = frameWidth / 3
@@ -221,6 +246,10 @@ class BiathlonActivity : Activity(), SensorEventListener {
         
         // NOUVELLE logique de transitions d'écrans
         handleScreenTransitions()
+        
+        // NOUVEAU - Mise à jour de la glisse fluide
+        updateGliding()
+        
         updateStatus()
         gameView.invalidate()
     }
@@ -326,25 +355,38 @@ class BiathlonActivity : Activity(), SensorEventListener {
             currentPushQuality = calculatePushQuality(pushAmplitude)
             currentRhythmQuality = calculateRhythmQuality(intervalSinceLastPush)
             
+            // NOUVEAU - Rythme plus strict : si on pousse trop vite sans avoir ralenti, pénalité
+            val speedPenalty = if (currentSpeed > 0.02f && intervalSinceLastPush < 400L) {
+                0.5f // Grosse pénalité si on pousse avant d'avoir ralenti
+            } else if (currentSpeed > 0.015f && intervalSinceLastPush < 600L) {
+                0.7f // Pénalité moyenne
+            } else {
+                1f // Pas de pénalité
+            }
+            
             rhythmBonus = when {
                 intervalSinceLastPush in 400..800 -> 1.5f
                 intervalSinceLastPush in 300..1000 -> 1.2f
                 else -> 0.8f
-            }
+            } * speedPenalty
             
-            // NOUVEAU : Avancement horizontal au lieu de distance totale
-            val combinedQuality = (currentPushQuality * 0.4f + currentRhythmQuality * 0.6f)
-            val advancement = 0.04f + (combinedQuality * 0.03f) // 0.04 à 0.07 par poussée
-            skierX += advancement
+            // NOUVEAU - Système de poussée avec glisse réaliste
+            val combinedQuality = (currentPushQuality * 0.4f + currentRhythmQuality * 0.6f) * speedPenalty
+            val pushStrength = 0.02f + (combinedQuality * 0.025f) // Force de la poussée
             
-            distance += advancement * screenDistance // Pour les stats
-            backgroundOffset -= advancement * 200f
+            // Ajouter la force de poussée à la vitesse actuelle
+            currentSpeed += pushStrength
+            currentSpeed = currentSpeed.coerceAtMost(0.08f) // Vitesse max
+            
+            // Démarrer la glisse
+            isGliding = true
+            lastGlideUpdate = currentTime
             
             previousPushTime = lastPushTime
             lastPushTime = currentTime
             pushCount++
             
-            val overallPerformance = (currentPushQuality + currentRhythmQuality) / 2f
+            val overallPerformance = combinedQuality
             performanceHistory.add(overallPerformance)
             if (performanceHistory.size > 15) {
                 performanceHistory.removeAt(0)
@@ -534,20 +576,20 @@ class BiathlonActivity : Activity(), SensorEventListener {
             
             // Temps restant en très gros
             val timeLeft = 5 - (System.currentTimeMillis() - preparationTimer) / 1000
-            paint.color = Color.parseColor("#FF0000")
-            paint.textSize = 120f
+            paint.color = Color.parseColor("#FFFF00") // JAUNE au lieu de rouge
+            paint.textSize = 150f // Plus gros
             paint.textAlign = Paint.Align.CENTER
             paint.isFakeBoldText = true
             canvas.drawText("$timeLeft", w/2f, h * 0.25f, paint)
             
             // TITRE PRINCIPAL
-            paint.color = Color.parseColor("#000080")
-            paint.textSize = 60f
+            paint.color = Color.parseColor("#FFFF00") // JAUNE
+            paint.textSize = 80f // Plus gros
             canvas.drawText("🎿 BIATHLON 🎯", w/2f, h * 0.4f, paint)
             
             // INSTRUCTIONS EN GROS ET GRAS
-            paint.color = Color.parseColor("#8B0000")
-            paint.textSize = 45f
+            paint.color = Color.parseColor("#FFFF00") // JAUNE
+            paint.textSize = 55f // Plus gros
             paint.isFakeBoldText = true
             
             val instructions = listOf(
@@ -560,12 +602,12 @@ class BiathlonActivity : Activity(), SensorEventListener {
             var yPos = h * 0.55f
             for (instruction in instructions) {
                 canvas.drawText(instruction, w/2f, yPos, paint)
-                yPos += 60f
+                yPos += 70f // Plus d'espace
             }
             
             // Message de départ
-            paint.color = Color.parseColor("#006400")
-            paint.textSize = 50f
+            paint.color = Color.parseColor("#FFFF00") // JAUNE
+            paint.textSize = 60f // Plus gros
             canvas.drawText("PRÉPAREZ-VOUS!", w/2f, h * 0.9f, paint)
             
             paint.isFakeBoldText = false
@@ -967,21 +1009,25 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 canvas.drawBitmap(frame, destX, skierY, null)
             }
             
-            // Instructions au début
+            // Instructions au début - DÉCENTRÉES VERS LA GAUCHE
             if (pushCount < 3 && (gameState == GameState.SKIING || gameState == GameState.FINAL_SKIING)) {
                 paint.color = Color.BLACK
                 paint.textSize = 50f
-                paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("🎿 TOURNEZ COMME UN VOLANT", w/2f, h * 0.15f, paint)
+                paint.textAlign = Paint.Align.LEFT // Alignement à gauche
+                canvas.drawText("🎿 TOURNEZ COMME UN VOLANT", 50f, h * 0.15f, paint)
                 
                 paint.color = Color.RED
                 paint.textSize = 40f
-                canvas.drawText("+ ALTERNEZ GAUCHE-DROITE!", w/2f, h * 0.22f, paint)
+                canvas.drawText("+ ALTERNEZ GAUCHE-DROITE!", 50f, h * 0.22f, paint)
+                
+                paint.color = Color.parseColor("#FF6600")
+                paint.textSize = 30f
+                canvas.drawText("ATTENDEZ QUE ÇA RALENTISSE!", 50f, h * 0.28f, paint)
             }
             
-            // Barre de performance
+            // Barre de performance - DÉCENTRÉE VERS LA DROITE
             if (gameState == GameState.SKIING || gameState == GameState.FINAL_SKIING) {
-                drawPerformanceBand(canvas, w * 0.1f, 80f, w * 0.4f, 60f)
+                drawPerformanceBand(canvas, w * 0.55f, 80f, w * 0.4f, 60f) // Décalée vers la droite
             }
             
             // Barre de progression de l'écran
