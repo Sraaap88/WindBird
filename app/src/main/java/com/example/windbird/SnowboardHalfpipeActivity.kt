@@ -9,6 +9,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Bundle
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
@@ -16,122 +17,69 @@ import android.widget.TextView
 import android.view.ViewGroup
 import kotlin.math.*
 
-class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
+class BobsledActivity : Activity(), SensorEventListener {
 
-    private lateinit var gameView: SnowboardHalfpipeView
+    private lateinit var gameView: BobsledView
     private lateinit var statusText: TextView
 
     private var sensorManager: SensorManager? = null
     private var gyroscope: Sensor? = null
-    private var accelerometer: Sensor? = null
 
-    // États du jeu
+    // Structure de jeu
     private var gameState = GameState.PREPARATION
     private var phaseTimer = 0f
     
-    // Durées des phases
-    private val preparationDuration = 6f // Durée augmentée à 6 secondes
-    private val rideDuration = 60f  // 1 minute de ride
-    private val resultsDuration = 8f
+    // Durées
+    private val preparationDuration = 6f
+    private val pushStartDuration = 8f
+    private val controlDescentDuration = 90f
+    private val finishLineDuration = 4f
+    private val celebrationDuration = 8f
+    private val resultsDuration = 5f
     
-    // Variables de physique réaliste du halfpipe
-    private var riderPosition = 0.5f      // Position sur le halfpipe (0.0 = gauche max, 1.0 = droite max)
-    private var riderHeight = 0.8f        // Hauteur dans le halfpipe (0.8 = fond, 0.2 = coping)
-    private var speed = 8f                // Vitesse actuelle (démarrage avec vitesse de base)
-    private var momentum = 0f             // Momentum pour les oscillations
-    private var pipeDistance = 0f         // Distance parcourue dans le pipe
-    private var verticalVelocity = 0f     // Vélocité verticale (gravity)
-    private var direction = 1f            // Direction du mouvement (-1 = gauche, 1 = droite)
+    // Variables de jeu principales
+    private var speed = 0f
+    private var baseSpeed = 50f
+    private var maxSpeed = 150f
+    private var pushPower = 0f
+    private var distance = 0f
     
-    // État physique du rider avec animations
-    private var isInAir = false
-    private var airTime = 0f
-    private var lastWallHit = 0L
-    private var goingLeft = false         // Direction du mouvement
-    private var energy = 100f             // Énergie totale (conservation)
-    private var currentSide = RiderSide.CENTER // Côté actuel du rider
-    private var lastSide = RiderSide.CENTER    // Dernier côté pour savoir d'où il vient
-    private var isLanding = false              // En phase d'atterrissage
-    private var landingTimer = 0f              // Timer pour l'animation de landing
+    // Variables de performance
+    private var wallHits = 0
+    private var perfectTurns = 0
+    private var raceTime = 0f
+    private var pushQuality = 0f
     
-    // Système de pumping réaliste
-    private var pumpEnergy = 0f
-    private var pumpTiming = 0f           // Qualité du timing de pump (0-1)
-    private var pumpCombo = 0
-    private var lastPumpTime = 0L
-    private var pumpWindow = false        // Fenêtre de pumping optimal
-    private var pumpEfficiency = 0f      // Efficacité du pump actuel
+    // Circuit simple
+    private var trackPosition = 0f // Position sur le circuit (0.0 à 1.0)
+    private val trackCurves = mutableListOf<Float>() // Séquence de virages
     
-    // Contrôles gyroscope/accéléromètre
-    private var tiltX = 0f    // Inclinaison gauche/droite (balance)
-    private var tiltY = 0f    // Inclinaison avant/arrière (pumping)
-    private var tiltZ = 0f    // Rotation (spins)
-    private var accelX = 0f   // Accélération X (grabs)
-    private var accelY = 0f   // Accélération Y 
-    private var accelZ = 0f   // Accélération Z (grabs)
+    // Contrôles gyroscopiques
+    private var tiltZ = 0f
+    private var playerReactionAccuracy = 1f
     
-    // Système de tricks complet avec phases
-    private var currentTrick = TrickType.NONE
-    private var trickPhase = TrickPhase.NONE
-    private var trickProgress = 0f
-    private var trickRotation = 0f
-    private var trickFlip = 0f
-    private var trickGrab = false
-    private var tricksCompleted = 0
-    private var trickCombo = 0
-    private var lastTrickType = TrickType.NONE
-    private var trickSetupTime = 0f
-    private var landingBalance = 0.5f     // Balance pour landing (0-1)
+    // Système de poussée
+    private var pushCount = 0
+    private var lastPushTime = 0L
+    private var pushRhythm = 0f
     
-    // Système de scoring réaliste
-    private var amplitude = 0f            // Hauteur des airs
-    private var technicality = 0f         // Difficulté technique
-    private var variety = 0f              // Variété des tricks
-    private var flow = 100f               // Fluidité et transitions
-    private var style = 100f              // Style et landing quality
-    private var consistency = 100f        // Régularité
-    private var totalScore = 0f
+    // Score
     private var finalScore = 0
     private var scoreCalculated = false
     
-    // Métriques de performance
-    private var perfectLandings = 0
-    private var maxAirTime = 0f
-    private var maxHeight = 0f
-    private var trickVariety = mutableSetOf<TrickType>()
-    private var speedHistory = mutableListOf<Float>()
-    
-    // Images du snowboarder avec sprite-sheets
-    private var snowLeftSpriteBitmap: Bitmap? = null
-    private var snowRightSpriteBitmap: Bitmap? = null
-    private var snowLeftLandingBitmap: Bitmap? = null
-    private var snowRightLandingBitmap: Bitmap? = null
-    private var snowLeftRotationBitmap: Bitmap? = null
-    private var snowRightRotationBitmap: Bitmap? = null
-    private var snowLeftGrabBitmap: Bitmap? = null
-    private var snowRightGrabBitmap: Bitmap? = null
-    private var snowLeftSpinBitmap: Bitmap? = null
-    private var snowRightSpinBitmap: Bitmap? = null
-    
-    // Sprite-sheet de la piste
-    private var snowTrackSpriteBitmap: Bitmap? = null
-    
-    // Images pour l'étape de préparation
-    private var halfpipePreparationBitmap: Bitmap? = null
-    private var countryFlagBitmap: Bitmap? = null
-    
-    // Cache pour les frames découpées intelligemment
-    private val snowboarderFrameCache = mutableMapOf<String, List<Rect>>()
-    private var trackFrames = mutableListOf<Rect>() // 12 frames de piste (3x4)
-    
     // Effets visuels
-    private var pipeScroll = 0f           // Défilement de la piste
-    private var wallBounceEffect = 0f     // Effet visuel des murs
-    private var backgroundPerspective = 0f// Perspective du pipe
+    private var cameraShake = 0f
     
-    // Air awareness et feedback
-    private var altimeter = 0f            // Hauteur actuelle au-dessus du pipe
-    private var landingZone = 0.5f        // Zone de landing optimale
+    // Variables pour sprite-sheet Winter Games
+    private var currentFrameIndex = 0
+    private var frameTimer = 0f
+    private var isReversing = false
+    private var trackSection = TrackSection.STRAIGHT
+    private var landscapeOffset = 0f
+    
+    enum class TrackSection {
+        STRAIGHT, LEFT_TURN, RIGHT_TURN, LEFT_RETURN, RIGHT_RETURN
+    }
 
     private lateinit var tournamentData: TournamentData
     private var eventIndex: Int = 0
@@ -151,22 +99,18 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-        accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-
-        // Charger les images
-        loadSnowboarderImages()
 
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         statusText = TextView(this).apply {
-            text = "🏂 SNOWBOARD HALFPIPE - ${tournamentData.playerNames[currentPlayerIndex]}"
+            text = "🛷 BOBSLEIGH - ${tournamentData.playerNames[currentPlayerIndex]}"
             setTextColor(Color.WHITE)
-            textSize = 22f
-            setBackgroundColor(Color.parseColor("#001144"))
-            setPadding(25, 20, 25, 20)
+            textSize = 30f
+            setBackgroundColor(Color.parseColor("#001122"))
+            setPadding(35, 30, 35, 30)
         }
 
-        gameView = SnowboardHalfpipeView(this, this)
+        gameView = BobsledView(this)
 
         layout.addView(statusText)
         layout.addView(gameView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -175,246 +119,86 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         initializeGame()
     }
     
-    fun getCacheKey(bitmap: Bitmap): String {
-        return when (bitmap) {
-            this.snowLeftSpriteBitmap -> "left_sprite"
-            this.snowRightSpriteBitmap -> "right_sprite"
-            this.snowLeftLandingBitmap -> "left_landing"
-            this.snowRightLandingBitmap -> "right_landing"
-            this.snowLeftRotationBitmap -> "left_rotation"
-            this.snowRightRotationBitmap -> "right_rotation"
-            this.snowLeftGrabBitmap -> "left_grab"
-            this.snowRightGrabBitmap -> "right_grab"
-            this.snowLeftSpinBitmap -> "left_spin"
-            this.snowRightSpinBitmap -> "right_spin"
-            else -> "unknown"
-        }
-    }
-    
-    private fun loadSnowboarderImages() {
-        try {
-            snowLeftSpriteBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_left_sprite)
-            snowRightSpriteBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_right_sprite)
-            snowLeftLandingBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_left_landing)
-            snowRightLandingBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_right_landing)
-            snowLeftRotationBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_left_rotation)
-            snowRightRotationBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_right_rotation)
-            snowLeftGrabBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_left_grab)
-            snowRightGrabBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_right_grab)
-            snowLeftSpinBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_left_spin)
-            snowRightSpinBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_right_spin)
-            
-            // Charger le sprite-sheet de la piste
-            snowTrackSpriteBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_track_sprite)
-            
-            // Charger l'image de préparation du halfpipe
-            halfpipePreparationBitmap = BitmapFactory.decodeResource(resources, R.drawable.halfpipe_preparation)
-            
-            // Charger le drapeau du pays du joueur
-            val playerCountry = getPlayerCountry()
-            val flagResourceName = "flag_${playerCountry.lowercase()}"
-            val flagResourceId = resources.getIdentifier(flagResourceName, "drawable", packageName)
-            if (flagResourceId != 0) {
-                countryFlagBitmap = BitmapFactory.decodeResource(resources, flagResourceId)
-            }
-            
-            // Découper intelligemment les frames
-            analyzeAndCacheFrames()
-            
-        } catch (e: Exception) {
-            // Les bitmaps resteront null, le fallback sera utilisé
-        }
-    }
-    
-    private fun getPlayerCountry(): String {
-        // Récupérer le pays du joueur
-        return if (practiceMode) {
-            "ca" // Canada par défaut
-        } else {
-            val playerCountry = tournamentData.playerCountries[currentPlayerIndex]
-            when (playerCountry.uppercase()) {
-                "FRANCE" -> "fr"
-                "CANADA" -> "ca"
-                "USA", "ÉTATS-UNIS", "ETATS-UNIS" -> "us"
-                "ALLEMAGNE", "GERMANY" -> "de"
-                "ITALIE", "ITALY" -> "it"
-                "SUISSE", "SWITZERLAND" -> "ch"
-                "AUTRICHE", "AUSTRIA" -> "at"
-                "NORVÈGE", "NORWAY" -> "no"
-                "SUÈDE", "SWEDEN" -> "se"
-                "FINLANDE", "FINLAND" -> "fi"
-                "JAPON", "JAPAN" -> "jp"
-                "CORÉE", "KOREA" -> "kr"
-                "RUSSIE", "RUSSIA" -> "ru"
-                "POLOGNE", "POLAND" -> "pl"
-                "SLOVÉNIE", "SLOVENIA" -> "si"
-                "RÉPUBLIQUE TCHÈQUE", "CZECH REPUBLIC" -> "cz"
-                else -> "ca"
-            }
-        }
-    }
-    
-    private fun analyzeAndCacheFrames() {
-        // Découpage intelligent des snowboarders (5 frames par sprite-sheet)
-        snowLeftSpriteBitmap?.let { 
-            snowboarderFrameCache["left_sprite"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowRightSpriteBitmap?.let { 
-            snowboarderFrameCache["right_sprite"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowLeftLandingBitmap?.let { 
-            snowboarderFrameCache["left_landing"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowRightLandingBitmap?.let { 
-            snowboarderFrameCache["right_landing"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowLeftRotationBitmap?.let { 
-            snowboarderFrameCache["left_rotation"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowRightRotationBitmap?.let { 
-            snowboarderFrameCache["right_rotation"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowLeftGrabBitmap?.let { 
-            snowboarderFrameCache["left_grab"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowRightGrabBitmap?.let { 
-            snowboarderFrameCache["right_grab"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowLeftSpinBitmap?.let { 
-            snowboarderFrameCache["left_spin"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowRightSpinBitmap?.let { 
-            snowboarderFrameCache["right_spin"] = analyzeFrameBounds(it, 5, 1)
-        }
-        
-        // Découpage de la piste (3x4 = 12 frames)
-        snowTrackSpriteBitmap?.let {
-            trackFrames = analyzeFrameBounds(it, 3, 4).toMutableList()
-        }
-    }
-    
-    private fun analyzeFrameBounds(bitmap: Bitmap, cols: Int, rows: Int): List<Rect> {
-        val frames = mutableListOf<Rect>()
-        val frameWidth = bitmap.width / cols
-        val frameHeight = bitmap.height / rows
-        
-        for (row in 0 until rows) {
-            for (col in 0 until cols) {
-                val left = col * frameWidth
-                val top = row * frameHeight
-                
-                // Analyser les pixels pour trouver les vraies limites
-                val bounds = findActualBounds(bitmap, left, top, frameWidth, frameHeight)
-                frames.add(bounds)
-            }
-        }
-        
-        return frames
-    }
-    
-    private fun findActualBounds(bitmap: Bitmap, startX: Int, startY: Int, maxWidth: Int, maxHeight: Int): Rect {
-        var left = startX + maxWidth
-        var top = startY + maxHeight
-        var right = startX
-        var bottom = startY
-        
-        // Scanner les pixels pour trouver les limites réelles (pixels non-transparents)
-        for (y in startY until (startY + maxHeight)) {
-            for (x in startX until (startX + maxWidth)) {
-                if (x < bitmap.width && y < bitmap.height) {
-                    val pixel = bitmap.getPixel(x, y)
-                    val alpha = (pixel shr 24) and 0xFF
-                    
-                    if (alpha > 10) { // Pixel non-transparent
-                        left = minOf(left, x)
-                        top = minOf(top, y)
-                        right = maxOf(right, x)
-                        bottom = maxOf(bottom, y)
-                    }
-                }
-            }
-        }
-        
-        // Si aucun pixel trouvé, utiliser la frame complète
-        if (left > right) {
-            left = startX
-            top = startY
-            right = startX + maxWidth
-            bottom = startY + maxHeight
-        }
-        
-        return Rect(left, top, right + 1, bottom + 1)
-    }
-    
     private fun initializeGame() {
         gameState = GameState.PREPARATION
         phaseTimer = 0f
-        riderPosition = 0.5f
-        riderHeight = 0.8f
-        speed = 8f
-        momentum = 0f
-        pipeDistance = 0f
-        verticalVelocity = 0f
-        
-        isInAir = false
-        airTime = 0f
-        lastWallHit = 0L
-        goingLeft = false
-        energy = 100f
-        
-        pumpEnergy = 0f
-        pumpTiming = 0f
-        pumpCombo = 0
-        lastPumpTime = 0L
-        pumpWindow = false
-        pumpEfficiency = 0f
-        
-        tiltX = 0f
-        tiltY = 0f
+        speed = 0f
+        baseSpeed = 50f
+        pushPower = 0f
+        distance = 0f
+        trackPosition = 0f
+        wallHits = 0
+        perfectTurns = 0
+        raceTime = 0f
+        pushQuality = 0f
+        pushCount = 0
+        pushRhythm = 0f
         tiltZ = 0f
-        accelX = 0f
-        accelY = 0f
-        accelZ = 0f
-        
-        currentTrick = TrickType.NONE
-        trickPhase = TrickPhase.NONE
-        trickProgress = 0f
-        trickRotation = 0f
-        trickFlip = 0f
-        trickGrab = false
-        tricksCompleted = 0
-        trickCombo = 0
-        lastTrickType = TrickType.NONE
-        trickSetupTime = 0f
-        landingBalance = 0.5f
-        
-        amplitude = 0f
-        technicality = 0f
-        variety = 0f
-        flow = 100f
-        style = 100f
-        consistency = 100f
-        totalScore = 0f
+        playerReactionAccuracy = 1f
         finalScore = 0
         scoreCalculated = false
+        cameraShake = 0f
+        lastPushTime = 0L
+        currentFrameIndex = 0
+        frameTimer = 0f
+        isReversing = false
+        trackSection = TrackSection.STRAIGHT
+        landscapeOffset = 0f
         
-        perfectLandings = 0
-        maxAirTime = 0f
-        maxHeight = 0f
-        trickVariety.clear()
-        speedHistory.clear()
+        generateTrackCurves()
+    }
+    
+    private fun generateTrackCurves() {
+        trackCurves.clear()
         
-        pipeScroll = 0f
-        wallBounceEffect = 0f
-        backgroundPerspective = 0f
-        altimeter = 0f
-        landingZone = 0.5f
+        if (practiceMode) {
+            kotlin.random.Random(12345).let { fixedRandom ->
+                generateRandomTrack(fixedRandom)
+            }
+        } else {
+            kotlin.random.Random(eventIndex.toLong()).let { tournamentRandom ->
+                generateRandomTrack(tournamentRandom)
+            }
+        }
+    }
+    
+    private fun generateRandomTrack(random: kotlin.random.Random) {
+        val trackLength = 75
+        
+        trackCurves.add(0f) // Départ droit
+        trackCurves.add(0f)
+        trackCurves.add(0f)
+        
+        var lastCurve = 0f
+        
+        for (i in 3 until trackLength - 3) {
+            val newCurve = when (random.nextInt(10)) {
+                0 -> -0.9f + random.nextFloat() * 0.1f // Virage FORT gauche
+                1 -> 0.8f + random.nextFloat() * 0.2f  // Virage FORT droite
+                2, 3 -> -0.6f + random.nextFloat() * 0.1f // Virage MOYEN gauche
+                4, 5 -> 0.5f + random.nextFloat() * 0.2f  // Virage MOYEN droite
+                6, 7 -> lastCurve * 0.6f // Transition douce
+                else -> 0f               // Ligne droite
+            }
+            
+            val smoothedCurve = if (abs(newCurve - lastCurve) > 0.7f) {
+                lastCurve + (newCurve - lastCurve) * 0.6f
+            } else {
+                newCurve
+            }
+            
+            trackCurves.add(smoothedCurve)
+            lastCurve = smoothedCurve
+        }
+        
+        trackCurves.add(0f) // Fin droite
+        trackCurves.add(0f)
+        trackCurves.add(0f)
     }
 
     override fun onResume() {
         super.onResume()
         gyroscope?.let { sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
-        accelerometer?.let { sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
     }
 
     override fun onPause() {
@@ -423,25 +207,21 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent) {
-        when (event.sensor.type) {
-            Sensor.TYPE_GYROSCOPE -> {
-                // Filtrage du bruit
-                tiltX = if (abs(event.values[0]) > 0.1f) event.values[0] else 0f
-                tiltY = if (abs(event.values[1]) > 0.1f) event.values[1] else 0f
-                tiltZ = if (abs(event.values[2]) > 0.1f) event.values[2] else 0f
-            }
-            Sensor.TYPE_ACCELEROMETER -> {
-                accelX = event.values[0]
-                accelY = event.values[1]
-                accelZ = event.values[2]
-            }
-        }
+        if (event.sensor.type != Sensor.TYPE_GYROSCOPE) return
 
-        phaseTimer += 0.016f // ~60 FPS
+        tiltZ = event.values[2]
+
+        phaseTimer += 0.025f
+        if (gameState != GameState.PREPARATION && gameState != GameState.FINISH_LINE && gameState != GameState.CELEBRATION && gameState != GameState.RESULTS) {
+            raceTime += 0.025f
+        }
 
         when (gameState) {
             GameState.PREPARATION -> handlePreparation()
-            GameState.RIDING -> handleRiding()
+            GameState.PUSH_START -> handlePushStart()
+            GameState.CONTROL_DESCENT -> handleControlDescent()
+            GameState.FINISH_LINE -> handleFinishLine()
+            GameState.CELEBRATION -> handleCelebration()
             GameState.RESULTS -> handleResults()
             GameState.FINISHED -> {}
         }
@@ -453,422 +233,102 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
     
     private fun handlePreparation() {
         if (phaseTimer >= preparationDuration) {
-            gameState = GameState.RIDING
+            gameState = GameState.PUSH_START
             phaseTimer = 0f
-            // Démarrage avec une poussée initiale
-            speed = 12f
-            momentum = 5f
         }
     }
     
-    private fun handleRiding() {
-        // Physique réaliste du halfpipe
-        updateHalfpipePhysics()
+    private fun handlePushStart() {
+        pushPower = pushPower.coerceAtMost(150f)
+        pushRhythm = pushRhythm.coerceAtMost(150f)
         
-        // Système de pumping
-        handlePumping()
+        if (phaseTimer >= pushStartDuration) {
+            pushQuality = (pushPower * 0.6f + pushRhythm * 0.4f) / 150f
+            baseSpeed = 60f + (pushQuality * 90f)
+            speed = baseSpeed
+            
+            gameState = GameState.CONTROL_DESCENT
+            phaseTimer = 0f
+            cameraShake = 0.5f
+        }
+    }
+    
+    private fun handleControlDescent() {
+        updateTrackProgress()
+        updatePlayerReaction()
+        updateLandscapeScrolling()
         
-        // Mouvement du rider
-        updateRiderMovement()
+        val speedMultiplier = 0.7f + (playerReactionAccuracy * 0.6f)
+        speed = baseSpeed * speedMultiplier
+        speed = speed.coerceAtMost(maxSpeed)
         
-        // Système de tricks avec phases
-        handleTrickSystem()
+        if (trackPosition >= 1f) {
+            gameState = GameState.FINISH_LINE
+            phaseTimer = 0f
+            cameraShake = 0.8f
+        }
+    }
+    
+    private fun updateTrackProgress() {
+        val progressSpeed = speed / 8000f
+        trackPosition += progressSpeed * 0.025f
+        trackPosition = trackPosition.coerceAtMost(1f)
+    }
+    
+    private fun updatePlayerReaction() {
+        // Réaction basée sur le virage actuel du parcours
+        val trackIndex = (trackPosition * (trackCurves.size - 1)).toInt()
+        val currentTrackCurve = if (trackIndex < trackCurves.size) trackCurves[trackIndex] else 0f
         
-        // Mise à jour des métriques
-        updatePerformanceMetrics()
+        val idealReaction = when {
+            currentTrackCurve < -0.75f -> -1.5f  // Fort gauche
+            currentTrackCurve < -0.4f -> -0.8f   // Moyen gauche
+            currentTrackCurve > 0.75f -> 1.5f    // Fort droite
+            currentTrackCurve > 0.4f -> 0.8f     // Moyen droite
+            else -> 0f                           // Droit
+        }
         
-        // Conservation d'énergie et friction
-        applyPhysicsConstraints()
+        val reactionError = abs(tiltZ - idealReaction)
+        playerReactionAccuracy = (1f - reactionError / 3f).coerceIn(0.2f, 1f)
         
-        // Fin de run
-        if (phaseTimer >= rideDuration) {
+        val perfectThreshold = when {
+            abs(currentTrackCurve) > 0.75f -> 0.4f
+            abs(currentTrackCurve) > 0.4f -> 0.3f
+            else -> 0.2f
+        }
+        
+        if (reactionError < perfectThreshold && abs(currentTrackCurve) > 0.2f) {
+            perfectTurns++
+        }
+        
+        if (reactionError > 1.2f && abs(currentTrackCurve) > 0.2f) {
+            wallHits++
+            cameraShake = 0.3f
+        }
+    }
+    
+    private fun updateLandscapeScrolling() {
+        val scrollSpeed = speed * 0.02f
+        landscapeOffset += scrollSpeed
+        if (landscapeOffset > 1000f) landscapeOffset -= 1000f
+    }
+    
+    private fun handleFinishLine() {
+        if (phaseTimer >= finishLineDuration) {
+            gameState = GameState.CELEBRATION
+            phaseTimer = 0f
+            speed *= 0.9f
+        }
+    }
+    
+    private fun handleCelebration() {
+        speed = maxOf(20f, speed * 0.98f)
+        
+        if (phaseTimer >= celebrationDuration) {
             calculateFinalScore()
             gameState = GameState.RESULTS
             phaseTimer = 0f
         }
-    }
-    
-    private fun updateHalfpipePhysics() {
-        // Mouvement de pendule dans le halfpipe
-        if (!isInAir) {
-            // Calcul de la hauteur selon la position (forme en U)
-            riderHeight = 0.8f - abs(riderPosition - 0.5f) * 0.6f // Plus on s'éloigne du centre, plus on monte
-            
-            // Mouvement oscillatoire de gauche à droite
-            momentum += direction * 0.008f * speed / 15f
-            riderPosition += momentum * 0.02f
-            
-            // Mise à jour du côté actuel selon la position
-            val newSide = when {
-                riderPosition < 0.3f -> RiderSide.LEFT
-                riderPosition > 0.7f -> RiderSide.RIGHT
-                else -> RiderSide.CENTER
-            }
-            
-            if (newSide != currentSide) {
-                lastSide = currentSide
-                currentSide = newSide
-            }
-            
-            // Rebond sur les bords avec changement de direction
-            if (riderPosition <= 0.1f) {
-                riderPosition = 0.1f
-                direction = 1f // Va vers la droite
-                if (speed > 12f && momentum < -0.3f) {
-                    takeoff() // Envol du mur gauche
-                }
-            } else if (riderPosition >= 0.9f) {
-                riderPosition = 0.9f
-                direction = -1f // Va vers la gauche
-                if (speed > 12f && momentum > 0.3f) {
-                    takeoff() // Envol du mur droit
-                }
-            }
-            
-            // Friction naturelle
-            momentum *= 0.98f
-            
-            // Gestion du timer de landing
-            if (isLanding) {
-                landingTimer += 0.016f
-                if (landingTimer > 1f) { // Landing animation dure 1 seconde
-                    isLanding = false
-                    landingTimer = 0f
-                }
-            }
-            
-        } else {
-            // En l'air : gravité pure
-            verticalVelocity += 0.015f // Gravité vers le bas
-            riderHeight += verticalVelocity
-            airTime += 0.016f
-            altimeter = max(0f, (0.8f - riderHeight) * 100f) // Hauteur au-dessus du pipe
-            
-            // Mouvement horizontal continue en l'air
-            riderPosition += momentum * 0.01f
-            riderPosition = riderPosition.coerceIn(0.05f, 0.95f)
-            
-            // Atterrissage sur la rampe
-            val expectedHeight = 0.8f - abs(riderPosition - 0.5f) * 0.6f
-            if (riderHeight >= expectedHeight) {
-                landTrick()
-            }
-        }
-        
-        // Mise à jour distance parcourue pour progression
-        pipeDistance += speed * 0.016f
-        pipeScroll = pipeDistance * 0.05f
-    }
-    
-    private fun handlePumping() {
-        val currentTime = System.currentTimeMillis()
-        
-        // Calcul de la fenêtre de pumping optimal
-        val pipeBottomZone = riderHeight > 0.75f && riderHeight < 0.85f
-        val transitionZone = abs(riderPosition - 0.5f) > 0.2f
-        pumpWindow = pipeBottomZone && transitionZone
-        
-        // Détection du mouvement de pump (avant)
-        if (tiltY < -0.4f && currentTime - lastPumpTime > 200L) {
-            if (pumpWindow) {
-                // Pump parfait !
-                pumpEfficiency = 1f
-                pumpTiming = 1f
-                speed += 3f
-                pumpCombo++
-                flow += 2f
-                
-            } else {
-                // Pump mal timé
-                pumpEfficiency = 0.3f
-                pumpTiming = 0.3f
-                speed += 0.5f
-                pumpCombo = 0
-                flow -= 1f
-            }
-            
-            lastPumpTime = currentTime
-            pumpEnergy = pumpEfficiency
-        }
-        
-        // Dégradation du pump
-        pumpEnergy *= 0.95f
-        pumpTiming *= 0.98f
-    }
-    
-    private fun updateRiderMovement() {
-        // Contrôle horizontal (balance)
-        val horizontalInput = tiltX * 0.5f
-        momentum += horizontalInput * 0.008f
-        
-        // Amortissement du momentum
-        momentum *= 0.98f
-        
-        // Application du mouvement
-        riderPosition += momentum * 0.01f
-        riderPosition = riderPosition.coerceIn(0.05f, 0.95f)
-        
-        // Détection des murs et envol
-        val currentTime = System.currentTimeMillis()
-        val wallThreshold = 0.15f
-        
-        if ((riderPosition <= wallThreshold || riderPosition >= 1f - wallThreshold) 
-            && !isInAir && currentTime - lastWallHit > 800L) {
-            
-            takeoff()
-            lastWallHit = currentTime
-        }
-        
-        // Direction du mouvement
-        goingLeft = momentum < 0f
-    }
-    
-    private fun takeoff() {
-        isInAir = true
-        verticalVelocity = -(speed * 0.04f + pumpEnergy * 0.03f) // Vitesse vers le haut
-        airTime = 0f
-        wallBounceEffect = 0.5f
-        
-        // Conserver le momentum horizontal
-        // momentum reste inchangé pour continuer le mouvement en l'air
-        
-        // Métriques d'amplitude
-        amplitude = max(amplitude, abs(momentum) * speed * 0.1f)
-        
-        // Préparation pour tricks
-        trickPhase = TrickPhase.TAKEOFF
-        trickSetupTime = 0f
-    }
-    
-    private fun handleTrickSystem() {
-        if (!isInAir) {
-            currentTrick = TrickType.NONE
-            trickPhase = TrickPhase.NONE
-            return
-        }
-        
-        trickSetupTime += 0.016f
-        
-        when (trickPhase) {
-            TrickPhase.TAKEOFF -> {
-                // Phase de setup (courte fenêtre pour initier)
-                if (trickSetupTime > 0.1f) {
-                    detectTrickInitiation()
-                }
-            }
-            TrickPhase.SETUP -> {
-                // Continuer le setup du trick
-                continueTrickSetup()
-            }
-            TrickPhase.EXECUTION -> {
-                // Exécution du trick
-                executeTrick()
-            }
-            TrickPhase.LANDING -> {
-                // Préparation du landing
-                prepareLanding()
-            }
-            else -> {}
-        }
-    }
-    
-    private fun detectTrickInitiation() {
-        val rotationThreshold = 1.0f
-        val flipThreshold = 1.2f
-        val grabThreshold = 8f
-        
-        when {
-            abs(tiltZ) > rotationThreshold && currentTrick == TrickType.NONE -> {
-                initiateTrick(TrickType.SPIN)
-            }
-            abs(tiltY) > flipThreshold && currentTrick == TrickType.NONE -> {
-                initiateTrick(TrickType.FLIP)
-            }
-            abs(accelZ) > grabThreshold && currentTrick == TrickType.NONE -> {
-                initiateTrick(TrickType.GRAB)
-            }
-            abs(tiltZ) > rotationThreshold && abs(tiltY) > flipThreshold -> {
-                initiateTrick(TrickType.COMBO)
-            }
-        }
-    }
-    
-    private fun initiateTrick(type: TrickType) {
-        currentTrick = type
-        trickPhase = TrickPhase.SETUP
-        trickProgress = 0f
-        trickRotation = 0f
-        trickFlip = 0f
-        trickGrab = false
-        
-        // Difficulté technique
-        val difficulty = when (type) {
-            TrickType.SPIN -> 1f
-            TrickType.FLIP -> 2f
-            TrickType.GRAB -> 1.5f
-            TrickType.COMBO -> 3f
-            else -> 0f
-        }
-        technicality += difficulty
-    }
-    
-    private fun continueTrickSetup() {
-        // Fenêtre de setup pour construire le trick
-        if (trickSetupTime > 0.3f) {
-            trickPhase = TrickPhase.EXECUTION
-        }
-    }
-    
-    private fun executeTrick() {
-        when (currentTrick) {
-            TrickType.SPIN -> {
-                trickRotation += abs(tiltZ) * 0.02f
-                trickProgress = (trickRotation / 360f).coerceIn(0f, 3f) // Max 1080°
-            }
-            TrickType.FLIP -> {
-                trickFlip += abs(tiltY) * 0.015f
-                trickProgress = (trickFlip / 180f).coerceIn(0f, 2f) // Max double flip
-            }
-            TrickType.GRAB -> {
-                if (abs(accelZ) > 6f) trickGrab = true
-                trickProgress = if (trickGrab) min(1f, trickProgress + 0.03f) else trickProgress * 0.95f
-            }
-            TrickType.COMBO -> {
-                trickRotation += abs(tiltZ) * 0.015f
-                trickFlip += abs(tiltY) * 0.01f
-                if (abs(accelZ) > 6f) trickGrab = true
-                trickProgress = ((trickRotation + trickFlip) / 400f + if (trickGrab) 0.3f else 0f).coerceIn(0f, 2f)
-            }
-            else -> {}
-        }
-        
-        // Préparation landing si temps en l'air suffisant
-        if (airTime > 0.5f && verticalVelocity < 0f) {
-            trickPhase = TrickPhase.LANDING
-        }
-    }
-    
-    private fun prepareLanding() {
-        // Balance pour le landing
-        landingBalance = 0.5f + tiltX * 0.1f
-        landingBalance = landingBalance.coerceIn(0f, 1f)
-    }
-    
-    private fun landTrick() {
-        isInAir = false
-        airTime = 0f
-        verticalVelocity = 0f
-        
-        // Déclencher l'animation de landing selon le côté
-        isLanding = true
-        landingTimer = 0f
-        
-        // Remettre à la bonne hauteur sur la rampe
-        riderHeight = 0.8f - abs(riderPosition - 0.5f) * 0.6f
-        maxAirTime = max(maxAirTime, airTime)
-        
-        if (currentTrick != TrickType.NONE && trickProgress > 0.3f) {
-            // Trick réussi !
-            val trickScore = calculateTrickScore()
-            totalScore += trickScore
-            tricksCompleted++
-            trickVariety.add(currentTrick)
-            
-            // Système de combo pour variété
-            if (lastTrickType != currentTrick) {
-                trickCombo++
-                variety += 2f
-            } else {
-                variety -= 1f // Pénalité répétition
-            }
-            
-            // Quality du landing basée sur l'équilibre
-            val landingQuality = 1f - abs(tiltX) * 0.5f - abs(tiltY) * 0.3f
-            if (landingQuality > 0.8f) {
-                perfectLandings++
-                style += 3f
-            } else if (landingQuality > 0.5f) {
-                style += 1f
-            } else {
-                style -= 2f // Mauvais landing
-                speed *= 0.9f // Perte de vitesse
-            }
-            
-            lastTrickType = currentTrick
-            
-        } else if (currentTrick != TrickType.NONE) {
-            // Trick raté
-            style -= 3f
-            flow -= 2f
-            trickCombo = 0
-            speed *= 0.85f
-        }
-        
-        currentTrick = TrickType.NONE
-        trickPhase = TrickPhase.NONE
-        trickProgress = 0f
-    }
-    
-    private fun calculateTrickScore(): Float {
-        val baseScore = when (currentTrick) {
-            TrickType.SPIN -> when {
-                trickRotation >= 1080f -> 50f
-                trickRotation >= 720f -> 35f
-                trickRotation >= 540f -> 25f
-                trickRotation >= 360f -> 15f
-                else -> 8f
-            }
-            TrickType.FLIP -> when {
-                trickFlip >= 360f -> 60f // Double flip
-                trickFlip >= 180f -> 30f
-                else -> 10f
-            }
-            TrickType.GRAB -> 20f * trickProgress
-            TrickType.COMBO -> 40f * trickProgress
-            else -> 0f
-        }
-        
-        val airTimeBonus = airTime * 5f
-        val heightBonus = altimeter * 0.5f
-        val comboBonus = trickCombo * 3f
-        
-        return baseScore + airTimeBonus + heightBonus + comboBonus
-    }
-    
-    private fun updatePerformanceMetrics() {
-        // Flow basé sur la fluidité des transitions
-        val speedVariation = if (speedHistory.size > 10) {
-            val recent = speedHistory.takeLast(10)
-            recent.maxOrNull()!! - recent.minOrNull()!!
-        } else 0f
-        
-        if (speedVariation < 3f) flow += 0.1f else flow -= 0.1f
-        
-        // Consistency basée sur la régularité
-        if (speed > 10f && !isInAir) consistency += 0.05f
-        if (speed < 6f) consistency -= 0.1f
-        
-        // Contraintes
-        flow = flow.coerceIn(60f, 120f)
-        style = style.coerceIn(60f, 120f)
-        consistency = consistency.coerceIn(60f, 120f)
-    }
-    
-    private fun applyPhysicsConstraints() {
-        // Friction naturelle
-        speed *= 0.998f
-        
-        // Vitesse minimale et maximale
-        speed = speed.coerceIn(4f, 30f)
-        
-        // Conservation d'énergie
-        val totalEnergy = speed + (1f - riderHeight) * 20f
-        energy = totalEnergy * 0.99f // Perte d'énergie graduelle
-    }
-    
-    private fun updateEffects() {
-        wallBounceEffect = max(0f, wallBounceEffect - 0.02f)
-        backgroundPerspective += speed * 0.001f
     }
     
     private fun handleResults() {
@@ -885,20 +345,20 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         }
     }
     
+    private fun updateEffects() {
+        cameraShake = maxOf(0f, cameraShake - 0.02f)
+    }
+    
     private fun calculateFinalScore() {
         if (!scoreCalculated) {
-            val amplitudePoints = (amplitude * 2).toInt()
-            val tricksPoints = totalScore.toInt()
-            val varietyPoints = trickVariety.size * 15
-            val flowPoints = ((flow - 100f) * 1.5f).toInt()
-            val stylePoints = ((style - 100f) * 2f).toInt()
-            val consistencyPoints = ((consistency - 100f) * 1f).toInt()
-            val perfectLandingBonus = perfectLandings * 10
+            val timeBonus = maxOf(0, 300 - raceTime.toInt())
+            val speedBonus = (speed / maxSpeed * 100).toInt()
+            val pushBonus = (pushQuality * 80).toInt()
+            val reactionBonus = (playerReactionAccuracy * 150).toInt()
+            val perfectBonus = perfectTurns * 25
+            val wallPenalty = wallHits * 30
             
-            finalScore = maxOf(80, 
-                amplitudePoints + tricksPoints + varietyPoints + 
-                flowPoints + stylePoints + consistencyPoints + perfectLandingBonus
-            )
+            finalScore = maxOf(100, timeBonus + speedBonus + pushBonus + reactionBonus + perfectBonus - wallPenalty)
             scoreCalculated = true
         }
     }
@@ -930,7 +390,7 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
                 startActivity(intent)
                 finish()
             } else {
-                val aiScore = (120..220).random()
+                val aiScore = (150..250).random()
                 tournamentData.addScore(nextPlayer, eventIndex, aiScore)
                 proceedToNextPlayerOrEvent()
             }
@@ -955,131 +415,741 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
-    override fun onDestroy() {
-        super.onDestroy()
-        // Libérer les bitmaps
-        snowLeftSpriteBitmap?.recycle()
-        snowRightSpriteBitmap?.recycle()
-        snowLeftLandingBitmap?.recycle()
-        snowRightLandingBitmap?.recycle()
-        snowLeftRotationBitmap?.recycle()
-        snowRightRotationBitmap?.recycle()
-        snowLeftGrabBitmap?.recycle()
-        snowRightGrabBitmap?.recycle()
-        snowLeftSpinBitmap?.recycle()
-        snowRightSpinBitmap?.recycle()
-        snowTrackSpriteBitmap?.recycle()
-        halfpipePreparationBitmap?.recycle()
-        countryFlagBitmap?.recycle()
-    }
-
     private fun updateStatus() {
         statusText.text = when (gameState) {
-            GameState.PREPARATION -> "🏂 ${tournamentData.playerNames[currentPlayerIndex]} | Préparation... ${(preparationDuration - phaseTimer).toInt() + 1}s"
-            GameState.RIDING -> {
-                val trickText = if (currentTrick != TrickType.NONE) " | ${currentTrick.displayName}" else ""
-                val speedText = "Speed: ${speed.toInt()}km/h"
-                "🏂 ${tournamentData.playerNames[currentPlayerIndex]} | $speedText | Tricks: $tricksCompleted$trickText"
-            }
-            GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | Score: ${finalScore} | Tricks: $tricksCompleted"
-            GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Run terminé!"
+            GameState.PREPARATION -> "🛷 ${tournamentData.playerNames[currentPlayerIndex]} | Préparation... ${(preparationDuration - phaseTimer).toInt() + 1}s"
+            GameState.PUSH_START -> "🚀 ${tournamentData.playerNames[currentPlayerIndex]} | Puissance: ${pushPower.toInt()}% | Coups: ${pushCount} | ${(pushStartDuration - phaseTimer).toInt() + 1}s"
+            GameState.CONTROL_DESCENT -> "🎮 ${tournamentData.playerNames[currentPlayerIndex]} | Réflexes: ${(playerReactionAccuracy * 100).toInt()}% | ${speed.toInt()} km/h"
+            GameState.FINISH_LINE -> "🏁 ${tournamentData.playerNames[currentPlayerIndex]} | Ligne d'arrivée: ${speed.toInt()} km/h!"
+            GameState.CELEBRATION -> "🎉 ${tournamentData.playerNames[currentPlayerIndex]} | Temps: ${raceTime.toInt()}s!"
+            GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | Score: ${finalScore}"
+            GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Course terminée!"
         }
     }
 
-    fun getCountryFlag(country: String): String {
+    private fun getCountryFlag(country: String): String {
         return when (country.uppercase()) {
-            "FRANCE" -> "🇫🇷"
             "CANADA" -> "🇨🇦"
-            "USA", "ÉTATS-UNIS", "ETATS-UNIS" -> "🇺🇸"
-            "ALLEMAGNE", "GERMANY" -> "🇩🇪"
-            "ITALIE", "ITALY" -> "🇮🇹"
-            "SUISSE", "SWITZERLAND" -> "🇨🇭"
-            "AUTRICHE", "AUSTRIA" -> "🇦🇹"
-            "NORVÈGE", "NORWAY" -> "🇳🇴"
-            "SUÈDE", "SWEDEN" -> "🇸🇪"
-            "FINLANDE", "FINLAND" -> "🇫🇮"
-            "JAPON", "JAPAN" -> "🇯🇵"
-            "CORÉE", "KOREA" -> "🇰🇷"
-            "RUSSIE", "RUSSIA" -> "🇷🇺"
-            "POLOGNE", "POLAND" -> "🇵🇱"
-            "SLOVÉNIE", "SLOVENIA" -> "🇸🇮"
-            "RÉPUBLIQUE TCHÈQUE", "CZECH REPUBLIC" -> "🇨🇿"
+            "FRANCE" -> "🇫🇷"
+            "USA" -> "🇺🇸"
+            "NORVÈGE" -> "🇳🇴"
+            "JAPON" -> "🇯🇵"
             else -> "🏴"
         }
     }
 
-    // Méthodes getter pour la vue
-    fun getGameState() = gameState
-    fun getPhaseTimer() = phaseTimer
-    fun getPreparationDuration() = preparationDuration
-    fun getHalfpipePreparationBitmap() = halfpipePreparationBitmap
-    fun getCountryFlagBitmap() = countryFlagBitmap
-    fun getTournamentData() = tournamentData
-    fun getCurrentPlayerIndex() = currentPlayerIndex
-    fun getPracticeMode() = practiceMode
-    fun getSnowTrackSpriteBitmap() = snowTrackSpriteBitmap
-    fun getTrackFrames() = trackFrames
-    fun getSpeed() = speed
-    fun getPipeScroll() = pipeScroll
-    fun getRiderPosition() = riderPosition
-    fun getRiderHeight() = riderHeight
-    fun getIsInAir() = isInAir
-    fun getMomentum() = momentum
-    fun getIsLanding() = isLanding
-    fun getLandingTimer() = landingTimer
-    fun getCurrentSide() = currentSide
-    fun getLastSide() = lastSide
-    fun getCurrentTrick() = currentTrick
-    fun getTrickRotation() = trickRotation
-    fun getTrickFlip() = trickFlip
-    fun getTrickProgress() = trickProgress
-    fun getTrickPhase() = trickPhase
-    fun getSnowLeftSpriteBitmap() = snowLeftSpriteBitmap
-    fun getSnowRightSpriteBitmap() = snowRightSpriteBitmap
-    fun getSnowLeftLandingBitmap() = snowLeftLandingBitmap
-    fun getSnowRightLandingBitmap() = snowRightLandingBitmap
-    fun getSnowLeftRotationBitmap() = snowLeftRotationBitmap
-    fun getSnowRightRotationBitmap() = snowRightRotationBitmap
-    fun getSnowLeftGrabBitmap() = snowLeftGrabBitmap
-    fun getSnowRightGrabBitmap() = snowRightGrabBitmap
-    fun getSnowLeftSpinBitmap() = snowLeftSpinBitmap
-    fun getSnowRightSpinBitmap() = snowRightSpinBitmap
-    fun getSnowboarderFrameCache() = snowboarderFrameCache
-    fun getTotalScore() = totalScore
-    fun getTricksCompleted() = tricksCompleted
-    fun getAmplitude() = amplitude
-    fun getFlow() = flow
-    fun getStyle() = style
-    fun getTrickCombo() = trickCombo
-    fun getPumpWindow() = pumpWindow
-    fun getPumpEnergy() = pumpEnergy
-    fun getPumpEfficiency() = pumpEfficiency
-    fun getPumpCombo() = pumpCombo
-    fun getAltimeter() = altimeter
-    fun getAirTime() = airTime
-    fun getFinalScore() = finalScore
-    fun getTrickVariety() = trickVariety
-    fun getMaxHeight() = maxHeight
-    fun getMaxAirTime() = maxAirTime
-    fun getPerfectLandings() = perfectLandings
+    inner class BobsledView(context: Context) : View(context) {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        
+        // Images du bobsleigh
+        private var bobsledPreparationBitmap: Bitmap? = null
+        private var bobPushBitmap: Bitmap? = null
+        private var bobStraightBitmap: Bitmap? = null
+        private var bobLeftBitmap: Bitmap? = null
+        private var bobRightBitmap: Bitmap? = null
+        private var bobFinishLineBitmap: Bitmap? = null
+        private var bobCelebrationBitmap: Bitmap? = null
+        
+        // Images de la piste sprite
+        private var bobtrackLeftSpriteBitmap: Bitmap? = null
+        
+        // Images des drapeaux
+        private var flagCanadaBitmap: Bitmap? = null
+        private var flagUsaBitmap: Bitmap? = null
+        private var flagFranceBitmap: Bitmap? = null
+        private var flagNorvegeBitmap: Bitmap? = null
+        private var flagJapanBitmap: Bitmap? = null
+        
+        // Variables pour découper le sprite-sheet
+        private var spriteFrameWidth = 0
+        private var spriteFrameHeight = 0
+        private val totalFrames = 9 // Nombre d'images dans le sprite-sheet
+        
+        init {
+            try {
+                bobsledPreparationBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobsled_preparation)
+                bobPushBitmap = BitmapFactory.decodeResource(resources, R.drawable.bob_push)
+                bobStraightBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobnv_straight)
+                bobLeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobnv_left)
+                bobRightBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobnv_right)
+                bobFinishLineBitmap = BitmapFactory.decodeResource(resources, R.drawable.bob_finish_line)
+                bobCelebrationBitmap = BitmapFactory.decodeResource(resources, R.drawable.bob_celebration)
+                
+                // Charger le sprite-sheet de la piste
+                bobtrackLeftSpriteBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobtrack_left_sprite)
+                bobtrackLeftSpriteBitmap?.let { sprite ->
+                    spriteFrameWidth = sprite.width / totalFrames
+                    spriteFrameHeight = sprite.height
+                }
+                
+                // Charger les drapeaux
+                flagCanadaBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_canada)
+                flagUsaBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_usa)
+                flagFranceBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_france)
+                flagNorvegeBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_norvege)
+                flagJapanBitmap = BitmapFactory.decodeResource(resources, R.drawable.flag_japan)
+            } catch (e: Exception) {
+                createFallbackBobsledBitmaps()
+            }
+        }
+        
+        private fun createFallbackBobsledBitmaps() {
+            bobsledPreparationBitmap = createSubstituteBitmap(Color.parseColor("#FF4444"))
+            bobPushBitmap = createSubstituteBitmap(Color.parseColor("#FF6644"))
+            bobStraightBitmap = createSubstituteBitmap(Color.parseColor("#FFB444"))
+            bobLeftBitmap = createSubstituteBitmap(Color.parseColor("#44FF44"))
+            bobRightBitmap = createSubstituteBitmap(Color.parseColor("#4444FF"))
+            bobFinishLineBitmap = createSubstituteBitmap(Color.parseColor("#44FFFF"))
+            bobCelebrationBitmap = createSubstituteBitmap(Color.parseColor("#FFB444"))
+        }
+        
+        private fun createSubstituteBitmap(color: Int): Bitmap {
+            val bitmap = Bitmap.createBitmap(120, 80, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            val tempPaint = Paint().apply {
+                this.color = color
+                style = Paint.Style.FILL
+            }
+            canvas.drawRoundRect(10f, 20f, 110f, 60f, 10f, 10f, tempPaint)
+            return bitmap
+        }
 
-    enum class TrickType(val displayName: String) {
-        NONE(""),
-        SPIN("SPIN"),
-        FLIP("FLIP"), 
-        GRAB("GRAB"),
-        COMBO("COMBO")
-    }
-    
-    enum class TrickPhase {
-        NONE, TAKEOFF, SETUP, EXECUTION, LANDING
-    }
-    
-    enum class RiderSide {
-        LEFT, CENTER, RIGHT
+        // Fonction pour extraire une frame du sprite-sheet
+        private fun getTrackSpriteFrame(frameIndex: Int, mirrorHorizontal: Boolean = false, reverse: Boolean = false): Bitmap? {
+            return bobtrackLeftSpriteBitmap?.let { sprite ->
+                val actualFrameIndex = if (reverse) {
+                    (totalFrames - 1 - frameIndex).coerceIn(0, totalFrames - 1)
+                } else {
+                    frameIndex.coerceIn(0, totalFrames - 1)
+                }
+                
+                val sourceRect = Rect(
+                    actualFrameIndex * spriteFrameWidth,
+                    0,
+                    (actualFrameIndex + 1) * spriteFrameWidth,
+                    spriteFrameHeight
+                )
+                
+                val frameBitmap = Bitmap.createBitmap(sprite, sourceRect.left, sourceRect.top, sourceRect.width(), sourceRect.height())
+                
+                if (mirrorHorizontal) {
+                    val matrix = Matrix().apply { postScale(-1f, 1f) }
+                    Bitmap.createBitmap(frameBitmap, 0, 0, frameBitmap.width, frameBitmap.height, matrix, false)
+                } else {
+                    frameBitmap
+                }
+            }
+        }
+
+        override fun onTouchEvent(event: MotionEvent): Boolean {
+            if (gameState == GameState.PUSH_START) {
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                        val pushProgress = (pushPower / 100f).coerceIn(0f, 1f)
+                        val bobX = 150f + pushProgress * (width - 300f)
+                        val bobY = height * 0.65f
+                        val touchRadius = 92f
+                        
+                        val touchX = event.x
+                        val touchY = event.y
+                        val distance = sqrt((touchX - bobX).pow(2) + (touchY - bobY).pow(2))
+                        
+                        if (distance <= touchRadius) {
+                            pushPower += 4f
+                            pushCount++
+                            
+                            val currentTime = System.currentTimeMillis()
+                            if (currentTime - lastPushTime > 150 && currentTime - lastPushTime < 600) {
+                                pushRhythm += 5f
+                            } else {
+                                pushRhythm += 2f
+                            }
+                            lastPushTime = currentTime
+                            
+                            pushPower = pushPower.coerceAtMost(150f)
+                            pushRhythm = pushRhythm.coerceAtMost(150f)
+                            
+                            cameraShake = 0.2f
+                            
+                            invalidate()
+                            return true
+                        }
+                    }
+                }
+            }
+            return super.onTouchEvent(event)
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            val w = canvas.width
+            val h = canvas.height
+            
+            if (cameraShake > 0f) {
+                canvas.save()
+                canvas.translate(
+                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 10f,
+                    (kotlin.random.Random.nextFloat() - 0.5f) * cameraShake * 10f
+                )
+            }
+            
+            when (gameState) {
+                GameState.PREPARATION -> drawPreparation(canvas, w, h)
+                GameState.PUSH_START -> drawPushStart(canvas, w, h)
+                GameState.CONTROL_DESCENT -> drawWinterGamesSystem(canvas, w, h)
+                GameState.FINISH_LINE -> drawFinishLine(canvas, w, h)
+                GameState.CELEBRATION -> drawCelebration(canvas, w, h)
+                GameState.RESULTS -> drawResults(canvas, w, h)
+                GameState.FINISHED -> drawResults(canvas, w, h)
+            }
+            
+            if (cameraShake > 0f) {
+                canvas.restore()
+            }
+        }
+        
+        // VRAI SYSTÈME WINTER GAMES 1985
+        private fun drawWinterGamesSystem(canvas: Canvas, w: Int, h: Int) {
+            val midHeight = h / 2f
+            
+            // 1. PAYSAGE HIVERNAL EN HAUT (moitié haute)
+            drawWinterLandscape(canvas, w, midHeight.toInt())
+            
+            // 2. FOND SPRITE-SHEET EN BAS (moitié basse)
+            drawTrackSpriteBackground(canvas, w, h, midHeight)
+            
+            // 3. BOBSLEIGH CENTRÉ PAR-DESSUS
+            drawCenteredBobsled(canvas, w, h, midHeight)
+            
+            // 4. Interface
+            drawInterface(canvas, w, h)
+        }
+        
+        private fun drawWinterLandscape(canvas: Canvas, w: Int, horizonHeight: Int) {
+            // Ciel hivernal
+            val skyGradient = LinearGradient(
+                0f, 0f, 0f, horizonHeight.toFloat(),
+                Color.rgb(240, 248, 255),
+                Color.rgb(200, 220, 245),
+                Shader.TileMode.CLAMP
+            )
+            paint.shader = skyGradient
+            canvas.drawRect(0f, 0f, w.toFloat(), horizonHeight.toFloat(), paint)
+            paint.shader = null
+            
+            // Montagnes qui bougent selon les virages
+            val trackIndex = (trackPosition * (trackCurves.size - 1)).toInt()
+            val currentTrackCurve = if (trackIndex < trackCurves.size) trackCurves[trackIndex] else 0f
+            val mountainShift = landscapeOffset + currentTrackCurve * w * 0.4f
+            
+            // Montagnes arrière
+            paint.color = Color.rgb(180, 190, 210)
+            val backMountains = Path().apply {
+                moveTo(-mountainShift * 0.2f, horizonHeight.toFloat())
+                lineTo(w * 0.3f - mountainShift * 0.2f, horizonHeight * 0.2f)
+                lineTo(w * 0.7f - mountainShift * 0.2f, horizonHeight * 0.3f)
+                lineTo(w + 100f - mountainShift * 0.2f, horizonHeight * 0.25f)
+                lineTo(w + 100f, horizonHeight.toFloat())
+                close()
+            }
+            canvas.drawPath(backMountains, paint)
+            
+            // Montagnes proches
+            paint.color = Color.rgb(220, 230, 240)
+            val frontMountains = Path().apply {
+                moveTo(-mountainShift * 0.6f, horizonHeight.toFloat())
+                lineTo(w * 0.2f - mountainShift * 0.6f, horizonHeight * 0.5f)
+                lineTo(w * 0.8f - mountainShift * 0.6f, horizonHeight * 0.4f)
+                lineTo(w.toFloat() - mountainShift * 0.6f, horizonHeight * 0.6f)
+                lineTo(w.toFloat(), horizonHeight.toFloat())
+                close()
+            }
+            canvas.drawPath(frontMountains, paint)
+            
+            // Sapins
+            val treeShift = landscapeOffset * 1.5f + currentTrackCurve * w * 0.5f
+            for (i in 0..10) {
+                val treeX = (w * i / 6f - treeShift) % (w + 150f) - 75f
+                val treeY = horizonHeight * (0.7f + sin(i.toFloat()) * 0.1f)
+                
+                paint.color = Color.rgb(20, 60, 20)
+                val treeSize = 20f + (i % 3) * 8f
+                canvas.drawRect(treeX - 1.5f, treeY, treeX + 1.5f, treeY + treeSize, paint)
+                
+                for (layer in 0..2) {
+                    val layerY = treeY + layer * treeSize / 4f
+                    val layerWidth = treeSize * (0.7f - layer * 0.15f)
+                    val trianglePath = Path().apply {
+                        moveTo(treeX, layerY - layerWidth/3f)
+                        lineTo(treeX - layerWidth/2f, layerY + layerWidth/3f)
+                        lineTo(treeX + layerWidth/2f, layerY + layerWidth/3f)
+                        close()
+                    }
+                    canvas.drawPath(trianglePath, paint)
+                    
+                    paint.color = Color.WHITE
+                    canvas.drawRect(treeX - layerWidth/2f, layerY - 1f, treeX + layerWidth/2f, layerY + 1f, paint)
+                    paint.color = Color.rgb(20, 60, 20)
+                }
+            }
+        }
+        
+        private fun drawTrackSpriteBackground(canvas: Canvas, w: Int, h: Int, startY: Float) {
+            updateTrackFrame()
+            
+            val currentFrame = getCurrentTrackFrame()
+            
+            // DESSINER LE SPRITE COMME FOND FIXE
+            currentFrame?.let { frame ->
+                val dstRect = RectF(0f, startY, w.toFloat(), h.toFloat())
+                canvas.drawBitmap(frame, null, dstRect, paint)
+            } ?: run {
+                // Fallback
+                paint.color = Color.WHITE
+                canvas.drawRect(0f, startY, w.toFloat(), h.toFloat(), paint)
+                
+                paint.color = Color.rgb(200, 200, 200)
+                canvas.drawRect(0f, startY, w * 0.15f, h.toFloat(), paint)
+                canvas.drawRect(w * 0.85f, startY, w.toFloat(), h.toFloat(), paint)
+            }
+        }
+        
+        private fun updateTrackFrame() {
+            val frameSpeed = when {
+                speed > 120f -> 0.03f
+                speed > 80f -> 0.05f
+                speed > 40f -> 0.08f
+                else -> 0.12f
+            }
+            
+            frameTimer += frameSpeed
+            
+            if (frameTimer >= 1f) {
+                frameTimer = 0f
+                
+                val trackIndex = (trackPosition * (trackCurves.size - 1)).toInt()
+                val currentTrackCurve = if (trackIndex < trackCurves.size) trackCurves[trackIndex] else 0f
+                
+                when {
+                    abs(currentTrackCurve) < 0.3f -> {
+                        trackSection = TrackSection.STRAIGHT
+                        currentFrameIndex = if (currentFrameIndex == 0) 1 else 0
+                        isReversing = false
+                    }
+                    
+                    currentTrackCurve < -0.3f -> {
+                        if (trackSection != TrackSection.LEFT_TURN && trackSection != TrackSection.LEFT_RETURN) {
+                            trackSection = TrackSection.LEFT_TURN
+                            currentFrameIndex = 2
+                            isReversing = false
+                        }
+                        
+                        if (trackSection == TrackSection.LEFT_TURN && !isReversing) {
+                            currentFrameIndex++
+                            if (currentFrameIndex >= totalFrames - 1) {
+                                trackSection = TrackSection.LEFT_RETURN
+                                isReversing = true
+                            }
+                        } else if (trackSection == TrackSection.LEFT_RETURN && isReversing) {
+                            currentFrameIndex--
+                            if (currentFrameIndex <= 1) {
+                                trackSection = TrackSection.STRAIGHT
+                                currentFrameIndex = 0
+                                isReversing = false
+                            }
+                        }
+                    }
+                    
+                    currentTrackCurve > 0.3f -> {
+                        if (trackSection != TrackSection.RIGHT_TURN && trackSection != TrackSection.RIGHT_RETURN) {
+                            trackSection = TrackSection.RIGHT_TURN
+                            currentFrameIndex = 2
+                            isReversing = false
+                        }
+                        
+                        if (trackSection == TrackSection.RIGHT_TURN && !isReversing) {
+                            currentFrameIndex++
+                            if (currentFrameIndex >= totalFrames - 1) {
+                                trackSection = TrackSection.RIGHT_RETURN
+                                isReversing = true
+                            }
+                        } else if (trackSection == TrackSection.RIGHT_RETURN && isReversing) {
+                            currentFrameIndex--
+                            if (currentFrameIndex <= 1) {
+                                trackSection = TrackSection.STRAIGHT
+                                currentFrameIndex = 0
+                                isReversing = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        private fun getCurrentTrackFrame(): Bitmap? {
+            return when (trackSection) {
+                TrackSection.STRAIGHT -> {
+                    getTrackSpriteFrame(currentFrameIndex, false, false)
+                }
+                TrackSection.LEFT_TURN, TrackSection.LEFT_RETURN -> {
+                    getTrackSpriteFrame(currentFrameIndex, false, false)
+                }
+                TrackSection.RIGHT_TURN, TrackSection.RIGHT_RETURN -> {
+                    getTrackSpriteFrame(currentFrameIndex, true, false)
+                }
+            }
+        }
+        
+        private fun drawCenteredBobsled(canvas: Canvas, w: Int, h: Int, trackStartY: Float) {
+            val baseBobX = w / 2f
+            val baseBobY = trackStartY + (h - trackStartY) * 0.6f
+            val bobScale = 0.25f
+            
+            val trackIndex = (trackPosition * (trackCurves.size - 1)).toInt()
+            val currentTrackCurve = if (trackIndex < trackCurves.size) trackCurves[trackIndex] else 0f
+            
+            var bobOffsetX = 0f
+            var bobRotation = 0f
+            
+            when {
+                currentTrackCurve < -0.6f -> {
+                    bobOffsetX = w * 0.08f
+                    bobRotation = -20f
+                }
+                currentTrackCurve < -0.3f -> {
+                    bobOffsetX = w * 0.05f
+                    bobRotation = -10f
+                }
+                currentTrackCurve > 0.6f -> {
+                    bobOffsetX = -w * 0.08f
+                    bobRotation = 20f
+                }
+                currentTrackCurve > 0.3f -> {
+                    bobOffsetX = -w * 0.05f
+                    bobRotation = 10f
+                }
+                else -> {
+                    bobOffsetX = 0f
+                    bobRotation = 0f
+                }
+            }
+            
+            bobRotation += (tiltZ * 10f).coerceIn(-30f, 30f)
+            
+            val bobX = baseBobX + bobOffsetX
+            val bobY = baseBobY
+            
+            val bobSprite = when {
+                currentTrackCurve < -0.3f -> bobLeftBitmap
+                currentTrackCurve > 0.3f -> bobRightBitmap
+                else -> bobStraightBitmap
+            }
+            
+            bobSprite?.let { bmp ->
+                val dstRect = RectF(
+                    bobX - bmp.width * bobScale / 2f,
+                    bobY - bmp.height * bobScale / 2f,
+                    bobX + bmp.width * bobScale / 2f,
+                    bobY + bmp.height * bobScale / 2f
+                )
+                
+                if (abs(bobRotation) > 3f) {
+                    canvas.save()
+                    canvas.rotate(bobRotation, bobX, bobY)
+                    canvas.drawBitmap(bmp, null, dstRect, paint)
+                    canvas.restore()
+                } else {
+                    canvas.drawBitmap(bmp, null, dstRect, paint)
+                }
+            } ?: run {
+                paint.color = when {
+                    currentTrackCurve < -0.3f -> Color.GREEN
+                    currentTrackCurve > 0.3f -> Color.BLUE
+                    else -> Color.YELLOW
+                }
+                
+                if (abs(bobRotation) > 3f) {
+                    canvas.save()
+                    canvas.rotate(bobRotation, bobX, bobY)
+                }
+                
+                canvas.drawRoundRect(bobX - 25f, bobY - 15f, bobX + 25f, bobY + 15f, 8f, 8f, paint)
+                
+                if (abs(bobRotation) > 3f) {
+                    canvas.restore()
+                }
+            }
+            
+            paint.color = Color.argb(120, 0, 0, 0)
+            canvas.drawOval(bobX - 20f, bobY + 15f, bobX + 20f, bobY + 25f, paint)
+        }
+        
+        private fun drawInterface(canvas: Canvas, w: Int, h: Int) {
+            paint.color = Color.BLACK
+            paint.textSize = 60f
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("${speed.toInt()} KM/H", 30f, 80f, paint)
+        }
+        
+        private fun drawFinishLine(canvas: Canvas, w: Int, h: Int) {
+            drawWinterGamesSystem(canvas, w, h)
+            
+            paint.color = Color.YELLOW
+            paint.textSize = 80f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("🏁 FINISH! 🏁", w/2f, h * 0.3f, paint)
+        }
+        
+        private fun drawPreparation(canvas: Canvas, w: Int, h: Int) {
+            bobsledPreparationBitmap?.let { bmp ->
+                val dstRect = RectF(0f, 0f, w.toFloat(), h.toFloat())
+                canvas.drawBitmap(bmp, null, dstRect, paint)
+            } ?: run {
+                paint.color = Color.parseColor("#E0F6FF")
+                canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            }
+            
+            paint.color = Color.WHITE
+            val flagRect = RectF(50f, 50f, 300f, 200f)
+            canvas.drawRect(flagRect, paint)
+            
+            paint.color = Color.BLACK
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 4f
+            canvas.drawRect(flagRect, paint)
+            paint.style = Paint.Style.FILL
+            
+            val playerCountry = if (practiceMode) {
+                "CANADA"
+            } else {
+                tournamentData.playerCountries[currentPlayerIndex]
+            }
+            
+            val flagBitmap = when (playerCountry.uppercase()) {
+                "CANADA" -> flagCanadaBitmap
+                "USA" -> flagUsaBitmap
+                "FRANCE" -> flagFranceBitmap
+                "NORVÈGE" -> flagNorvegeBitmap
+                "JAPON" -> flagJapanBitmap
+                else -> flagCanadaBitmap
+            }
+            
+            flagBitmap?.let { flag ->
+                val flagWidth = flagRect.width() - 10f
+                val flagHeight = flagRect.height() - 10f
+                
+                val imageRatio = flag.width.toFloat() / flag.height.toFloat()
+                val rectRatio = flagWidth / flagHeight
+                
+                val finalWidth: Float
+                val finalHeight: Float
+                
+                if (imageRatio > rectRatio) {
+                    finalWidth = flagWidth
+                    finalHeight = flagWidth / imageRatio
+                } else {
+                    finalHeight = flagHeight
+                    finalWidth = flagHeight * imageRatio
+                }
+                
+                val centerX = flagRect.centerX()
+                val centerY = flagRect.centerY()
+                
+                val flagImageRect = RectF(
+                    centerX - finalWidth / 2f,
+                    centerY - finalHeight / 2f,
+                    centerX + finalWidth / 2f,
+                    centerY + finalHeight / 2f
+                )
+                canvas.drawBitmap(flag, null, flagImageRect, paint)
+            } ?: run {
+                val flag = getCountryFlag(playerCountry)
+                paint.color = Color.BLACK
+                paint.textSize = 120f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText(flag, flagRect.centerX(), flagRect.centerY() + 40f, paint)
+            }
+            
+            paint.color = Color.BLACK
+            paint.textSize = 28f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText(playerCountry.uppercase(), flagRect.centerX(), flagRect.bottom + 40f, paint)
+            
+            paint.textSize = 56f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("🛷 BOBSLEIGH 🛷", w/2f, h * 0.4f, paint)
+            
+            paint.textSize = 40f
+            canvas.drawText("L'équipe se prépare...", w/2f, h * 0.47f, paint)
+            
+            paint.textSize = 36f
+            paint.color = Color.YELLOW
+            canvas.drawText("Dans ${(preparationDuration - phaseTimer).toInt() + 1} secondes", w/2f, h * 0.55f, paint)
+        }
+        
+        private fun drawPushStart(canvas: Canvas, w: Int, h: Int) {
+            paint.color = Color.rgb(150, 200, 255)
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            
+            paint.color = Color.rgb(100, 100, 100)
+            val mountainPath = Path().apply {
+                moveTo(0f, h * 0.4f)
+                lineTo(w * 0.3f, h * 0.2f)
+                lineTo(w * 0.7f, h * 0.25f)
+                lineTo(w.toFloat(), h * 0.35f)
+                lineTo(w.toFloat(), h * 0.4f)
+                close()
+            }
+            canvas.drawPath(mountainPath, paint)
+            
+            paint.color = Color.WHITE
+            val trackY = h * 0.65f
+            canvas.drawRect(50f, trackY - 40f, w - 50f, trackY + 40f, paint)
+            
+            paint.color = Color.GRAY
+            paint.strokeWidth = 4f
+            paint.style = Paint.Style.STROKE
+            canvas.drawLine(50f, trackY - 40f, w - 50f, trackY - 40f, paint)
+            canvas.drawLine(50f, trackY + 40f, w - 50f, trackY + 40f, paint)
+            paint.style = Paint.Style.FILL
+            
+            paint.color = Color.RED
+            paint.strokeWidth = 6f
+            paint.style = Paint.Style.STROKE
+            canvas.drawLine(100f, trackY - 50f, 100f, trackY + 50f, paint)
+            paint.style = Paint.Style.FILL
+            
+            val pushProgress = (pushPower / 100f).coerceIn(0f, 1f)
+            val bobX = 150f + pushProgress * (w - 300f)
+            val bobY = trackY
+            
+            paint.color = Color.argb(100, 255, 255, 0)
+            canvas.drawCircle(bobX, bobY, 80f, paint)
+            
+            paint.color = Color.YELLOW
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 4f
+            canvas.drawCircle(bobX, bobY, 80f, paint)
+            paint.style = Paint.Style.FILL
+            
+            bobPushBitmap?.let { bmp ->
+                val scale = 0.3f
+                val dstRect = RectF(
+                    bobX - bmp.width * scale / 2f,
+                    bobY - bmp.height * scale / 2f,
+                    bobX + bmp.width * scale / 2f,
+                    bobY + bmp.height * scale / 2f
+                )
+                canvas.drawBitmap(bmp, null, dstRect, paint)
+            } ?: run {
+                paint.color = Color.RED
+                canvas.drawRoundRect(bobX - 40f, bobY - 20f, bobX + 40f, bobY + 20f, 8f, 8f, paint)
+            }
+            
+            paint.color = Color.argb(200, 0, 0, 0)
+            canvas.drawRoundRect(w/2f - 400f, 120f, w/2f + 400f, 220f, 10f, 10f, paint)
+            
+            paint.color = Color.WHITE
+            paint.textSize = 80f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("TAPEZ SUR LE BOBSLEIGH POUR LE POUSSER!", w/2f, 180f, paint)
+            
+            paint.color = Color.argb(200, 0, 0, 0)
+            canvas.drawRoundRect(w/2f - 200f, h - 150f, w/2f + 200f, h - 40f, 10f, 10f, paint)
+            
+            paint.color = Color.GRAY
+            canvas.drawRect(w/2f - 180f, h - 120f, w/2f + 180f, h - 80f, paint)
+            
+            paint.color = Color.GREEN
+            val powerWidth = (pushPower.coerceAtMost(150f) / 150f) * 360f
+            canvas.drawRect(w/2f - 180f, h - 120f, w/2f - 180f + powerWidth, h - 80f, paint)
+            
+            paint.color = Color.WHITE
+            paint.textSize = 80f
+            canvas.drawText("PUISSANCE: ${pushPower.toInt()}% | Coups: ${pushCount}", w/2f, h - 50f, paint)
+            
+            paint.color = Color.argb(200, 255, 0, 0)
+            canvas.drawRoundRect(w - 140f, 60f, w - 20f, 160f, 10f, 10f, paint)
+            
+            paint.textSize = 56f
+            paint.color = Color.WHITE
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("${(pushStartDuration - phaseTimer).toInt() + 1}s", w - 80f, 130f, paint)
+        }
+        
+        private fun drawCelebration(canvas: Canvas, w: Int, h: Int) {
+            paint.color = Color.parseColor("#FFD700")
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            
+            val progress = phaseTimer / celebrationDuration
+            
+            val bobCelebrationX = if (progress < 0.7f) {
+                val moveProgress = (progress / 0.7f)
+                val easedProgress = 1f - (1f - moveProgress) * (1f - moveProgress)
+                -200f + easedProgress * (w/2f + 200f)
+            } else {
+                w/2f
+            }
+            
+            val bobCelebrationY = h/2f
+            
+            for (i in 0..15) {
+                val angle = (2.0 * PI / 15 * i + progress * 6).toFloat()
+                val radius = progress * 200f
+                val particleX = bobCelebrationX + cos(angle) * radius
+                val particleY = bobCelebrationY + sin(angle) * radius
+                
+                paint.color = Color.WHITE
+                canvas.drawCircle(particleX, particleY, 6f, paint)
+            }
+            
+            bobCelebrationBitmap?.let { bmp ->
+                val scale = 0.4f
+                val dstRect = RectF(
+                    bobCelebrationX - bmp.width * scale / 2f,
+                    bobCelebrationY - bmp.height * scale / 2f,
+                    bobCelebrationX + bmp.width * scale / 2f,
+                    bobCelebrationY + bmp.height * scale / 2f
+                )
+                canvas.drawBitmap(bmp, null, dstRect, paint)
+            }
+            
+            paint.color = Color.BLACK
+            paint.textSize = 60f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("🎉 BRAVO! 🎉", w/2f, 150f, paint)
+            
+            paint.textSize = 40f
+            canvas.drawText("Temps: ${raceTime.toInt()}s", w/2f, h - 100f, paint)
+            canvas.drawText("Vitesse moy: ${speed.toInt()} km/h", w/2f, h - 50f, paint)
+        }
+        
+        private fun drawResults(canvas: Canvas, w: Int, h: Int) {
+            paint.color = Color.parseColor("#E0F6FF")
+            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            
+            paint.color = Color.parseColor("#FFD700")
+            canvas.drawRect(0f, 0f, w.toFloat(), h * 0.4f, paint)
+            
+            paint.color = Color.BLACK
+            paint.textSize = 120f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("${finalScore}", w/2f, h * 0.25f, paint)
+            
+            paint.textSize = 50f
+            canvas.drawText("POINTS", w/2f, h * 0.35f, paint)
+            
+            paint.color = Color.parseColor("#001122")
+            paint.textSize = 48f
+            canvas.drawText("🚀 Poussée: ${(pushQuality * 100).toInt()}%", w/2f, h * 0.5f, paint)
+            canvas.drawText("🎮 Réflexes: ${(playerReactionAccuracy * 100).toInt()}%", w/2f, h * 0.56f, paint)
+            canvas.drawText("🏆 Virages parfaits: ${perfectTurns}", w/2f, h * 0.62f, paint)
+            canvas.drawText("🕒 Temps: ${raceTime.toInt()}s", w/2f, h * 0.68f, paint)
+            canvas.drawText("⚡ Vitesse moy: ${speed.toInt()} km/h", w/2f, h * 0.74f, paint)
+            canvas.drawText("💥 Impacts murs: ${wallHits}", w/2f, h * 0.8f, paint)
+        }
     }
 
     enum class GameState {
-        PREPARATION, RIDING, RESULTS, FINISHED
+        PREPARATION, PUSH_START, CONTROL_DESCENT, FINISH_LINE, CELEBRATION, RESULTS, FINISHED
     }
 }
