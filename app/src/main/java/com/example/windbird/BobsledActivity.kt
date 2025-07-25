@@ -29,10 +29,10 @@ class BobsledActivity : Activity(), SensorEventListener {
     private var gameState = GameState.PREPARATION
     private var phaseTimer = 0f
     
-    // Durées - TRAJET 3X PLUS LONG
+    // Durées
     private val preparationDuration = 6f
     private val pushStartDuration = 8f
-    private val controlDescentDuration = 90f // 3X PLUS LONG (était 30f)
+    private val controlDescentDuration = 90f
     private val finishLineDuration = 4f
     private val celebrationDuration = 8f
     private val resultsDuration = 5f
@@ -50,11 +50,9 @@ class BobsledActivity : Activity(), SensorEventListener {
     private var raceTime = 0f
     private var pushQuality = 0f
     
-    // Circuit et virages
+    // Circuit simple
     private var trackPosition = 0f // Position sur le circuit (0.0 à 1.0)
-    private var currentCurveIntensity = 0f // -1.0 à 1.0 (gauche/droite)
     private val trackCurves = mutableListOf<Float>() // Séquence de virages
-    private var curveIndex = 0
     
     // Contrôles gyroscopiques
     private var tiltZ = 0f
@@ -72,9 +70,16 @@ class BobsledActivity : Activity(), SensorEventListener {
     // Effets visuels
     private var cameraShake = 0f
     
-    // NOUVEAU : Variables pour la piste sprite
-    private var trackScrollOffset = 0f
+    // Variables pour sprite-sheet Winter Games
+    private var currentFrameIndex = 0
+    private var frameTimer = 0f
+    private var isReversing = false
+    private var trackSection = TrackSection.STRAIGHT
     private var landscapeOffset = 0f
+    
+    enum class TrackSection {
+        STRAIGHT, LEFT_TURN, RIGHT_TURN, LEFT_RETURN, RIGHT_RETURN
+    }
 
     private lateinit var tournamentData: TournamentData
     private var eventIndex: Int = 0
@@ -122,8 +127,6 @@ class BobsledActivity : Activity(), SensorEventListener {
         pushPower = 0f
         distance = 0f
         trackPosition = 0f
-        currentCurveIntensity = 0f
-        curveIndex = 0
         wallHits = 0
         perfectTurns = 0
         raceTime = 0f
@@ -136,7 +139,10 @@ class BobsledActivity : Activity(), SensorEventListener {
         scoreCalculated = false
         cameraShake = 0f
         lastPushTime = 0L
-        trackScrollOffset = 0f
+        currentFrameIndex = 0
+        frameTimer = 0f
+        isReversing = false
+        trackSection = TrackSection.STRAIGHT
         landscapeOffset = 0f
         
         generateTrackCurves()
@@ -146,13 +152,10 @@ class BobsledActivity : Activity(), SensorEventListener {
         trackCurves.clear()
         
         if (practiceMode) {
-            // MODE PRATIQUE : Toujours le même circuit aléatoire mais fixe
             kotlin.random.Random(12345).let { fixedRandom ->
                 generateRandomTrack(fixedRandom)
             }
         } else {
-            // MODE TOURNOI : Même circuit pour tous les joueurs du même événement
-            // Utilise eventIndex comme seed pour que tous les joueurs aient le même circuit
             kotlin.random.Random(eventIndex.toLong()).let { tournamentRandom ->
                 generateRandomTrack(tournamentRandom)
             }
@@ -160,33 +163,26 @@ class BobsledActivity : Activity(), SensorEventListener {
     }
     
     private fun generateRandomTrack(random: kotlin.random.Random) {
-        // Circuit 3X plus long avec virages MOYENS et FORTS bien définis
-        val trackLength = 75 // 3X plus long (était 25 segments)
+        val trackLength = 75
         
-        trackCurves.add(0f) // Départ toujours droit
+        trackCurves.add(0f) // Départ droit
         trackCurves.add(0f)
         trackCurves.add(0f)
         
-        var lastCurve = 0f // Pour éviter les changements trop brusques
+        var lastCurve = 0f
         
         for (i in 3 until trackLength - 3) {
             val newCurve = when (random.nextInt(10)) {
-                // Virages FORTS (90 degrés requis) - Valeurs entre -0.8 et -1.0 ou 0.8 et 1.0
                 0 -> -0.9f + random.nextFloat() * 0.1f // Virage FORT gauche
                 1 -> 0.8f + random.nextFloat() * 0.2f  // Virage FORT droite
-                
-                // Virages MOYENS (45 degrés requis) - Valeurs entre -0.5 et -0.7 ou 0.5 et 0.7
                 2, 3 -> -0.6f + random.nextFloat() * 0.1f // Virage MOYEN gauche
                 4, 5 -> 0.5f + random.nextFloat() * 0.2f  // Virage MOYEN droite
-                
-                // Transitions douces et lignes droites
-                6, 7 -> lastCurve * 0.6f // Transition douce (60% de l'ancien)
+                6, 7 -> lastCurve * 0.6f // Transition douce
                 else -> 0f               // Ligne droite
             }
             
-            // Éviter les changements trop brusques entre FORT et MOYEN
             val smoothedCurve = if (abs(newCurve - lastCurve) > 0.7f) {
-                lastCurve + (newCurve - lastCurve) * 0.6f // Transition plus progressive
+                lastCurve + (newCurve - lastCurve) * 0.6f
             } else {
                 newCurve
             }
@@ -195,8 +191,7 @@ class BobsledActivity : Activity(), SensorEventListener {
             lastCurve = smoothedCurve
         }
         
-        // Fin toujours droite
-        trackCurves.add(0f)
+        trackCurves.add(0f) // Fin droite
         trackCurves.add(0f)
         trackCurves.add(0f)
     }
@@ -218,7 +213,7 @@ class BobsledActivity : Activity(), SensorEventListener {
 
         phaseTimer += 0.025f
         if (gameState != GameState.PREPARATION && gameState != GameState.FINISH_LINE && gameState != GameState.CELEBRATION && gameState != GameState.RESULTS) {
-            raceTime += 0.025f // Le timer s'arrête à la ligne d'arrivée
+            raceTime += 0.025f
         }
 
         when (gameState) {
@@ -244,12 +239,12 @@ class BobsledActivity : Activity(), SensorEventListener {
     }
     
     private fun handlePushStart() {
-        pushPower = pushPower.coerceAtMost(150f) // Permet de dépasser 100% jusqu'à 150%
-        pushRhythm = pushRhythm.coerceAtMost(150f) // Permet de dépasser 100% jusqu'à 150%
+        pushPower = pushPower.coerceAtMost(150f)
+        pushRhythm = pushRhythm.coerceAtMost(150f)
         
         if (phaseTimer >= pushStartDuration) {
-            pushQuality = (pushPower * 0.6f + pushRhythm * 0.4f) / 150f // Ajusté pour 150% max
-            baseSpeed = 60f + (pushQuality * 90f) // 60-150 km/h de base possible
+            pushQuality = (pushPower * 0.6f + pushRhythm * 0.4f) / 150f
+            baseSpeed = 60f + (pushQuality * 90f)
             speed = baseSpeed
             
             gameState = GameState.CONTROL_DESCENT
@@ -261,106 +256,61 @@ class BobsledActivity : Activity(), SensorEventListener {
     private fun handleControlDescent() {
         updateTrackProgress()
         updatePlayerReaction()
+        updateLandscapeScrolling()
         
-        // Ajustement vitesse selon performance
-        val speedMultiplier = 0.7f + (playerReactionAccuracy * 0.6f) // 0.7x à 1.3x
+        val speedMultiplier = 0.7f + (playerReactionAccuracy * 0.6f)
         speed = baseSpeed * speedMultiplier
         speed = speed.coerceAtMost(maxSpeed)
-        
-        // NOUVEAU : Mise à jour des offsets pour la piste sprite
-        updateTrackScrolling()
         
         if (trackPosition >= 1f) {
             gameState = GameState.FINISH_LINE
             phaseTimer = 0f
             cameraShake = 0.8f
-            // ARRÊTER LE TIMER DE COURSE ICI
-            // raceTime reste figé à cette valeur
         }
-    }
-    
-    // Variables pour la gestion des frames (ajoutées au début de la classe)
-    private var currentFrameIndex = 0
-    private var frameTimer = 0f
-    private var isReversing = false
-    private var trackSection = TrackSection.STRAIGHT
-    
-    enum class TrackSection {
-        STRAIGHT, LEFT_TURN, RIGHT_TURN, LEFT_RETURN, RIGHT_RETURN
-    }
-    
-    // NOUVEAU : Fonction pour gérer le défilement des paysages (Winter Games style)
-    private fun updateTrackScrolling() {
-        // Défilement du paysage seulement (plus de trackScrollOffset pour les sprites)
-        val scrollSpeed = speed * 0.02f
-        landscapeOffset += scrollSpeed
-        
-        // Reset pour éviter les valeurs trop grandes
-        if (landscapeOffset > 1000f) landscapeOffset -= 1000f
     }
     
     private fun updateTrackProgress() {
-        val progressSpeed = speed / 8000f // RALENTI pour virages plus longs (était 6000f)
+        val progressSpeed = speed / 8000f
         trackPosition += progressSpeed * 0.025f
         trackPosition = trackPosition.coerceAtMost(1f)
-        
-        // Calculer le virage actuel selon la position
-        val trackIndex = (trackPosition * (trackCurves.size - 1)).toInt()
-        val nextIndex = (trackIndex + 1).coerceAtMost(trackCurves.size - 1)
-        val progress = (trackPosition * (trackCurves.size - 1)) - trackIndex
-        
-        // Interpolation entre les virages
-        currentCurveIntensity = if (trackIndex < trackCurves.size) {
-            val current = trackCurves[trackIndex]
-            val next = trackCurves[nextIndex]
-            current + (next - current) * progress
-        } else {
-            0f
-        }
     }
     
     private fun updatePlayerReaction() {
-        // Calcul de la réaction idéale selon le TYPE de virage
-        val curveType = getCurveType(currentCurveIntensity)
-        val idealReaction = when (curveType) {
-            CurveType.STRONG_LEFT -> -1.5f  // 90 degrés gauche
-            CurveType.MEDIUM_LEFT -> -0.8f  // 45 degrés gauche
-            CurveType.STRAIGHT -> 0f        // Rester droit
-            CurveType.MEDIUM_RIGHT -> 0.8f  // 45 degrés droite
-            CurveType.STRONG_RIGHT -> 1.5f  // 90 degrés droite
+        // Réaction basée sur le virage actuel du parcours
+        val trackIndex = (trackPosition * (trackCurves.size - 1)).toInt()
+        val currentTrackCurve = if (trackIndex < trackCurves.size) trackCurves[trackIndex] else 0f
+        
+        val idealReaction = when {
+            currentTrackCurve < -0.75f -> -1.5f  // Fort gauche
+            currentTrackCurve < -0.4f -> -0.8f   // Moyen gauche
+            currentTrackCurve > 0.75f -> 1.5f    // Fort droite
+            currentTrackCurve > 0.4f -> 0.8f     // Moyen droite
+            else -> 0f                           // Droit
         }
         
-        // Comparaison avec la réaction du joueur
         val reactionError = abs(tiltZ - idealReaction)
-        playerReactionAccuracy = (1f - reactionError / 3f).coerceIn(0.2f, 1f) // Ajusté pour les nouveaux angles
+        playerReactionAccuracy = (1f - reactionError / 3f).coerceIn(0.2f, 1f)
         
-        // Bonus pour les virages parfaits (tolérance selon le type de virage)
-        val perfectThreshold = when (curveType) {
-            CurveType.STRONG_LEFT, CurveType.STRONG_RIGHT -> 0.4f // Plus de tolérance pour virages forts
-            CurveType.MEDIUM_LEFT, CurveType.MEDIUM_RIGHT -> 0.3f // Tolérance normale pour virages moyens
-            CurveType.STRAIGHT -> 0.2f // Peu de tolérance pour ligne droite
+        val perfectThreshold = when {
+            abs(currentTrackCurve) > 0.75f -> 0.4f
+            abs(currentTrackCurve) > 0.4f -> 0.3f
+            else -> 0.2f
         }
         
-        if (reactionError < perfectThreshold && curveType != CurveType.STRAIGHT) {
+        if (reactionError < perfectThreshold && abs(currentTrackCurve) > 0.2f) {
             perfectTurns++
         }
         
-        // Détection des impacts avec les murs
-        if (reactionError > 1.2f && curveType != CurveType.STRAIGHT) {
+        if (reactionError > 1.2f && abs(currentTrackCurve) > 0.2f) {
             wallHits++
             cameraShake = 0.3f
         }
     }
     
-    // Nouvelle fonction pour déterminer le type de virage
-    private fun getCurveType(intensity: Float): CurveType {
-        return when {
-            intensity <= -0.75f -> CurveType.STRONG_LEFT
-            intensity <= -0.4f -> CurveType.MEDIUM_LEFT
-            intensity >= 0.75f -> CurveType.STRONG_RIGHT
-            intensity >= 0.4f -> CurveType.MEDIUM_RIGHT
-            else -> CurveType.STRAIGHT
-        }
+    private fun updateLandscapeScrolling() {
+        val scrollSpeed = speed * 0.02f
+        landscapeOffset += scrollSpeed
+        if (landscapeOffset > 1000f) landscapeOffset -= 1000f
     }
     
     private fun handleFinishLine() {
@@ -488,11 +438,6 @@ class BobsledActivity : Activity(), SensorEventListener {
         }
     }
 
-    // Enum pour les types de virages
-    enum class CurveType {
-        STRONG_LEFT, MEDIUM_LEFT, STRAIGHT, MEDIUM_RIGHT, STRONG_RIGHT
-    }
-
     inner class BobsledView(context: Context) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         
@@ -505,9 +450,8 @@ class BobsledActivity : Activity(), SensorEventListener {
         private var bobFinishLineBitmap: Bitmap? = null
         private var bobCelebrationBitmap: Bitmap? = null
         
-        // NOUVEAU : Images de la piste sprite
+        // Images de la piste sprite
         private var bobtrackLeftSpriteBitmap: Bitmap? = null
-        private var bobtrackStraightBitmap: Bitmap? = null // Pour ligne droite (ou on prend les 2 premières du left)
         
         // Images des drapeaux
         private var flagCanadaBitmap: Bitmap? = null
@@ -516,10 +460,10 @@ class BobsledActivity : Activity(), SensorEventListener {
         private var flagNorvegeBitmap: Bitmap? = null
         private var flagJapanBitmap: Bitmap? = null
         
-        // NOUVEAU : Variables pour découper le sprite-sheet
+        // Variables pour découper le sprite-sheet
         private var spriteFrameWidth = 0
         private var spriteFrameHeight = 0
-        private var totalFrames = 9 // Nombre d'images dans le sprite-sheet
+        private val totalFrames = 9 // Nombre d'images dans le sprite-sheet
         
         init {
             try {
@@ -531,7 +475,7 @@ class BobsledActivity : Activity(), SensorEventListener {
                 bobFinishLineBitmap = BitmapFactory.decodeResource(resources, R.drawable.bob_finish_line)
                 bobCelebrationBitmap = BitmapFactory.decodeResource(resources, R.drawable.bob_celebration)
                 
-                // NOUVEAU : Charger le sprite-sheet de la piste
+                // Charger le sprite-sheet de la piste
                 bobtrackLeftSpriteBitmap = BitmapFactory.decodeResource(resources, R.drawable.bobtrack_left_sprite)
                 bobtrackLeftSpriteBitmap?.let { sprite ->
                     spriteFrameWidth = sprite.width / totalFrames
@@ -570,7 +514,7 @@ class BobsledActivity : Activity(), SensorEventListener {
             return bitmap
         }
 
-        // NOUVEAU : Fonction pour extraire une frame du sprite-sheet
+        // Fonction pour extraire une frame du sprite-sheet
         private fun getTrackSpriteFrame(frameIndex: Int, mirrorHorizontal: Boolean = false, reverse: Boolean = false): Bitmap? {
             return bobtrackLeftSpriteBitmap?.let { sprite ->
                 val actualFrameIndex = if (reverse) {
@@ -597,16 +541,14 @@ class BobsledActivity : Activity(), SensorEventListener {
             }
         }
 
-        // GESTION DU TACTILE POUR LA POUSSÉE - ZONE QUI SUIT LE BOBSLEIGH
         override fun onTouchEvent(event: MotionEvent): Boolean {
             if (gameState == GameState.PUSH_START) {
                 when (event.action) {
                     MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                        // Zone qui suit le bobsleigh qui bouge
                         val pushProgress = (pushPower / 100f).coerceIn(0f, 1f)
                         val bobX = 150f + pushProgress * (width - 300f)
-                        val bobY = height * 0.65f // PLUS HAUT (était 0.7f)
-                        val touchRadius = 92f // 15% plus grand (était 80f)
+                        val bobY = height * 0.65f
+                        val touchRadius = 92f
                         
                         val touchX = event.x
                         val touchY = event.y
@@ -624,8 +566,8 @@ class BobsledActivity : Activity(), SensorEventListener {
                             }
                             lastPushTime = currentTime
                             
-                            pushPower = pushPower.coerceAtMost(150f) // Permet de dépasser 100%
-                            pushRhythm = pushRhythm.coerceAtMost(150f) // Permet de dépasser 100%
+                            pushPower = pushPower.coerceAtMost(150f)
+                            pushRhythm = pushRhythm.coerceAtMost(150f)
                             
                             cameraShake = 0.2f
                             
@@ -653,7 +595,7 @@ class BobsledActivity : Activity(), SensorEventListener {
             when (gameState) {
                 GameState.PREPARATION -> drawPreparation(canvas, w, h)
                 GameState.PUSH_START -> drawPushStart(canvas, w, h)
-                GameState.CONTROL_DESCENT -> drawNewTrackSystem(canvas, w, h)
+                GameState.CONTROL_DESCENT -> drawWinterGamesSystem(canvas, w, h)
                 GameState.FINISH_LINE -> drawFinishLine(canvas, w, h)
                 GameState.CELEBRATION -> drawCelebration(canvas, w, h)
                 GameState.RESULTS -> drawResults(canvas, w, h)
@@ -665,231 +607,243 @@ class BobsledActivity : Activity(), SensorEventListener {
             }
         }
         
-        // NOUVEAU : Système de rendu de piste avec sprites
-        private fun drawNewTrackSystem(canvas: Canvas, w: Int, h: Int) {
-            val horizonY = h * 0.5f // PLUS BAS - moitié de l'écran pour le paysage
+        // VRAI SYSTÈME WINTER GAMES 1985
+        private fun drawWinterGamesSystem(canvas: Canvas, w: Int, h: Int) {
+            val midHeight = h / 2f
             
-            // 1. PAYSAGE DÉFILANT DYNAMIQUE - MOITIÉ SUPÉRIEURE DE L'ÉCRAN
-            drawScrollingLandscape(canvas, w, horizonY.toInt())
+            // 1. PAYSAGE HIVERNAL EN HAUT (moitié haute)
+            drawWinterLandscape(canvas, w, midHeight.toInt())
             
-            // 2. RENDU DE LA PISTE AVEC SPRITES - MOITIÉ INFÉRIEURE
-            drawTrackWithSprites(canvas, w, h, horizonY)
+            // 2. FOND SPRITE-SHEET EN BAS (moitié basse)
+            drawTrackSpriteBackground(canvas, w, h, midHeight)
             
-            // 3. BOBSLEIGH AMÉLIORÉ AVEC BANKING
-            drawImprovedBobsled(canvas, w, h)
+            // 3. BOBSLEIGH CENTRÉ PAR-DESSUS
+            drawCenteredBobsled(canvas, w, h, midHeight)
             
-            // 4. INTERFACE
-            drawGameInterface(canvas, w, h)
+            // 4. Interface
+            drawInterface(canvas, w, h)
         }
         
-        // NOUVEAU : Paysage défilant réaliste dans la moitié supérieure
-        private fun drawScrollingLandscape(canvas: Canvas, w: Int, horizonHeight: Int) {
-            // Ciel hivernal avec dégradé blanc-bleu
+        private fun drawWinterLandscape(canvas: Canvas, w: Int, horizonHeight: Int) {
+            // Ciel hivernal
             val skyGradient = LinearGradient(
                 0f, 0f, 0f, horizonHeight.toFloat(),
-                Color.rgb(240, 248, 255), // Blanc Alice en haut (hivernal)
-                Color.rgb(220, 230, 255),  // Bleu très pâle vers l'horizon
+                Color.rgb(240, 248, 255),
+                Color.rgb(200, 220, 245),
                 Shader.TileMode.CLAMP
             )
             paint.shader = skyGradient
             canvas.drawRect(0f, 0f, w.toFloat(), horizonHeight.toFloat(), paint)
             paint.shader = null
             
-            // MONTAGNES ENNEIGÉES QUI BOUGENT SELON LES VIRAGES
-            val curveRotation = currentCurveIntensity * 20f
-            val mountainShift = landscapeOffset + currentCurveIntensity * w * 0.4f
+            // Montagnes qui bougent selon les virages
+            val trackIndex = (trackPosition * (trackCurves.size - 1)).toInt()
+            val currentTrackCurve = if (trackIndex < trackCurves.size) trackCurves[trackIndex] else 0f
+            val mountainShift = landscapeOffset + currentTrackCurve * w * 0.4f
             
-            // Montagnes arrière (plus lentes, effet parallaxe) - Tons bleus pour distance
+            // Montagnes arrière
             paint.color = Color.rgb(180, 190, 210)
             val backMountains = Path().apply {
-                moveTo(-mountainShift * 0.3f, horizonHeight.toFloat())
-                lineTo(w * 0.2f - mountainShift * 0.3f, horizonHeight * 0.3f)
-                lineTo(w * 0.5f - mountainShift * 0.3f, horizonHeight * 0.4f)
-                lineTo(w * 0.8f - mountainShift * 0.3f, horizonHeight * 0.25f)
-                lineTo(w + 200f - mountainShift * 0.3f, horizonHeight * 0.35f)
-                lineTo(w + 200f, horizonHeight.toFloat())
+                moveTo(-mountainShift * 0.2f, horizonHeight.toFloat())
+                lineTo(w * 0.3f - mountainShift * 0.2f, horizonHeight * 0.2f)
+                lineTo(w * 0.7f - mountainShift * 0.2f, horizonHeight * 0.3f)
+                lineTo(w + 100f - mountainShift * 0.2f, horizonHeight * 0.25f)
+                lineTo(w + 100f, horizonHeight.toFloat())
                 close()
             }
             canvas.drawPath(backMountains, paint)
             
-            // Montagnes moyennes - Gris clair enneigé
-            paint.color = Color.rgb(200, 210, 220)
-            val midMountains = Path().apply {
-                moveTo(-mountainShift * 0.6f, horizonHeight.toFloat())
-                lineTo(w * 0.15f - mountainShift * 0.6f, horizonHeight * 0.5f)
-                lineTo(w * 0.45f - mountainShift * 0.6f, horizonHeight * 0.3f)
-                lineTo(w * 0.75f - mountainShift * 0.6f, horizonHeight * 0.45f)
-                lineTo(w + 100f - mountainShift * 0.6f, horizonHeight * 0.4f)
-                lineTo(w + 100f, horizonHeight.toFloat())
-                close()
-            }
-            canvas.drawPath(midMountains, paint)
-            
-            // Montagnes proches (bougent le plus) - Blanc neigeux
-            paint.color = Color.rgb(230, 235, 245)
+            // Montagnes proches
+            paint.color = Color.rgb(220, 230, 240)
             val frontMountains = Path().apply {
-                moveTo(-mountainShift, horizonHeight.toFloat())
-                lineTo(w * 0.25f - mountainShift, horizonHeight * 0.6f)
-                lineTo(w * 0.6f - mountainShift, horizonHeight * 0.5f)
-                lineTo(w * 0.9f - mountainShift, horizonHeight * 0.7f)
-                lineTo(w.toFloat() - mountainShift, horizonHeight * 0.65f)
+                moveTo(-mountainShift * 0.6f, horizonHeight.toFloat())
+                lineTo(w * 0.2f - mountainShift * 0.6f, horizonHeight * 0.5f)
+                lineTo(w * 0.8f - mountainShift * 0.6f, horizonHeight * 0.4f)
+                lineTo(w.toFloat() - mountainShift * 0.6f, horizonHeight * 0.6f)
                 lineTo(w.toFloat(), horizonHeight.toFloat())
                 close()
             }
             canvas.drawPath(frontMountains, paint)
             
-            // SAPINS ENNEIGÉS QUI DÉFILENT
-            paint.color = Color.rgb(20, 60, 20) // Vert foncé pour les sapins
-            val treeShift = landscapeOffset * 1.5f
-            for (i in 0..12) {
-                val treeX = (w * i / 8f - treeShift + currentCurveIntensity * w * 0.5f) % (w + 200f) - 100f
-                val treeY = horizonHeight * (0.8f + sin(i.toFloat()) * 0.08f)
-                val treeHeight = 35f + (i % 3) * 15f
+            // Sapins
+            val treeShift = landscapeOffset * 1.5f + currentTrackCurve * w * 0.5f
+            for (i in 0..10) {
+                val treeX = (w * i / 6f - treeShift) % (w + 150f) - 75f
+                val treeY = horizonHeight * (0.7f + sin(i.toFloat()) * 0.1f)
                 
-                // Tronc brun
-                paint.color = Color.rgb(100, 50, 20)
-                canvas.drawRect(treeX - 2f, treeY, treeX + 2f, treeY + treeHeight, paint)
-                
-                // Sapin vert avec neige
                 paint.color = Color.rgb(20, 60, 20)
+                val treeSize = 20f + (i % 3) * 8f
+                canvas.drawRect(treeX - 1.5f, treeY, treeX + 1.5f, treeY + treeSize, paint)
+                
                 for (layer in 0..2) {
-                    val layerY = treeY + layer * treeHeight / 3f
-                    val layerWidth = treeHeight * (0.6f - layer * 0.15f)
-                    canvas.drawRect(treeX - layerWidth/2f, layerY, treeX + layerWidth/2f, layerY + treeHeight/3f, paint)
-                }
-                
-                // Neige sur les branches
-                paint.color = Color.WHITE
-                for (layer in 0..2) {
-                    val layerY = treeY + layer * treeHeight / 3f
-                    val layerWidth = treeHeight * (0.5f - layer * 0.12f)
-                    canvas.drawRect(treeX - layerWidth/2f, layerY, treeX + layerWidth/2f, layerY + 3f, paint)
-                }
-            }
-            
-            // NUAGES BLANCS D'HIVER
-            paint.color = Color.argb(200, 255, 255, 255)
-            val cloudShift = landscapeOffset * 0.15f
-            for (i in 0..5) {
-                val cloudX = (w * i / 3f - cloudShift) % (w + 300f) - 150f
-                val cloudY = horizonHeight * (0.1f + i * 0.1f)
-                val cloudSize = 25f + i * 4f
-                canvas.drawCircle(cloudX, cloudY, cloudSize, paint)
-                canvas.drawCircle(cloudX + cloudSize * 0.8f, cloudY, cloudSize * 0.8f, paint)
-                canvas.drawCircle(cloudX - cloudSize * 0.6f, cloudY, cloudSize * 0.7f, paint)
-            }
-        }
-        
-        // NOUVEAU : Fonction pour dessiner la piste avec les sprites
-        private fun drawTrackWithSprites(canvas: Canvas, w: Int, h: Int, horizonY: Float) {
-            val curveType = getCurveType(currentCurveIntensity)
-            
-            for (screenY in horizonY.toInt() until h step 4) { // Step plus petit pour plus de détails
-                val lineProgress = (screenY - horizonY) / (h - horizonY)
-                val z = 200f * (1f - lineProgress * 0.95f)
-                val scaleFactor = 1f / z
-                
-                // Déterminer quel sprite utiliser selon le type de virage
-                val spriteFrame = when (curveType) {
-                    CurveType.STRAIGHT -> {
-                        // Ligne droite : alterner entre frame 0 et 1
-                        val frameIndex = ((trackScrollOffset + screenY * 0.1f).toInt() % 2)
-                        getTrackSpriteFrame(frameIndex, false, false)
+                    val layerY = treeY + layer * treeSize / 4f
+                    val layerWidth = treeSize * (0.7f - layer * 0.15f)
+                    val trianglePath = Path().apply {
+                        moveTo(treeX, layerY - layerWidth/3f)
+                        lineTo(treeX - layerWidth/2f, layerY + layerWidth/3f)
+                        lineTo(treeX + layerWidth/2f, layerY + layerWidth/3f)
+                        close()
                     }
-                    CurveType.MEDIUM_LEFT, CurveType.STRONG_LEFT -> {
-                        // Virage gauche : utiliser la séquence normale
-                        val frameIndex = ((trackScrollOffset + screenY * 0.05f).toInt() % totalFrames)
-                        getTrackSpriteFrame(frameIndex, false, false)
-                    }
-                    CurveType.MEDIUM_RIGHT, CurveType.STRONG_RIGHT -> {
-                        // Virage droite : utiliser la séquence en miroir
-                        val frameIndex = ((trackScrollOffset + screenY * 0.05f).toInt() % totalFrames)
-                        getTrackSpriteFrame(frameIndex, true, false)
-                    }
-                }
-                
-                // PISTE BEAUCOUP PLUS GROSSE - près de la moitié de l'écran
-                val trackWidth = (w * 8f * scaleFactor).coerceAtMost(w * 12f) // ÉNORMÉMENT plus large
-                val lookAheadDistance = (1f - lineProgress) * 5f
-                val futurePosition = (trackPosition + lookAheadDistance / trackCurves.size.toFloat()) % 1f
-                val futureIndex = (futurePosition * (trackCurves.size - 1)).toInt()
-                val futureProgress = (futurePosition * (trackCurves.size - 1)) - futureIndex
-                
-                val futureCurve = if (futureIndex < trackCurves.size) {
-                    val curve1 = trackCurves[futureIndex]
-                    val curve2 = trackCurves[(futureIndex + 1) % trackCurves.size]
-                    curve1 + (curve2 - curve1) * futureProgress
-                } else {
-                    0f
-                }
-                
-                val trackCenterX = w/2f + futureCurve * w * 0.6f * scaleFactor // Réduction du déplacement horizontal
-                
-                // Dessiner le sprite de piste
-                spriteFrame?.let { sprite ->
-                    val spriteHeight = 6f // Hauteur fixe pour éviter la déformation
-                    val dstRect = RectF(
-                        trackCenterX - trackWidth/2f,
-                        screenY.toFloat(),
-                        trackCenterX + trackWidth/2f,
-                        screenY + spriteHeight
-                    )
-                    canvas.drawBitmap(sprite, null, dstRect, paint)
-                } ?: run {
-                    // Fallback si le sprite ne charge pas
+                    canvas.drawPath(trianglePath, paint)
+                    
                     paint.color = Color.WHITE
-                    canvas.drawRect(trackCenterX - trackWidth/2f, screenY.toFloat(), trackCenterX + trackWidth/2f, screenY + 6f, paint)
+                    canvas.drawRect(treeX - layerWidth/2f, layerY - 1f, treeX + layerWidth/2f, layerY + 1f, paint)
+                    paint.color = Color.rgb(20, 60, 20)
                 }
             }
         }
         
-        // NOUVEAU : Bobsleigh amélioré avec banking (montée sur les bords)
-        private fun drawImprovedBobsled(canvas: Canvas, w: Int, h: Int) {
-            val bobBaseX = w / 2f
-            val baseBobY = h * 0.82f
-            val bobScale = 0.16f
+        private fun drawTrackSpriteBackground(canvas: Canvas, w: Int, h: Int, startY: Float) {
+            updateTrackFrame()
             
-            var bobHorizontalOffset = 0f
-            var bobVerticalOffset = 0f
-            var bobRotation = 0f
-            var bankingHeight = 0f // Déclaration de la variable
+            val currentFrame = getCurrentTrackFrame()
             
-            val curveType = getCurveType(currentCurveIntensity)
-            
-            if (curveType != CurveType.STRAIGHT) {
-                val centrifugalForce = abs(currentCurveIntensity)
-                val speedFactor = (speed / maxSpeed).coerceIn(0.3f, 1f)
+            // DESSINER LE SPRITE COMME FOND FIXE
+            currentFrame?.let { frame ->
+                val dstRect = RectF(0f, startY, w.toFloat(), h.toFloat())
+                canvas.drawBitmap(frame, null, dstRect, paint)
+            } ?: run {
+                // Fallback
+                paint.color = Color.WHITE
+                canvas.drawRect(0f, startY, w.toFloat(), h.toFloat(), paint)
                 
-                // Déplacement horizontal (comme avant)
-                bobHorizontalOffset = currentCurveIntensity * speedFactor * 80f
-                
-                // NOUVEAU : Banking - montée sur les bords
-                bankingHeight = centrifugalForce * speedFactor * 60f // Plus prononcé
-                bobVerticalOffset = -bankingHeight // Négatif = vers le haut
-                
-                // Rotation du bobsleigh
-                val targetAngle = when (curveType) {
-                    CurveType.STRONG_LEFT, CurveType.STRONG_RIGHT -> 75f // Virage fort = 75° max
-                    CurveType.MEDIUM_LEFT, CurveType.MEDIUM_RIGHT -> 45f // Virage moyen = 45° max
-                    else -> 0f
-                }
-                
-                val climbAngle = (targetAngle + (centrifugalForce * speedFactor * 15f)).coerceAtMost(targetAngle + 15f)
-                val additionalRotation = climbAngle - targetAngle
-                bobRotation = if (currentCurveIntensity < 0f) -additionalRotation else additionalRotation
+                paint.color = Color.rgb(200, 200, 200)
+                canvas.drawRect(0f, startY, w * 0.15f, h.toFloat(), paint)
+                canvas.drawRect(w * 0.85f, startY, w.toFloat(), h.toFloat(), paint)
+            }
+        }
+        
+        private fun updateTrackFrame() {
+            val frameSpeed = when {
+                speed > 120f -> 0.03f
+                speed > 80f -> 0.05f
+                speed > 40f -> 0.08f
+                else -> 0.12f
             }
             
-            val bobX = bobBaseX + bobHorizontalOffset
-            val bobY = baseBobY + bobVerticalOffset
+            frameTimer += frameSpeed
             
-            // Choisir le sprite du bobsleigh
-            val bobSprite = when (curveType) {
-                CurveType.STRONG_LEFT, CurveType.MEDIUM_LEFT -> bobLeftBitmap
-                CurveType.STRONG_RIGHT, CurveType.MEDIUM_RIGHT -> bobRightBitmap
+            if (frameTimer >= 1f) {
+                frameTimer = 0f
+                
+                val trackIndex = (trackPosition * (trackCurves.size - 1)).toInt()
+                val currentTrackCurve = if (trackIndex < trackCurves.size) trackCurves[trackIndex] else 0f
+                
+                when {
+                    abs(currentTrackCurve) < 0.3f -> {
+                        trackSection = TrackSection.STRAIGHT
+                        currentFrameIndex = if (currentFrameIndex == 0) 1 else 0
+                        isReversing = false
+                    }
+                    
+                    currentTrackCurve < -0.3f -> {
+                        if (trackSection != TrackSection.LEFT_TURN && trackSection != TrackSection.LEFT_RETURN) {
+                            trackSection = TrackSection.LEFT_TURN
+                            currentFrameIndex = 2
+                            isReversing = false
+                        }
+                        
+                        if (trackSection == TrackSection.LEFT_TURN && !isReversing) {
+                            currentFrameIndex++
+                            if (currentFrameIndex >= totalFrames - 1) {
+                                trackSection = TrackSection.LEFT_RETURN
+                                isReversing = true
+                            }
+                        } else if (trackSection == TrackSection.LEFT_RETURN && isReversing) {
+                            currentFrameIndex--
+                            if (currentFrameIndex <= 1) {
+                                trackSection = TrackSection.STRAIGHT
+                                currentFrameIndex = 0
+                                isReversing = false
+                            }
+                        }
+                    }
+                    
+                    currentTrackCurve > 0.3f -> {
+                        if (trackSection != TrackSection.RIGHT_TURN && trackSection != TrackSection.RIGHT_RETURN) {
+                            trackSection = TrackSection.RIGHT_TURN
+                            currentFrameIndex = 2
+                            isReversing = false
+                        }
+                        
+                        if (trackSection == TrackSection.RIGHT_TURN && !isReversing) {
+                            currentFrameIndex++
+                            if (currentFrameIndex >= totalFrames - 1) {
+                                trackSection = TrackSection.RIGHT_RETURN
+                                isReversing = true
+                            }
+                        } else if (trackSection == TrackSection.RIGHT_RETURN && isReversing) {
+                            currentFrameIndex--
+                            if (currentFrameIndex <= 1) {
+                                trackSection = TrackSection.STRAIGHT
+                                currentFrameIndex = 0
+                                isReversing = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        private fun getCurrentTrackFrame(): Bitmap? {
+            return when (trackSection) {
+                TrackSection.STRAIGHT -> {
+                    getTrackSpriteFrame(currentFrameIndex, false, false)
+                }
+                TrackSection.LEFT_TURN, TrackSection.LEFT_RETURN -> {
+                    getTrackSpriteFrame(currentFrameIndex, false, false)
+                }
+                TrackSection.RIGHT_TURN, TrackSection.RIGHT_RETURN -> {
+                    getTrackSpriteFrame(currentFrameIndex, true, false)
+                }
+            }
+        }
+        
+        private fun drawCenteredBobsled(canvas: Canvas, w: Int, h: Int, trackStartY: Float) {
+            val baseBobX = w / 2f
+            val baseBobY = trackStartY + (h - trackStartY) * 0.6f
+            val bobScale = 0.25f
+            
+            val trackIndex = (trackPosition * (trackCurves.size - 1)).toInt()
+            val currentTrackCurve = if (trackIndex < trackCurves.size) trackCurves[trackIndex] else 0f
+            
+            var bobOffsetX = 0f
+            var bobRotation = 0f
+            
+            when {
+                currentTrackCurve < -0.6f -> {
+                    bobOffsetX = w * 0.08f
+                    bobRotation = -20f
+                }
+                currentTrackCurve < -0.3f -> {
+                    bobOffsetX = w * 0.05f
+                    bobRotation = -10f
+                }
+                currentTrackCurve > 0.6f -> {
+                    bobOffsetX = -w * 0.08f
+                    bobRotation = 20f
+                }
+                currentTrackCurve > 0.3f -> {
+                    bobOffsetX = -w * 0.05f
+                    bobRotation = 10f
+                }
+                else -> {
+                    bobOffsetX = 0f
+                    bobRotation = 0f
+                }
+            }
+            
+            bobRotation += (tiltZ * 10f).coerceIn(-30f, 30f)
+            
+            val bobX = baseBobX + bobOffsetX
+            val bobY = baseBobY
+            
+            val bobSprite = when {
+                currentTrackCurve < -0.3f -> bobLeftBitmap
+                currentTrackCurve > 0.3f -> bobRightBitmap
                 else -> bobStraightBitmap
             }
             
-            // Dessiner le bobsleigh avec rotation si nécessaire
             bobSprite?.let { bmp ->
                 val dstRect = RectF(
                     bobX - bmp.width * bobScale / 2f,
@@ -898,7 +852,7 @@ class BobsledActivity : Activity(), SensorEventListener {
                     bobY + bmp.height * bobScale / 2f
                 )
                 
-                if (abs(bobRotation) > 1f) {
+                if (abs(bobRotation) > 3f) {
                     canvas.save()
                     canvas.rotate(bobRotation, bobX, bobY)
                     canvas.drawBitmap(bmp, null, dstRect, paint)
@@ -906,69 +860,43 @@ class BobsledActivity : Activity(), SensorEventListener {
                 } else {
                     canvas.drawBitmap(bmp, null, dstRect, paint)
                 }
-                
-                // NOUVEAU : Ombre portée du bobsleigh sur la piste
-                paint.color = Color.argb(100, 0, 0, 0)
-                val shadowOffset = bankingHeight * 0.3f
-                canvas.drawOval(bobX - 30f, bobY + 20f + shadowOffset, bobX + 30f, bobY + 35f + shadowOffset, paint)
-                
             } ?: run {
-                // Fallback
-                paint.color = when (curveType) {
-                    CurveType.STRONG_LEFT, CurveType.MEDIUM_LEFT -> Color.GREEN
-                    CurveType.STRONG_RIGHT, CurveType.MEDIUM_RIGHT -> Color.BLUE
+                paint.color = when {
+                    currentTrackCurve < -0.3f -> Color.GREEN
+                    currentTrackCurve > 0.3f -> Color.BLUE
                     else -> Color.YELLOW
                 }
                 
-                if (abs(bobRotation) > 1f) {
+                if (abs(bobRotation) > 3f) {
                     canvas.save()
                     canvas.rotate(bobRotation, bobX, bobY)
                 }
                 
                 canvas.drawRoundRect(bobX - 25f, bobY - 15f, bobX + 25f, bobY + 15f, 8f, 8f, paint)
                 
-                if (abs(bobRotation) > 1f) {
+                if (abs(bobRotation) > 3f) {
                     canvas.restore()
                 }
             }
+            
+            paint.color = Color.argb(120, 0, 0, 0)
+            canvas.drawOval(bobX - 20f, bobY + 15f, bobX + 20f, bobY + 25f, paint)
         }
         
-        // Interface de jeu (identique à avant)
-        private fun drawGameInterface(canvas: Canvas, w: Int, h: Int) {
-            val curveType = getCurveType(currentCurveIntensity)
-            
-            // Vitesse
+        private fun drawInterface(canvas: Canvas, w: Int, h: Int) {
             paint.color = Color.BLACK
-            paint.textSize = 120f
+            paint.textSize = 60f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("${speed.toInt()} KM/H", 30f, 150f, paint)
+            canvas.drawText("${speed.toInt()} KM/H", 30f, 80f, paint)
+        }
+        
+        private fun drawFinishLine(canvas: Canvas, w: Int, h: Int) {
+            drawWinterGamesSystem(canvas, w, h)
             
-            // Instructions de virage avec symboles colorés
-            if (curveType != CurveType.STRAIGHT) {
-                paint.color = Color.argb(220, 0, 0, 0)
-                canvas.drawRoundRect(w/8f, 200f, w*7f/8f, 420f, 25f, 25f, paint)
-                
-                paint.textSize = 200f
-                paint.textAlign = Paint.Align.CENTER
-                
-                val directionSymbol = when (curveType) {
-                    CurveType.STRONG_LEFT -> "⬅️🔴"
-                    CurveType.MEDIUM_LEFT -> "⬅️🟡"
-                    CurveType.STRONG_RIGHT -> "🔴➡️"
-                    CurveType.MEDIUM_RIGHT -> "🟡➡️"
-                    else -> ""
-                }
-                
-                canvas.drawText(directionSymbol, w/2f, 320f, paint)
-                
-                paint.textSize = 100f
-                paint.color = when {
-                    playerReactionAccuracy > 0.8f -> Color.GREEN
-                    playerReactionAccuracy > 0.6f -> Color.YELLOW
-                    else -> Color.RED
-                }
-                canvas.drawText("${(playerReactionAccuracy * 100).toInt()}%", w/2f, 390f, paint)
-            }
+            paint.color = Color.YELLOW
+            paint.textSize = 80f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("🏁 FINISH! 🏁", w/2f, h * 0.3f, paint)
         }
         
         private fun drawPreparation(canvas: Canvas, w: Int, h: Int) {
@@ -980,7 +908,6 @@ class BobsledActivity : Activity(), SensorEventListener {
                 canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             }
             
-            // Rectangle blanc pour le drapeau
             paint.color = Color.WHITE
             val flagRect = RectF(50f, 50f, 300f, 200f)
             canvas.drawRect(flagRect, paint)
@@ -991,9 +918,8 @@ class BobsledActivity : Activity(), SensorEventListener {
             canvas.drawRect(flagRect, paint)
             paint.style = Paint.Style.FILL
             
-            // Chargement et affichage du drapeau selon le pays ou mode pratique
             val playerCountry = if (practiceMode) {
-                "CANADA" // Toujours Canada en mode pratique
+                "CANADA"
             } else {
                 tournamentData.playerCountries[currentPlayerIndex]
             }
@@ -1004,16 +930,13 @@ class BobsledActivity : Activity(), SensorEventListener {
                 "FRANCE" -> flagFranceBitmap
                 "NORVÈGE" -> flagNorvegeBitmap
                 "JAPON" -> flagJapanBitmap
-                else -> flagCanadaBitmap // Fallback vers Canada
+                else -> flagCanadaBitmap
             }
             
-            // Afficher l'image du drapeau dans le rectangle - VRAIMENT CENTRÉ
             flagBitmap?.let { flag ->
-                // Calculer pour centrer parfaitement le drapeau
-                val flagWidth = flagRect.width() - 10f  // Largeur disponible
-                val flagHeight = flagRect.height() - 10f // Hauteur disponible
+                val flagWidth = flagRect.width() - 10f
+                val flagHeight = flagRect.height() - 10f
                 
-                // Ratio de l'image pour garder les proportions
                 val imageRatio = flag.width.toFloat() / flag.height.toFloat()
                 val rectRatio = flagWidth / flagHeight
                 
@@ -1021,16 +944,13 @@ class BobsledActivity : Activity(), SensorEventListener {
                 val finalHeight: Float
                 
                 if (imageRatio > rectRatio) {
-                    // L'image est plus large, on limite par la largeur
                     finalWidth = flagWidth
                     finalHeight = flagWidth / imageRatio
                 } else {
-                    // L'image est plus haute, on limite par la hauteur
                     finalHeight = flagHeight
                     finalWidth = flagHeight * imageRatio
                 }
                 
-                // Centrer dans le rectangle
                 val centerX = flagRect.centerX()
                 val centerY = flagRect.centerY()
                 
@@ -1042,7 +962,6 @@ class BobsledActivity : Activity(), SensorEventListener {
                 )
                 canvas.drawBitmap(flag, null, flagImageRect, paint)
             } ?: run {
-                // Fallback si l'image ne charge pas - afficher emoji au centre
                 val flag = getCountryFlag(playerCountry)
                 paint.color = Color.BLACK
                 paint.textSize = 120f
@@ -1050,7 +969,6 @@ class BobsledActivity : Activity(), SensorEventListener {
                 canvas.drawText(flag, flagRect.centerX(), flagRect.centerY() + 40f, paint)
             }
             
-            // Nom du pays sous le rectangle (plus d'emoji ici)
             paint.color = Color.BLACK
             paint.textSize = 28f
             paint.textAlign = Paint.Align.CENTER
@@ -1084,7 +1002,7 @@ class BobsledActivity : Activity(), SensorEventListener {
             canvas.drawPath(mountainPath, paint)
             
             paint.color = Color.WHITE
-            val trackY = h * 0.65f // PLUS HAUT (était 0.7f)
+            val trackY = h * 0.65f
             canvas.drawRect(50f, trackY - 40f, w - 50f, trackY + 40f, paint)
             
             paint.color = Color.GRAY
@@ -1100,9 +1018,8 @@ class BobsledActivity : Activity(), SensorEventListener {
             canvas.drawLine(100f, trackY - 50f, 100f, trackY + 50f, paint)
             paint.style = Paint.Style.FILL
             
-            // BOBSLEIGH QUI BOUGE DE GAUCHE À DROITE SELON LA POUSSÉE - PLUS HAUT
             val pushProgress = (pushPower / 100f).coerceIn(0f, 1f)
-            val bobX = 150f + pushProgress * (w - 300f) // De gauche à droite
+            val bobX = 150f + pushProgress * (w - 300f)
             val bobY = trackY
             
             paint.color = Color.argb(100, 255, 255, 0)
@@ -1132,7 +1049,7 @@ class BobsledActivity : Activity(), SensorEventListener {
             canvas.drawRoundRect(w/2f - 400f, 120f, w/2f + 400f, 220f, 10f, 10f, paint)
             
             paint.color = Color.WHITE
-            paint.textSize = 80f // RÉDUIT de 20% (était 100f)
+            paint.textSize = 80f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("TAPEZ SUR LE BOBSLEIGH POUR LE POUSSER!", w/2f, 180f, paint)
             
@@ -1143,30 +1060,20 @@ class BobsledActivity : Activity(), SensorEventListener {
             canvas.drawRect(w/2f - 180f, h - 120f, w/2f + 180f, h - 80f, paint)
             
             paint.color = Color.GREEN
-            val powerWidth = (pushPower.coerceAtMost(150f) / 150f) * 360f // Permet de dépasser 100% jusqu'à 150%
+            val powerWidth = (pushPower.coerceAtMost(150f) / 150f) * 360f
             canvas.drawRect(w/2f - 180f, h - 120f, w/2f - 180f + powerWidth, h - 80f, paint)
             
             paint.color = Color.WHITE
-            paint.textSize = 80f // ENCORE PLUS GROS
+            paint.textSize = 80f
             canvas.drawText("PUISSANCE: ${pushPower.toInt()}% | Coups: ${pushCount}", w/2f, h - 50f, paint)
             
             paint.color = Color.argb(200, 255, 0, 0)
             canvas.drawRoundRect(w - 140f, 60f, w - 20f, 160f, 10f, 10f, paint)
             
-            paint.textSize = 56f // BEAUCOUP PLUS GROS
+            paint.textSize = 56f
             paint.color = Color.WHITE
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("${(pushStartDuration - phaseTimer).toInt() + 1}s", w - 80f, 130f, paint)
-        }
-        
-        private fun drawFinishLine(canvas: Canvas, w: Int, h: Int) {
-            drawNewTrackSystem(canvas, w, h)
-            
-            // Ligne d'arrivée simple
-            paint.color = Color.YELLOW
-            paint.textSize = 80f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("🏁 FINISH! 🏁", w/2f, h * 0.3f, paint)
         }
         
         private fun drawCelebration(canvas: Canvas, w: Int, h: Int) {
@@ -1175,20 +1082,16 @@ class BobsledActivity : Activity(), SensorEventListener {
             
             val progress = phaseTimer / celebrationDuration
             
-            // Bobsleigh qui arrive de gauche et ralentit au centre
             val bobCelebrationX = if (progress < 0.7f) {
-                // Première partie : mouvement rapide de gauche vers centre
-                val moveProgress = (progress / 0.7f) // 0 à 1 sur les premiers 70% du temps
-                val easedProgress = 1f - (1f - moveProgress) * (1f - moveProgress) // Ralentissement
-                -200f + easedProgress * (w/2f + 200f) // De -200 à center
+                val moveProgress = (progress / 0.7f)
+                val easedProgress = 1f - (1f - moveProgress) * (1f - moveProgress)
+                -200f + easedProgress * (w/2f + 200f)
             } else {
-                // Deuxième partie : immobile au centre
                 w/2f
             }
             
             val bobCelebrationY = h/2f
             
-            // Particules qui tournent
             for (i in 0..15) {
                 val angle = (2.0 * PI / 15 * i + progress * 6).toFloat()
                 val radius = progress * 200f
@@ -1228,15 +1131,15 @@ class BobsledActivity : Activity(), SensorEventListener {
             canvas.drawRect(0f, 0f, w.toFloat(), h * 0.4f, paint)
             
             paint.color = Color.BLACK
-            paint.textSize = 120f // ÉNORME
+            paint.textSize = 120f
             paint.textAlign = Paint.Align.CENTER
             canvas.drawText("${finalScore}", w/2f, h * 0.25f, paint)
             
-            paint.textSize = 50f // PLUS GROS
+            paint.textSize = 50f
             canvas.drawText("POINTS", w/2f, h * 0.35f, paint)
             
             paint.color = Color.parseColor("#001122")
-            paint.textSize = 48f // BEAUCOUP PLUS GROS
+            paint.textSize = 48f
             canvas.drawText("🚀 Poussée: ${(pushQuality * 100).toInt()}%", w/2f, h * 0.5f, paint)
             canvas.drawText("🎮 Réflexes: ${(playerReactionAccuracy * 100).toInt()}%", w/2f, h * 0.56f, paint)
             canvas.drawText("🏆 Virages parfaits: ${perfectTurns}", w/2f, h * 0.62f, paint)
