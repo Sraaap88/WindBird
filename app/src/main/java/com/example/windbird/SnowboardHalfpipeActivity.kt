@@ -491,8 +491,8 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
     private fun updateHalfpipePhysics() {
         // Mouvement de pendule dans le halfpipe
         if (!isInAir) {
-            // Calcul de la hauteur selon la position (forme en U)
-            riderHeight = 0.8f - abs(riderPosition - 0.5f) * 0.6f // Plus on s'éloigne du centre, plus on monte
+            // Calcul de la hauteur selon la position (forme en U) - maintenant jusqu'en haut du halfpipe
+            riderHeight = 0.9f - abs(riderPosition - 0.5f) * 0.8f // Plus on s'éloigne du centre, plus on monte (jusqu'en haut)
             
             // Mouvement oscillatoire de gauche à droite
             momentum += direction * 0.008f * speed / 15f
@@ -511,14 +511,14 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             }
             
             // Rebond sur les bords avec changement de direction
-            if (riderPosition <= 0.1f) {
-                riderPosition = 0.1f
+            if (riderPosition <= 0.05f) { // Peut aller plus près du bord
+                riderPosition = 0.05f
                 direction = 1f // Va vers la droite
                 if (speed > 12f && momentum < -0.3f) {
                     takeoff() // Envol du mur gauche
                 }
-            } else if (riderPosition >= 0.9f) {
-                riderPosition = 0.9f
+            } else if (riderPosition >= 0.95f) { // Peut aller plus près du bord
+                riderPosition = 0.95f
                 direction = -1f // Va vers la gauche
                 if (speed > 12f && momentum > 0.3f) {
                     takeoff() // Envol du mur droit
@@ -542,14 +542,14 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             verticalVelocity += 0.015f // Gravité vers le bas
             riderHeight += verticalVelocity
             airTime += 0.016f
-            altimeter = max(0f, (0.8f - riderHeight) * 100f) // Hauteur au-dessus du pipe
+            altimeter = max(0f, (0.9f - riderHeight) * 100f) // Hauteur au-dessus du pipe (ajustée)
             
             // Mouvement horizontal continue en l'air
             riderPosition += momentum * 0.01f
-            riderPosition = riderPosition.coerceIn(0.05f, 0.95f)
+            riderPosition = riderPosition.coerceIn(0.02f, 0.98f) // Peut aller plus près des bords
             
             // Atterrissage sur la rampe
-            val expectedHeight = 0.8f - abs(riderPosition - 0.5f) * 0.6f
+            val expectedHeight = 0.9f - abs(riderPosition - 0.5f) * 0.8f // Ajusté pour la nouvelle hauteur
             if (riderHeight >= expectedHeight) {
                 landTrick()
             }
@@ -763,8 +763,8 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         isLanding = true
         landingTimer = 0f
         
-        // Remettre à la bonne hauteur sur la rampe
-        riderHeight = 0.8f - abs(riderPosition - 0.5f) * 0.6f
+        // Remettre à la bonne hauteur sur la rampe (ajustée pour la nouvelle physique)
+        riderHeight = 0.9f - abs(riderPosition - 0.5f) * 0.8f
         maxAirTime = max(maxAirTime, airTime)
         
         if (currentTrick != TrickType.NONE && trickProgress > 0.3f) {
