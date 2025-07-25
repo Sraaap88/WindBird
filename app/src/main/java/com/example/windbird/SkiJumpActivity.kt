@@ -29,10 +29,10 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var gameState = GameState.PREPARATION
     private var phaseTimer = 0f
     
-    // Phases avec durées
+    // Phases avec durées CORRIGÉES
     private val preparationDuration = 4f
     private val approachDuration = 15f
-    private val takeoffDuration = 6f
+    private val takeoffDuration = 4.2f  // 30% plus rapide (6f -> 4.2f)
     private val flightDuration = 12f
     private val landingDuration = 5.5f
     private val resultsDuration = 8f
@@ -44,6 +44,9 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var jumpDistance = 0f
     private var stability = 1f
     private var landingBonus = 0f
+    
+    // NOUVEAU - Pour éviter que l'image rechage
+    private var hasUsedJumpImage = false
     
     // CORRIGÉ - Variables pour l'approche avec taps
     private var tapCount = 0
@@ -156,6 +159,9 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         landingPhase = 0
         landingStability = 1f
         
+        // NOUVEAU - Reset image de saut
+        hasUsedJumpImage = false
+        
         particles.clear()
         generateSnowParticles()
     }
@@ -237,8 +243,8 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         // Calcul de la progression de la zone cible
         zoneProgress = approachProgress
         
-        // La zone verte descend progressivement (angles plus élevés)
-        targetZoneCenter = 5f + (zoneProgress * 35f)  // De 5° à 40°
+        // La zone verte descend 10% plus vite
+        targetZoneCenter = 5f + (zoneProgress * 38.5f)  // De 5° à 43.5° (au lieu de 40°)
         
         // CORRIGÉ - Vérifier si on est dans la zone avec l'angle intégré
         val zoneMin = targetZoneCenter - targetZoneSize / 2f
@@ -265,11 +271,13 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     }
     
     private fun handleTakeoff() {
-        val takeoffProgress = phaseTimer / 6f
-        val criticalZone = takeoffProgress >= 0.67f
+        val takeoffProgress = phaseTimer / takeoffDuration
+        
+        // CORRIGÉ - Zone critique plus tardive (juste avant la fin)
+        val criticalZone = takeoffProgress >= 0.85f  // 85% au lieu de 67%
         
         if (criticalZone) {
-            val timeInCriticalZone = (takeoffProgress - 0.67f) / 0.33f
+            val timeInCriticalZone = (takeoffProgress - 0.85f) / 0.15f
             
             val timingBonus = if (timeInCriticalZone <= 0.5f) {
                 timeInCriticalZone * 2f
@@ -282,12 +290,13 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             if (tiltY < -0.15f) {
                 val powerGain = (tiltStrength * 200f) * (1f + timingBonus)
                 takeoffPower += powerGain
+                hasUsedJumpImage = true  // NOUVEAU - Marquer qu'on a utilisé l'image de saut
             }
         }
         
         takeoffPower = takeoffPower.coerceIn(0f, 120f)
         
-        if (phaseTimer >= 6f) {
+        if (phaseTimer >= takeoffDuration) {
             jumpDistance = (speed * 1.2f) + (takeoffPower * 0.9f)
             gameState = GameState.FLIGHT
             phaseTimer = 0f
@@ -596,6 +605,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     fun getApproachDuration() = approachDuration
     fun getTakeoffDuration() = takeoffDuration
     fun getFlightDuration() = flightDuration
+    fun getHasUsedJumpImage() = hasUsedJumpImage
     fun getLandingDuration() = landingDuration
 
     data class SnowParticle(
