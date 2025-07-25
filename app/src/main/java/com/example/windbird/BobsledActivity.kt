@@ -1162,48 +1162,11 @@ class BobsledActivity : Activity(), SensorEventListener {
         private fun drawFinishLine(canvas: Canvas, w: Int, h: Int) {
             drawNewTrackSystem(canvas, w, h)
             
-            // Ligne d'arrivée qui suit la piste
-            val lineProgress = phaseTimer / finishLineDuration
-            val lineDistance = h * 0.4f + lineProgress * (h * 0.6f)
-            
-            if (lineDistance < h) {
-                val lineScreenProgress = (lineDistance - h * 0.35f) / (h * 0.65f)
-                val lineCurvePosition = (trackPosition + lineScreenProgress * 0.1f) % 1f
-                val lineCurveIndex = (lineCurvePosition * (trackCurves.size - 1)).toInt()
-                val lineCurveProgress = (lineCurvePosition * (trackCurves.size - 1)) - lineCurveIndex
-                
-                val lineCurve = if (lineCurveIndex < trackCurves.size) {
-                    val curve1 = trackCurves[lineCurveIndex]
-                    val curve2 = trackCurves[(lineCurveIndex + 1) % trackCurves.size]
-                    curve1 + (curve2 - curve1) * lineCurveProgress
-                } else {
-                    0f
-                }
-                
-                val lineScaleFactor = 1f / (200f * (1f - lineScreenProgress * 0.95f))
-                val lineWidth = (w * 5f * lineScaleFactor).coerceAtMost(w * 7f)
-                val lineCenterX = w/2f + lineCurve * w * 0.8f * lineScaleFactor
-                
-                val segments = 20
-                val segmentWidth = lineWidth / segments
-                
-                for (i in 0 until segments) {
-                    val color = if (i % 2 == 0) Color.WHITE else Color.BLACK
-                    paint.color = color
-                    canvas.drawRect(
-                        lineCenterX - lineWidth/2f + i * segmentWidth,
-                        lineDistance - 30f,
-                        lineCenterX - lineWidth/2f + (i + 1) * segmentWidth,
-                        lineDistance + 30f,
-                        paint
-                    )
-                }
-                
-                paint.color = Color.YELLOW
-                paint.textSize = 80f
-                paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("🏁 FINISH! 🏁", w/2f, lineDistance + 10f, paint)
-            }
+            // Ligne d'arrivée simple
+            paint.color = Color.YELLOW
+            paint.textSize = 80f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("🏁 FINISH! 🏁", w/2f, h * 0.3f, paint)
         }
         
         private fun drawCelebration(canvas: Canvas, w: Int, h: Int) {
