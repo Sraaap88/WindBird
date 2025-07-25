@@ -187,7 +187,6 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
 
         when (gameState) {
             GameState.PREPARATION -> handlePreparation()
-            GameState.COUNTDOWN -> handleCountdown() 
             GameState.RACE -> handleRace()
             GameState.RESULTS -> {
                 handleResults()
@@ -205,16 +204,18 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         }
     }
     
-    // CORRECTION : Fonction corrigée pour passer au countdown
+    // CORRECTION : Fonction corrigée pour passer directement à la course
     private fun handlePreparation() {
         if (phaseTimer >= preparationDuration) {
-            gameState = GameState.COUNTDOWN  // CORRECTION : Passer au countdown, pas rester en préparation
+            gameState = GameState.RACE  // CORRECTION : Passer directement à la course
             phaseTimer = 0f
+            raceTime = 0f
             needsRedraw = true
         }
     }
     
     private fun handleCountdown() {
+        // Cette fonction n'est plus utilisée car on passe directement à la course
         if (phaseTimer >= countdownDuration) {
             gameState = GameState.RACE
             phaseTimer = 0f
@@ -449,7 +450,6 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     private fun updateStatus() {
         statusText.text = when (gameState) {
             GameState.PREPARATION -> "⛸️ ${tournamentData.playerNames[currentPlayerIndex]} | Préparation... ${(preparationDuration - phaseTimer).toInt() + 1}s"
-            GameState.COUNTDOWN -> "🚨 ${tournamentData.playerNames[currentPlayerIndex]} | Décompte... ${(countdownDuration - phaseTimer).toInt() + 1}"
             GameState.RACE -> "⛸️ ${tournamentData.playerNames[currentPlayerIndex]} | ${playerDistance.toInt()}m/${totalDistance.toInt()}m | Rythme: ${(playerRhythm * 100).toInt()}% | Coups: ${strokeCount}"
             GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | Temps: ${raceTime.toInt()}s | Score: ${finalScore}"
             GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Course terminée!"
@@ -562,7 +562,6 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             
             when (gameState) {
                 GameState.PREPARATION -> drawPreparation(canvas, w, h)
-                GameState.COUNTDOWN -> drawCountdown(canvas, w, h)
                 GameState.RACE -> drawRace(canvas, w, h)
                 GameState.RESULTS -> drawResults(canvas, w, h)
                 GameState.FINISHED -> drawResults(canvas, w, h)
@@ -631,12 +630,6 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             paint.textSize = 38f
             paint.typeface = Typeface.DEFAULT_BOLD
             canvas.drawText("TESTEZ VOTRE RYTHME:", w.toFloat()/2f, h.toFloat() * 0.36f, paint)
-            
-            val countdown = (preparationDuration - phaseTimer).toInt() + 1
-            paint.textSize = 72f
-            paint.color = Color.RED
-            paint.typeface = Typeface.DEFAULT_BOLD
-            canvas.drawText("DÉBUT DANS ${countdown}s", w.toFloat()/2f, h.toFloat() * 0.55f, paint)
         }
         
         private fun drawCountdown(canvas: Canvas, w: Int, h: Int) {
@@ -945,12 +938,6 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             canvas.drawText("⭐ Coups parfaits: $perfectStrokes", w.toFloat()/2f, h.toFloat() * 0.59f, paint)
             canvas.drawText("🏃 Coups totaux: $strokeCount", w.toFloat()/2f, h.toFloat() * 0.66f, paint)
             
-            paint.textSize = 32f  // Augmenté de 28f à 32f
-            paint.color = Color.parseColor("#666666")
-            paint.typeface = Typeface.DEFAULT_BOLD
-            canvas.drawText("< 1.5min: Excellent | 1.5-2min: Bon", w.toFloat()/2f, h.toFloat() * 0.78f, paint)
-            canvas.drawText("2-2.5min: Moyen | > 2.5min: Lent", w.toFloat()/2f, h.toFloat() * 0.83f, paint)
-            
             paint.textSize = 36f  // Augmenté de 32f à 36f
             paint.typeface = Typeface.DEFAULT_BOLD
             paint.color = when (timeQuality) {
@@ -966,7 +953,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                 "MOYEN" -> "👍 PAS MAL, CONTINUEZ!"
                 else -> "🔥 ENTRAÎNEZ-VOUS ENCORE!"
             }
-            canvas.drawText(encouragement, w.toFloat()/2f, h.toFloat() * 0.92f, paint)
+            canvas.drawText(encouragement, w.toFloat()/2f, h.toFloat() * 0.78f, paint)
         }
         
         private fun drawVictoryAnimation(canvas: Canvas, w: Int, h: Int) {
@@ -1018,7 +1005,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     }
 
     enum class GameState {
-        PREPARATION, COUNTDOWN, RACE, RESULTS, FINISHED
+        PREPARATION, RACE, RESULTS, FINISHED
     }
     
     enum class TiltState {
