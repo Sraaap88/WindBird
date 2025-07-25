@@ -259,25 +259,33 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         paint.style = Paint.Style.FILL
         canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
         
-        // Tremplin
+        // Tremplin avec CÔTÉS EN ARC pour la perspective
         paint.color = Color.WHITE
         val jumpPath = Path()
-        jumpPath.moveTo(w * 0.2f, h * 0.95f)
-        jumpPath.lineTo(w * 0.8f, h * 0.95f)
-        jumpPath.lineTo(w * 0.45f, h * 0.05f)
-        jumpPath.lineTo(w * 0.55f, h * 0.05f)
+        
+        // NOUVEAU - Tremplin avec perspective réaliste
+        jumpPath.moveTo(w * 0.15f, h * 0.95f)  // Plus large en bas
+        jumpPath.lineTo(w * 0.85f, h * 0.95f)  // Plus large en bas
+        
+        // Côtés courbés vers l'intérieur avec la perspective
+        jumpPath.quadTo(w * 0.75f, h * 0.5f, w * 0.55f, h * 0.05f)  // Côté droit
+        jumpPath.lineTo(w * 0.45f, h * 0.05f)  // Haut du tremplin
+        jumpPath.quadTo(w * 0.25f, h * 0.5f, w * 0.15f, h * 0.95f)  // Côté gauche
         jumpPath.close()
         canvas.drawPath(jumpPath, paint)
         
-        // Lignes de guidage
+        // Lignes de guidage COURBÉES
         paint.color = Color.parseColor("#CCCCCC")
         paint.strokeWidth = 4f
         paint.style = Paint.Style.STROKE
         for (i in 1..12) {
             val progress = i / 12f
             val lineY = h * (0.95f - progress * 0.9f)
-            val leftX = w * (0.2f + progress * 0.25f)
-            val rightX = w * (0.8f - progress * 0.25f)
+            
+            // NOUVEAU - Lignes qui suivent la courbure du tremplin
+            val widthFactor = 1f - progress * 0.6f  // Rétrécit vers le haut
+            val leftX = w * (0.15f + progress * 0.3f) * widthFactor + w * (1f - widthFactor) * 0.5f
+            val rightX = w * (0.85f - progress * 0.3f) * widthFactor + w * (1f - widthFactor) * 0.5f
             canvas.drawLine(leftX, lineY, rightX, lineY, paint)
         }
         paint.style = Paint.Style.FILL
@@ -469,10 +477,13 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         // PERSPECTIVE - dimension fixe comme avant (pas de changement)
         val scale = 0.4f // Taille constante pendant le saut
         
-        val currentBitmap = if (criticalZone && userIsPulling) {
-            skierFlightBitmap
+        // NOUVEAU - Image qui ne rechage pas
+        val currentBitmap = if (activity.getHasUsedJumpImage()) {
+            skierFlightBitmap  // Une fois qu'on a sauté, on garde cette image
+        } else if (criticalZone && userIsPulling) {
+            skierFlightBitmap  // Change vers l'image de saut
         } else {
-            skierJumpBitmap
+            skierJumpBitmap    // Image normale
         }
         
         currentBitmap?.let { bmp ->
