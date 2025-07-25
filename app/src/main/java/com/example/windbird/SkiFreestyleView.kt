@@ -284,62 +284,69 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
             paint.color = Color.RED
             paint.textSize = 24f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("✈️ EN L'AIR!", skierScreenX, skierScreenY - 80f, paint)
-            canvas.drawText("${(activity.airTime * 100).toInt()}%", skierScreenX, skierScreenY - 55f, paint)
+            canvas.drawText("✈️ EN L'AIR!", skierScreenX, skierScreenY - 120f, paint)
+            canvas.drawText("${(activity.airTime * 100).toInt()}%", skierScreenX, skierScreenY - 95f, paint)
         } else {
             // CLIGNOTEMENT quand on atterrit pour feedback
             val landingFlash = System.currentTimeMillis() % 200 < 100
             if (landingFlash && activity.speed > 15f) {
                 paint.color = Color.parseColor("#4400FF00")
-                canvas.drawCircle(skierScreenX, skierScreenY, 40f, paint)
+                canvas.drawCircle(skierScreenX, skierScreenY, 60f, paint)
             }
         }
         
         canvas.save()
         canvas.translate(skierScreenX, skierScreenY)
         
-        // Rotation selon tricks (PLUS VISIBLE)
+        // ROTATIONS VRAIMENT VISIBLES pour les tricks!
+        var totalRotation = 0f
         when (activity.currentTrick) {
             SkiFreestyleActivity.FreestyleTrick.SPIN_360 -> {
-                canvas.rotate(activity.trickRotation * 0.3f) // Un peu plus visible
+                totalRotation = activity.trickRotation * 1.2f // ROTATION FORTE!
                 // Effet de spin
                 paint.color = Color.parseColor("#66FF0000")
-                canvas.drawCircle(0f, 0f, 50f, paint)
+                canvas.drawCircle(0f, 0f, 70f, paint)
             }
             SkiFreestyleActivity.FreestyleTrick.BACKFLIP -> {
-                canvas.rotate(activity.trickRotation * 0.2f)
+                totalRotation = activity.trickRotation * 0.8f // FLIP VISIBLE!
                 // Effet de flip
                 paint.color = Color.parseColor("#660000FF")
-                canvas.drawCircle(0f, 0f, 50f, paint)
+                canvas.drawCircle(0f, 0f, 70f, paint)
             }
             SkiFreestyleActivity.FreestyleTrick.SPIN_GRAB -> {
-                canvas.rotate(activity.trickRotation * 0.25f)
-                canvas.scale(1f + activity.trickProgress * 0.1f, 1f + activity.trickProgress * 0.1f)
+                totalRotation = activity.trickRotation * 1f // SPIN + GRAB!
+                canvas.scale(1f + activity.trickProgress * 0.2f, 1f + activity.trickProgress * 0.2f)
                 // Effet de grab
                 paint.color = Color.parseColor("#66FFFF00")
-                canvas.drawCircle(0f, 0f, 50f, paint)
+                canvas.drawCircle(0f, 0f, 70f, paint)
             }
             SkiFreestyleActivity.FreestyleTrick.INDY_GRAB -> {
+                // Grab sans rotation mais avec scale
+                canvas.scale(1f + activity.trickProgress * 0.15f, 1f + activity.trickProgress * 0.15f)
                 // Effet de grab stable
                 paint.color = Color.parseColor("#6600FFFF")
-                canvas.drawCircle(0f, 0f, 45f, paint)
+                canvas.drawCircle(0f, 0f, 65f, paint)
             }
             else -> {}
         }
         
-        // Utiliser SEULEMENT l'image si elle existe
+        // APPLIQUER LA ROTATION À L'IMAGE!
+        if (totalRotation != 0f) {
+            canvas.rotate(totalRotation)
+        }
+        
+        // IMAGE DU SKIEUR 5 FOIS PLUS GROSSE!
         if (activity.skierBitmap != null) {
-            // Dessiner JUSTE l'image redimensionnée, RIEN D'AUTRE!
-            val bitmapSize = if (activity.isInAir) 100f else 80f // Plus gros en l'air!
+            val bitmapSize = if (activity.isInAir) 500f else 400f // 5x plus gros! (était 80-100f)
             val srcRect = Rect(0, 0, activity.skierBitmap!!.width, activity.skierBitmap!!.height)
             val dstRect = RectF(-bitmapSize/2f, -bitmapSize/2f, bitmapSize/2f, bitmapSize/2f)
             canvas.drawBitmap(activity.skierBitmap!!, srcRect, dstRect, paint)
         } else {
-            // Fallback seulement si l'image n'existe vraiment pas
+            // Fallback 5x plus gros aussi
             paint.color = Color.parseColor("#FF6600")
-            canvas.drawRect(-12f, -25f, 12f, 15f, paint)
+            canvas.drawRect(-60f, -125f, 60f, 75f, paint)
             paint.color = Color.parseColor("#FFFFFF")
-            canvas.drawCircle(0f, -30f, 10f, paint)
+            canvas.drawCircle(0f, -150f, 50f, paint)
         }
         
         canvas.restore()
@@ -347,16 +354,16 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
         // OMBRE PLUS VISIBLE si au sol
         if (!activity.isInAir) {
             paint.color = Color.parseColor("#55000000")
-            canvas.drawOval(skierScreenX - 35f, h * 0.92f, skierScreenX + 35f, h * 0.97f, paint)
+            canvas.drawOval(skierScreenX - 60f, h * 0.92f, skierScreenX + 60f, h * 0.97f, paint)
         } else {
             // Ombre projetée en l'air (où on va atterrir)
             val projectedLanding = skierScreenX + activity.horizontalVelocity * 100f
             paint.color = Color.parseColor("#33FF0000")
-            canvas.drawOval(projectedLanding - 25f, h * 0.92f, projectedLanding + 25f, h * 0.95f, paint)
+            canvas.drawOval(projectedLanding - 40f, h * 0.92f, projectedLanding + 40f, h * 0.95f, paint)
             
             // Ligne qui relie le skieur à son ombre
             paint.color = Color.parseColor("#44FFFFFF")
-            paint.strokeWidth = 2f
+            paint.strokeWidth = 3f
             paint.style = Paint.Style.STROKE
             canvas.drawLine(skierScreenX, skierScreenY, projectedLanding, h * 0.93f, paint)
             paint.style = Paint.Style.FILL
