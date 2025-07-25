@@ -698,49 +698,86 @@ class SlalomActivity : Activity(), SensorEventListener {
         }
         
         private fun drawSlopePerspective(canvas: Canvas, w: Int, h: Int) {
-            // Piste en perspective avec point de fuite plus haut pour effet sommet de colline
+            // Piste en perspective avec VRAIE COURBE de sommet de colline
             paint.color = Color.WHITE
             
-            val slopePath = Path()
-            // Point de fuite plus haut pour effet "sommet de colline"
             val vanishingPointX = w / 2f
-            val vanishingPointY = h * 0.25f // Plus haut (était 0.4f)
+            val vanishingPointY = h * 0.15f // Encore plus haut pour effet colline prononcé
             
-            // Piste qui converge vers le point de fuite plus haut
-            slopePath.moveTo(vanishingPointX - 6f, vanishingPointY) // Très étroit au sommet
-            slopePath.lineTo(vanishingPointX + 6f, vanishingPointY)
-            slopePath.lineTo(w * 0.88f, h.toFloat()) // Plus large en bas pour effet cylindre
-            slopePath.lineTo(w * 0.12f, h.toFloat())
+            // Créer une VRAIE COURBE de colline au lieu d'un triangle
+            val slopePath = Path()
+            slopePath.moveTo(vanishingPointX - 4f, vanishingPointY) // Point au sommet
+            slopePath.lineTo(vanishingPointX + 4f, vanishingPointY)
+            
+            // Courbe douce pour descente de colline (pas de ligne droite)
+            val controlPoints = mutableListOf<PointF>()
+            for (i in 0..10) {
+                val progress = i / 10f
+                // Fonction de courbe exponentielle pour effet colline naturel
+                val curveY = vanishingPointY + (h - vanishingPointY) * (progress * progress * 0.3f + progress * 0.7f)
+                val curveWidth = w * 0.4f * (progress * progress * 0.6f + progress * 0.4f)
+                
+                if (i == 10) {
+                    // Derniers points (en bas)
+                    slopePath.lineTo(w * 0.9f, h.toFloat())
+                    slopePath.lineTo(w * 0.1f, h.toFloat())
+                } else {
+                    // Points intermédiaires pour courbe douce
+                    controlPoints.add(PointF(vanishingPointX + curveWidth, curveY))
+                }
+            }
+            
+            // Dessiner la courbe droite de la piste
+            for (i in controlPoints.indices) {
+                val point = controlPoints[i]
+                if (i == 0) {
+                    slopePath.lineTo(point.x, point.y)
+                } else {
+                    val prevPoint = controlPoints[i - 1]
+                    slopePath.quadTo(prevPoint.x, prevPoint.y, point.x, point.y)
+                }
+            }
+            
+            // Revenir par la courbe gauche
+            for (i in controlPoints.indices.reversed()) {
+                val point = controlPoints[i]
+                val leftX = vanishingPointX - (point.x - vanishingPointX)
+                if (i == controlPoints.size - 1) {
+                    slopePath.lineTo(leftX, point.y)
+                } else {
+                    slopePath.quadTo(leftX, point.y, leftX, point.y)
+                }
+            }
+            
             slopePath.close()
             canvas.drawPath(slopePath, paint)
             
-            // Lignes de perspective avec effet sommet de colline
+            // Lignes de perspective avec COURBE DE COLLINE
             paint.color = Color.parseColor("#EEEEEE")
             paint.strokeWidth = 2f
             paint.style = Paint.Style.STROKE
             
-            // Espacement des lignes basé sur la progression du parcours
-            val lineSpacing = 60f // Distance entre les lignes sur le parcours
+            val lineSpacing = 60f
             val startPosition = (courseProgress / lineSpacing).toInt() * lineSpacing
             
-            for (i in 0..20) { // Plus de lignes pour effet continu
+            for (i in 0..25) {
                 val linePosition = startPosition + i * lineSpacing - courseProgress
                 
-                if (linePosition > 0f && linePosition < 1000f) {
-                    // Calcul avec courbe pour effet colline/cylindre
-                    val distanceRatio = linePosition / 1000f
-                    val curveFactor = 1f - cos(distanceRatio * Math.PI / 2f).toFloat()
-                    val lineY = vanishingPointY + curveFactor * (h - vanishingPointY)
+                if (linePosition > 0f && linePosition < 1500f) {
+                    val distanceRatio = linePosition / 1500f
+                    
+                    // VRAIE COURBE de colline au lieu de cosinus linéaire
+                    val hillCurve = distanceRatio * distanceRatio * 0.4f + distanceRatio * 0.6f
+                    val lineY = vanishingPointY + hillCurve * (h - vanishingPointY)
                     
                     if (lineY >= vanishingPointY && lineY <= h) {
-                        // Largeur de la ligne avec perspective cylindrique
                         val perspectiveFactor = (lineY - vanishingPointY) / (h - vanishingPointY)
-                        val lineLeft = vanishingPointX - (w * 0.38f * perspectiveFactor) // Plus large
-                        val lineRight = vanishingPointX + (w * 0.38f * perspectiveFactor)
+                        val lineWidth = w * 0.4f * (perspectiveFactor * perspectiveFactor * 0.6f + perspectiveFactor * 0.4f)
+                        val lineLeft = vanishingPointX - lineWidth
+                        val lineRight = vanishingPointX + lineWidth
                         
-                        // Épaisseur et transparence selon la distance
-                        paint.strokeWidth = perspectiveFactor * 4f + 0.5f
-                        paint.alpha = (perspectiveFactor * 120f + 60f).toInt()
+                        paint.strokeWidth = perspectiveFactor * 5f + 0.5f
+                        paint.alpha = (perspectiveFactor * 100f + 80f).toInt()
                         
                         canvas.drawLine(lineLeft, lineY, lineRight, lineY, paint)
                     }
@@ -767,76 +804,96 @@ class SlalomActivity : Activity(), SensorEventListener {
         private fun drawSlalomGates(canvas: Canvas, w: Int, h: Int) {
             // Point de fuite au centre pour cohérence avec la piste
             val vanishingPointX = w / 2f
-            val vanishingPointY = h * 0.25f // Plus haut pour effet sommet de colline
+            val vanishingPointY = h * 0.15f // Cohérent avec la nouvelle piste
             
             // Dessiner les DRAPEAUX FIXES plantés sur le parcours
             for (gate in gates) {
                 val distanceToGate = gate.position - courseProgress
                 
                 // Drapeaux visibles BEAUCOUP PLUS TÔT (apparaissent de loin)
-                if (distanceToGate > 0f && distanceToGate < 1200f) { // Distance doublée (était 600f)
-                    // LOGIQUE CORRIGÉE : quand distanceToGate diminue, les drapeaux s'approchent
-                    val distanceRatio = distanceToGate / 1200f // 1.0 = très loin, 0.0 = très proche
+                if (distanceToGate > -200f && distanceToGate < 1500f) { // Inclure les drapeaux passés pour tangage
                     
-                    // CORRECTION : inverser pour que les drapeaux s'approchent vraiment
-                    val approachFactor = 1f - distanceRatio // 0.0 = loin, 1.0 = proche
-                    val curveFactor = 1f - cos(approachFactor * Math.PI / 2f).toFloat() // Courbe cosinus
-                    val screenY = vanishingPointY + curveFactor * (h - vanishingPointY)
+                    val distanceRatio = distanceToGate / 1500f
                     
-                    if (screenY >= vanishingPointY && screenY <= h) {
+                    // VRAIE COURBE de colline (même que la piste)
+                    val approachFactor = 1f - distanceRatio.coerceIn(0f, 1f)
+                    val hillCurve = approachFactor * approachFactor * 0.4f + approachFactor * 0.6f
+                    val screenY = vanishingPointY + hillCurve * (h - vanishingPointY)
+                    
+                    if (screenY >= vanishingPointY && screenY <= h + 100f) { // Permettre affichage un peu en dehors
                         // Facteur de perspective : plus proche = beaucoup plus gros
                         val perspectiveFactor = (screenY - vanishingPointY) / (h - vanishingPointY)
                         
                         // Taille des drapeaux avec progression plus douce
-                        val flagScale = perspectiveFactor * 1.5f + 0.1f // Plus de variation
+                        val flagScale = perspectiveFactor * 1.5f + 0.1f
                         
                         // Positions X des drapeaux avec perspective correcte
                         val gateLeftRelative = gate.leftX - 0.5f
                         val gateRightRelative = gate.rightX - 0.5f
                         
                         // Perspective plus large pour effet cylindre
-                        val perspectiveWidth = 0.45f * perspectiveFactor // Plus large
+                        val perspectiveWidth = 0.4f * (perspectiveFactor * perspectiveFactor * 0.6f + perspectiveFactor * 0.4f)
                         val leftScreenX = vanishingPointX + (gateLeftRelative * w * perspectiveWidth)
                         val rightScreenX = vanishingPointX + (gateRightRelative * w * perspectiveWidth)
                         
-                        // Dessiner le drapeau ROUGE (gauche)
+                        // NOUVEAU - Effet de tangage pour drapeaux traversés
+                        var leftTilt = 0f
+                        var rightTilt = 0f
+                        if (gate.passed && distanceToGate > -200f && distanceToGate < 50f) {
+                            val tiltProgress = (distanceToGate + 200f) / 250f // Progression du tangage
+                            val tiltIntensity = sin(tiltProgress * Math.PI * 2f).toFloat() * 15f // Oscillation
+                            leftTilt = tiltIntensity
+                            rightTilt = -tiltIntensity // Tangage opposé
+                        }
+                        
+                        // Dessiner le drapeau ROUGE (gauche) avec tangage
                         flagRed?.let { bitmap ->
-                            val scaledWidth = bitmap.width * flagScale * 0.20f // Légèrement plus gros
+                            val scaledWidth = bitmap.width * flagScale * 0.20f
                             val scaledHeight = bitmap.height * flagScale * 0.20f
+                            
+                            canvas.save()
+                            canvas.translate(leftScreenX, screenY - scaledHeight/2)
+                            canvas.rotate(leftTilt) // Appliquer le tangage
                             
                             canvas.drawBitmap(
                                 bitmap,
                                 Rect(0, 0, bitmap.width, bitmap.height),
                                 RectF(
-                                    leftScreenX - scaledWidth / 2,
-                                    screenY - scaledHeight,
-                                    leftScreenX + scaledWidth / 2,
-                                    screenY
+                                    -scaledWidth / 2,
+                                    -scaledHeight / 2,
+                                    scaledWidth / 2,
+                                    scaledHeight / 2
                                 ),
                                 paint
                             )
+                            canvas.restore()
                         }
                         
-                        // Dessiner le drapeau BLEU (droite)
+                        // Dessiner le drapeau BLEU (droite) avec tangage
                         flagBlue?.let { bitmap ->
                             val scaledWidth = bitmap.width * flagScale * 0.20f
                             val scaledHeight = bitmap.height * flagScale * 0.20f
                             
+                            canvas.save()
+                            canvas.translate(rightScreenX, screenY - scaledHeight/2)
+                            canvas.rotate(rightTilt) // Appliquer le tangage
+                            
                             canvas.drawBitmap(
                                 bitmap,
                                 Rect(0, 0, bitmap.width, bitmap.height),
                                 RectF(
-                                    rightScreenX - scaledWidth / 2,
-                                    screenY - scaledHeight,
-                                    rightScreenX + scaledWidth / 2,
-                                    screenY
+                                    -scaledWidth / 2,
+                                    -scaledHeight / 2,
+                                    scaledWidth / 2,
+                                    scaledHeight / 2
                                 ),
                                 paint
                             )
+                            canvas.restore()
                         }
                         
-                        // Zone de passage pour la prochaine porte
-                        if (gate == gates.getOrNull(nextGateIndex)) {
+                        // Zone de passage pour la prochaine porte (seulement si pas passée)
+                        if (gate == gates.getOrNull(nextGateIndex) && !gate.passed) {
                             paint.color = Color.parseColor("#44FFFFFF")
                             canvas.drawRect(
                                 leftScreenX, screenY - flagScale * 35f,
@@ -846,7 +903,7 @@ class SlalomActivity : Activity(), SensorEventListener {
                         }
                         
                         // Numéro de porte (visible de plus loin)
-                        if (perspectiveFactor > 0.15f) { // Seuil plus bas
+                        if (perspectiveFactor > 0.15f && !gate.passed) {
                             paint.color = Color.BLACK
                             paint.textSize = 14f * flagScale
                             paint.textAlign = Paint.Align.CENTER
@@ -854,9 +911,9 @@ class SlalomActivity : Activity(), SensorEventListener {
                             canvas.drawText("${gate.number}", centerX, screenY + 20f * flagScale, paint)
                         }
                         
-                        // Effet pour porte passée
-                        if (gate.passed) {
-                            paint.color = Color.parseColor("#44FFFF00")
+                        // Effet pour porte passée (plus discret maintenant)
+                        if (gate.passed && distanceToGate > -100f) {
+                            paint.color = Color.parseColor("#22FFFF00")
                             val centerX = (leftScreenX + rightScreenX) / 2f
                             canvas.drawCircle(centerX, screenY - flagScale * 15f, flagScale * 25f, paint)
                         }
