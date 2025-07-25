@@ -50,31 +50,33 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
         val flagText = activity.getCountryFlag(playerCountry)
         
         paint.color = Color.WHITE
-        reusableRectF.set(50f, 50f, 250f, 170f)
+        reusableRectF.set(50f, 50f, 350f, 220f) // Plus gros
         canvas.drawRoundRect(reusableRectF, 15f, 15f, paint)
         
         paint.color = Color.parseColor("#001122")
-        paint.textSize = 60f
+        paint.textSize = 80f // 6x plus gros (était ~13f)
         paint.textAlign = Paint.Align.CENTER
-        canvas.drawText(flagText, 150f, 130f, paint)
+        canvas.drawText(flagText, 200f, 150f, paint)
         
-        paint.textSize = 20f
-        canvas.drawText(playerCountry.uppercase(), 150f, 160f, paint)
+        paint.textSize = 32f // 6x plus gros
+        canvas.drawText(playerCountry.uppercase(), 200f, 200f, paint)
         
         // Titre
-        paint.textSize = 48f
+        paint.textSize = 72f // 6x plus gros
         canvas.drawText("🎿 SKI FREESTYLE 🎿", w/2f, h * 0.15f, paint)
         
-        // Countdown - on prend une valeur fixe pour l'affichage
-        paint.textSize = 80f
+        // Countdown
+        paint.textSize = 150f // 6x plus gros
         paint.color = Color.RED
-        canvas.drawText("3", w/2f, h * 0.7f, paint)
+        canvas.drawText("3", w/2f, h * 0.5f, paint)
         
-        // Instructions
-        paint.textSize = 24f
-        paint.color = Color.parseColor("#333333")
-        canvas.drawText("📱 Inclinez vers l'avant pour pumper", w/2f, h * 0.85f, paint)
-        canvas.drawText("📱 Mouvements en l'air = tricks", w/2f, h * 0.9f, paint)
+        // Instructions BEAUCOUP PLUS GROSSES
+        paint.textSize = 48f // 6x plus gros (était 8f)
+        paint.color = Color.parseColor("#001122")
+        canvas.drawText("📱 PASSE SUR LES KICKERS ROUGES", w/2f, h * 0.7f, paint)
+        canvas.drawText("🎿 POUR SAUTER AUTOMATIQUEMENT!", w/2f, h * 0.75f, paint)
+        canvas.drawText("📱 INCLINE EN L'AIR = TRICKS", w/2f, h * 0.82f, paint)
+        canvas.drawText("📱 INCLINE AVANT = PUMP VITESSE", w/2f, h * 0.87f, paint)
     }
     
     private fun drawPisteOverview(canvas: Canvas, w: Int, h: Int) {
@@ -122,41 +124,95 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
     }
     
     private fun drawPisteFromBehind(canvas: Canvas, w: Int, h: Int) {
-        // Fond ciel
-        val skyGradient = LinearGradient(0f, 0f, 0f, h * 0.4f,
+        // Fond ciel plus haut pour voir plus de piste
+        val skyGradient = LinearGradient(0f, 0f, 0f, h * 0.3f,
             Color.parseColor("#87CEEB"), Color.parseColor("#E0F6FF"), Shader.TileMode.CLAMP)
         paint.shader = skyGradient
-        canvas.drawRect(0f, 0f, w.toFloat(), h * 0.4f, paint)
+        canvas.drawRect(0f, 0f, w.toFloat(), h * 0.3f, paint)
         paint.shader = null
         
-        // Piste qui défile de BAS vers HAUT avec perspective (CORRIGÉ)
-        val scrollOffset = activity.pisteScroll % 100f
+        // EFFET CYLINDRE : la piste se courbe vers l'horizon
+        val scrollOffset = activity.pisteScroll % 150f
         
         paint.color = Color.WHITE
         
-        // Piste en perspective qui se rétrécit vers le haut
+        // Piste courbée comme sur un cylindre géant
         reusablePath.reset()
-        reusablePath.moveTo(w * 0.45f, 0f)           // Haut étroit (loin)
-        reusablePath.lineTo(w * 0.55f, 0f)           
-        reusablePath.lineTo(w * 0.85f, h.toFloat())   // Bas large (proche)
-        reusablePath.lineTo(w * 0.15f, h.toFloat())   
+        reusablePath.moveTo(w * 0.48f, 0f)           // Sommet étroit (horizon)
+        reusablePath.lineTo(w * 0.52f, 0f)           
+        reusablePath.lineTo(w * 0.75f, h.toFloat())   // Bas élargi (proche)
+        reusablePath.lineTo(w * 0.25f, h.toFloat())   
         reusablePath.close()
         canvas.drawPath(reusablePath, paint)
         
-        // Lignes de défilement qui MONTENT pour effet de mouvement vers l'avant
-        paint.color = Color.parseColor("#EEEEEE")
-        paint.strokeWidth = 2f
+        // LIGNES COURBES QUI SUIVENT LA COURBURE DU CYLINDRE
+        paint.color = Color.parseColor("#DDDDDD")
+        paint.strokeWidth = 4f
         paint.style = Paint.Style.STROKE
         
-        for (i in 0..15) {
-            val lineY = i * 60f + scrollOffset // Les lignes montent maintenant
-            if (lineY >= 0f && lineY <= h.toFloat()) {
-                val perspective = (h.toFloat() - lineY) / h.toFloat()
-                val leftX = w * (0.15f + perspective * 0.3f)
-                val rightX = w * (0.85f - perspective * 0.3f)
-                canvas.drawLine(leftX, lineY, rightX, lineY, paint)
+        for (i in 0..20) {
+            val progress = i / 20f // De 0 (loin) à 1 (proche)
+            val baseY = i * 40f + scrollOffset
+            
+            if (baseY >= 0f && baseY <= h.toFloat()) {
+                // Perspective en Y (plus proche = plus bas)
+                val perspectiveY = h * 0.3f + (h * 0.7f) * progress
+                
+                // Largeur qui s'élargit avec la perspective
+                val leftX = w * (0.48f - progress * 0.23f)   // De 0.48 à 0.25
+                val rightX = w * (0.52f + progress * 0.23f)  // De 0.52 à 0.75
+                
+                // COURBURE CYLINDRIQUE : effet "sommet de colline"
+                val cylinderCurve = sin(progress * PI / 2).toFloat() // Courbe douce
+                val curveIntensity = 50f * (1f - progress) // Plus courbé au loin
+                
+                reusablePath.reset()
+                reusablePath.moveTo(leftX, perspectiveY)
+                
+                // Créer une courbe qui simule la courbure du cylindre
+                val segments = 15
+                for (j in 0..segments) {
+                    val segmentProgress = j.toFloat() / segments
+                    val segmentX = leftX + (rightX - leftX) * segmentProgress
+                    
+                    // Courbe vers le haut au centre (effet cylindre)
+                    val centerCurve = sin(segmentProgress * PI).toFloat() * curveIntensity * cylinderCurve
+                    val segmentY = perspectiveY - centerCurve
+                    
+                    reusablePath.lineTo(segmentX, segmentY)
+                }
+                
+                canvas.drawPath(reusablePath, paint)
             }
         }
+        
+        // LIGNES DE BORD pour accentuer l'effet cylindre
+        paint.color = Color.parseColor("#AAAAAA")
+        paint.strokeWidth = 6f
+        
+        // Bord gauche courbé
+        reusablePath.reset()
+        reusablePath.moveTo(w * 0.48f, 0f)
+        for (i in 0..20) {
+            val progress = i / 20f
+            val y = h * 0.3f + (h * 0.7f) * progress
+            val x = w * (0.48f - progress * 0.23f)
+            val curve = sin(progress * PI / 2).toFloat() * 30f
+            reusablePath.lineTo(x - curve * 0.3f, y)
+        }
+        canvas.drawPath(reusablePath, paint)
+        
+        // Bord droit courbé
+        reusablePath.reset()
+        reusablePath.moveTo(w * 0.52f, 0f)
+        for (i in 0..20) {
+            val progress = i / 20f
+            val y = h * 0.3f + (h * 0.7f) * progress
+            val x = w * (0.52f + progress * 0.23f)
+            val curve = sin(progress * PI / 2).toFloat() * 30f
+            reusablePath.lineTo(x + curve * 0.3f, y)
+        }
+        canvas.drawPath(reusablePath, paint)
         
         paint.style = Paint.Style.FILL
     }
@@ -165,96 +221,109 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
         for (kicker in activity.kickers) {
             val kickerScreenDistance = kicker.distance - activity.distanceTraveled
             
-            if (kickerScreenDistance > -30f && kickerScreenDistance < 500f) {
-                // Position sur l'écran - les kickers apparaissent du haut et descendent
-                val screenY = h.toFloat() - (kickerScreenDistance / 500f) * h // Plus proche = plus bas
-                val perspective = (h.toFloat() - screenY) / h.toFloat()
+            if (kickerScreenDistance > -50f && kickerScreenDistance < 800f) {
+                // NOUVELLE PERSPECTIVE : vue 3/4 arrière en hauteur
+                val progress = 1f - (kickerScreenDistance / 800f).coerceIn(0f, 1f)
+                
+                // Position Y avec effet cylindre
+                val perspectiveY = h * 0.3f + (h * 0.7f) * progress
+                val cylinderCurve = sin(progress * PI / 2).toFloat()
+                val curveOffset = cylinderCurve * 40f
+                val screenY = perspectiveY - curveOffset
                 
                 if (screenY >= 0f && screenY < h.toFloat()) {
-                    // KICKERS BEAUCOUP PLUS GROS ET VISIBLES!
+                    // KICKERS VRAIMENT VISIBLES sur la piste courbée
                     val kickerSize = when (kicker.size) {
-                        SkiFreestyleActivity.KickerSize.SMALL -> 40f
-                        SkiFreestyleActivity.KickerSize.MEDIUM -> 70f
-                        SkiFreestyleActivity.KickerSize.LARGE -> 100f
-                    } * perspective.coerceIn(0.3f, 1.5f)
+                        SkiFreestyleActivity.KickerSize.SMALL -> 30f
+                        SkiFreestyleActivity.KickerSize.MEDIUM -> 50f
+                        SkiFreestyleActivity.KickerSize.LARGE -> 80f
+                    } * progress.coerceIn(0.2f, 1.5f)
                     
-                    // Position sur la piste en perspective
-                    val pisteLeft = w * (0.15f + perspective * 0.3f)
-                    val pisteRight = w * (0.85f - perspective * 0.3f)
+                    // Position X sur la piste courbée
+                    val pisteLeft = w * (0.48f - progress * 0.23f)
+                    val pisteRight = w * (0.52f + progress * 0.23f)
                     val pisteWidth = pisteRight - pisteLeft
                     val screenX = pisteLeft + kicker.x * pisteWidth
                     
-                    // COULEURS SUPER VISIBLES selon statut et proximité
+                    // COULEURS SUPER VISIBLES
                     paint.color = if (kicker.hit) {
-                        Color.parseColor("#00FF00") // VERT FLASHANT une fois hit
-                    } else if (kickerScreenDistance < 50f && kickerScreenDistance > 0f) {
-                        Color.parseColor("#FF0000") // ROUGE quand très proche (SAUTE!)
-                    } else if (kickerScreenDistance < 120f && kickerScreenDistance > 0f) {
-                        Color.parseColor("#FFFF00") // JAUNE quand proche
+                        Color.parseColor("#00FF00") // VERT une fois hit
+                    } else if (kickerScreenDistance < 40f && kickerScreenDistance > 0f) {
+                        Color.parseColor("#FF0000") // ROUGE = SAUTE MAINTENANT!
+                    } else if (kickerScreenDistance < 100f && kickerScreenDistance > 0f) {
+                        Color.parseColor("#FFAA00") // ORANGE proche
+                    } else if (kickerScreenDistance < 200f && kickerScreenDistance > 0f) {
+                        Color.parseColor("#FFFF00") // JAUNE
                     } else {
                         Color.parseColor("#FFFFFF") // Blanc au loin
                     }
                     
-                    // FORME DE RAMPE RÉALISTE ET GROSSE
+                    // FORME DE RAMPE 3D sur la piste courbée
                     reusablePath.reset()
-                    // Base large
-                    reusablePath.moveTo(screenX - kickerSize, screenY + kickerSize/2f)
-                    // Montée progressive
-                    reusablePath.lineTo(screenX - kickerSize/2f, screenY)
-                    // Lip du kicker (pointe)
-                    reusablePath.lineTo(screenX, screenY - kickerSize/3f)
-                    // Descente
-                    reusablePath.lineTo(screenX + kickerSize/2f, screenY)
-                    // Base droite
-                    reusablePath.lineTo(screenX + kickerSize, screenY + kickerSize/2f)
+                    
+                    // Base du kicker qui suit la courbure
+                    val baseLeft = screenX - kickerSize
+                    val baseRight = screenX + kickerSize
+                    val baseY = screenY + kickerSize * 0.3f
+                    
+                    // Sommet du kicker (lip)
+                    val lipY = screenY - kickerSize * 0.4f
+                    val lipCurve = cylinderCurve * 15f
+                    
+                    // Dessiner le kicker en 3D
+                    reusablePath.moveTo(baseLeft, baseY)
+                    reusablePath.lineTo(screenX - kickerSize * 0.3f, lipY - lipCurve)
+                    reusablePath.lineTo(screenX, lipY - lipCurve * 1.2f) // Pointe du lip
+                    reusablePath.lineTo(screenX + kickerSize * 0.3f, lipY - lipCurve)
+                    reusablePath.lineTo(baseRight, baseY)
                     reusablePath.close()
                     canvas.drawPath(reusablePath, paint)
                     
-                    // CONTOUR NOIR ÉPAIS pour visibilité
+                    // CONTOUR NOIR ÉPAIS
                     paint.color = Color.BLACK
-                    paint.strokeWidth = 3f
+                    paint.strokeWidth = 4f
                     paint.style = Paint.Style.STROKE
                     canvas.drawPath(reusablePath, paint)
                     paint.style = Paint.Style.FILL
                     
-                    // OMBRE PLUS VISIBLE
-                    paint.color = Color.parseColor("#66000000")
-                    reusableRectF.set(screenX - kickerSize, screenY + kickerSize/2f, 
-                                     screenX + kickerSize, screenY + kickerSize/2f + 15f)
+                    // OMBRE qui suit la courbure
+                    paint.color = Color.parseColor("#44000000")
+                    reusableRectF.set(baseLeft, baseY, baseRight, baseY + 12f)
                     canvas.drawOval(reusableRectF, paint)
                     
-                    // INDICATEURS GROS ET CLAIRS
-                    if (perspective > 0.2f) {
+                    // INDICATEURS GROS ET VISIBLES
+                    if (progress > 0.3f) {
                         // Taille du kicker
                         paint.color = Color.BLACK
-                        paint.textSize = 20f * perspective
+                        paint.textSize = 24f * progress
                         paint.textAlign = Paint.Align.CENTER
                         val sizeText = when (kicker.size) {
                             SkiFreestyleActivity.KickerSize.SMALL -> "SMALL"
                             SkiFreestyleActivity.KickerSize.MEDIUM -> "MEDIUM" 
                             SkiFreestyleActivity.KickerSize.LARGE -> "BIG"
                         }
-                        canvas.drawText(sizeText, screenX, screenY + kickerSize/4f, paint)
+                        canvas.drawText(sizeText, screenX, screenY + kickerSize * 0.1f, paint)
                         
-                        // Distance GROS ET ROUGE quand proche
-                        if (kickerScreenDistance > 0f && kickerScreenDistance < 150f) {
-                            paint.textSize = 18f * perspective
+                        // Distance avec couleur progressive
+                        if (kickerScreenDistance > 0f && kickerScreenDistance < 200f) {
+                            paint.textSize = 20f * progress
                             paint.color = when {
                                 kickerScreenDistance < 30f -> Color.RED
                                 kickerScreenDistance < 80f -> Color.parseColor("#FF6600") 
                                 else -> Color.BLACK
                             }
-                            canvas.drawText("${kickerScreenDistance.toInt()}m", screenX, screenY - kickerSize/2f, paint)
+                            canvas.drawText("${kickerScreenDistance.toInt()}m", screenX, lipY - kickerSize * 0.2f, paint)
                         }
                         
-                        // FLÈCHE qui pointe vers le kicker quand proche
-                        if (kickerScreenDistance < 80f && kickerScreenDistance > 0f) {
+                        // FLÈCHE ÉNORME quand très proche
+                        if (kickerScreenDistance < 60f && kickerScreenDistance > 0f) {
                             paint.color = Color.RED
-                            paint.strokeWidth = 6f
+                            paint.strokeWidth = 8f
                             paint.style = Paint.Style.STROKE
-                            // Flèche vers le bas
-                            canvas.drawLine(screenX, screenY - kickerSize, screenX - 15f, screenY - kickerSize + 15f, paint)
-                            canvas.drawLine(screenX, screenY - kickerSize, screenX + 15f, screenY - kickerSize + 15f, paint)
+                            val arrowY = lipY - kickerSize * 0.8f
+                            canvas.drawLine(screenX, arrowY, screenX - 20f, arrowY + 20f, paint)
+                            canvas.drawLine(screenX, arrowY, screenX + 20f, arrowY + 20f, paint)
+                            canvas.drawLine(screenX, arrowY, screenX, arrowY + 30f, paint)
                             paint.style = Paint.Style.FILL
                         }
                     }
@@ -264,35 +333,41 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
     }
     
     private fun drawSkierFromBehind(canvas: Canvas, w: Int, h: Int) {
-        val skierScreenX = w * (0.15f + activity.skierX * 0.7f)
-        var skierScreenY = h * activity.skierY
+        val skierScreenX = w * (0.35f + activity.skierX * 0.3f) // Centré sur la piste courbée
+        var skierScreenY = h * 0.7f // Position plus visible sur la piste
         
-        // MONTRER CLAIREMENT QUAND LE SKIEUR EST EN L'AIR!
+        // SKIEUR QUI SUIT LA COURBURE DE LA PISTE
+        val skierProgress = 0.8f // Position du skieur sur la courbe cylindrique
+        val cylinderCurve = sin(skierProgress * PI / 2).toFloat()
+        val curveOffset = cylinderCurve * 30f
+        skierScreenY -= curveOffset
+        
+        // Si en l'air, mouvement vertical amplifié
         if (activity.isInAir) {
-            // Le skieur BOUGE vraiment en Y quand il saute
-            activity.updateAirPhysics() // Mise à jour de la physique en vol
-            skierScreenY = h * activity.skierY // Position mise à jour
+            activity.updateAirPhysics()
+            // Calculer position relative avec la courbure
+            val airOffset = (activity.skierY - 0.7f) * h * -3f // Amplification x3!
+            skierScreenY += airOffset
             
-            // EFFET VISUEL GROS pour montrer qu'on est en l'air
-            val airTimeIndicator = (activity.airTime * 200f).coerceAtMost(50f)
+            // EFFET VISUEL ÉNORME pour montrer qu'on est en l'air
+            val airTimeIndicator = (activity.airTime * 150f).coerceAtMost(60f)
             
-            // Cercle jaune qui pulse autour du skieur en l'air
+            // Cercle jaune qui pulse
             paint.color = Color.parseColor("#66FFFF00")
-            canvas.drawCircle(skierScreenX, skierScreenY, 30f + airTimeIndicator, paint)
+            canvas.drawCircle(skierScreenX, skierScreenY, 60f + airTimeIndicator, paint)
+            
+            // Traînée d'air derrière le skieur
+            paint.color = Color.parseColor("#33FFFFFF")
+            for (i in 1..5) {
+                canvas.drawCircle(skierScreenX, skierScreenY + i * 15f, 40f - i * 5f, paint)
+            }
             
             // Texte "AIR TIME" visible
             paint.color = Color.RED
-            paint.textSize = 24f
+            paint.textSize = 42f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("✈️ EN L'AIR!", skierScreenX, skierScreenY - 120f, paint)
-            canvas.drawText("${(activity.airTime * 100).toInt()}%", skierScreenX, skierScreenY - 95f, paint)
-        } else {
-            // CLIGNOTEMENT quand on atterrit pour feedback
-            val landingFlash = System.currentTimeMillis() % 200 < 100
-            if (landingFlash && activity.speed > 15f) {
-                paint.color = Color.parseColor("#4400FF00")
-                canvas.drawCircle(skierScreenX, skierScreenY, 60f, paint)
-            }
+            canvas.drawText("✈️ EN L'AIR!", skierScreenX, skierScreenY - 180f, paint)
+            canvas.drawText("${(activity.airTime * 100).toInt()}%", skierScreenX, skierScreenY - 140f, paint)
         }
         
         canvas.save()
@@ -302,30 +377,25 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
         var totalRotation = 0f
         when (activity.currentTrick) {
             SkiFreestyleActivity.FreestyleTrick.SPIN_360 -> {
-                totalRotation = activity.trickRotation * 1.2f // ROTATION FORTE!
-                // Effet de spin
+                totalRotation = activity.trickRotation * 1.5f // ENCORE PLUS VISIBLE!
                 paint.color = Color.parseColor("#66FF0000")
-                canvas.drawCircle(0f, 0f, 70f, paint)
+                canvas.drawCircle(0f, 0f, 90f, paint)
             }
             SkiFreestyleActivity.FreestyleTrick.BACKFLIP -> {
-                totalRotation = activity.trickRotation * 0.8f // FLIP VISIBLE!
-                // Effet de flip
+                totalRotation = activity.trickRotation * 1f // FLIP BIEN VISIBLE!
                 paint.color = Color.parseColor("#660000FF")
-                canvas.drawCircle(0f, 0f, 70f, paint)
+                canvas.drawCircle(0f, 0f, 90f, paint)
             }
             SkiFreestyleActivity.FreestyleTrick.SPIN_GRAB -> {
-                totalRotation = activity.trickRotation * 1f // SPIN + GRAB!
-                canvas.scale(1f + activity.trickProgress * 0.2f, 1f + activity.trickProgress * 0.2f)
-                // Effet de grab
+                totalRotation = activity.trickRotation * 1.2f
+                canvas.scale(1f + activity.trickProgress * 0.3f, 1f + activity.trickProgress * 0.3f)
                 paint.color = Color.parseColor("#66FFFF00")
-                canvas.drawCircle(0f, 0f, 70f, paint)
+                canvas.drawCircle(0f, 0f, 90f, paint)
             }
             SkiFreestyleActivity.FreestyleTrick.INDY_GRAB -> {
-                // Grab sans rotation mais avec scale
-                canvas.scale(1f + activity.trickProgress * 0.15f, 1f + activity.trickProgress * 0.15f)
-                // Effet de grab stable
+                canvas.scale(1f + activity.trickProgress * 0.2f, 1f + activity.trickProgress * 0.2f)
                 paint.color = Color.parseColor("#6600FFFF")
-                canvas.drawCircle(0f, 0f, 65f, paint)
+                canvas.drawCircle(0f, 0f, 85f, paint)
             }
             else -> {}
         }
@@ -335,39 +405,47 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
             canvas.rotate(totalRotation)
         }
         
-        // IMAGE DU SKIEUR 5 FOIS PLUS GROSSE!
+        // IMAGE DU SKIEUR ÉNORME et bien visible dans cette vue
         if (activity.skierBitmap != null) {
-            val bitmapSize = if (activity.isInAir) 500f else 400f // 5x plus gros! (était 80-100f)
+            val bitmapSize = if (activity.isInAir) 600f else 500f // ENCORE PLUS GROS!
             val srcRect = Rect(0, 0, activity.skierBitmap!!.width, activity.skierBitmap!!.height)
             val dstRect = RectF(-bitmapSize/2f, -bitmapSize/2f, bitmapSize/2f, bitmapSize/2f)
             canvas.drawBitmap(activity.skierBitmap!!, srcRect, dstRect, paint)
         } else {
-            // Fallback 5x plus gros aussi
+            // Fallback énorme aussi
             paint.color = Color.parseColor("#FF6600")
-            canvas.drawRect(-60f, -125f, 60f, 75f, paint)
+            canvas.drawRect(-75f, -150f, 75f, 100f, paint)
             paint.color = Color.parseColor("#FFFFFF")
-            canvas.drawCircle(0f, -150f, 50f, paint)
+            canvas.drawCircle(0f, -180f, 60f, paint)
         }
         
         canvas.restore()
         
-        // OMBRE PLUS VISIBLE si au sol
+        // OMBRE qui suit la courbure de la piste
         if (!activity.isInAir) {
             paint.color = Color.parseColor("#55000000")
-            canvas.drawOval(skierScreenX - 60f, h * 0.92f, skierScreenX + 60f, h * 0.97f, paint)
+            val shadowY = h * 0.75f + curveOffset * 0.5f
+            canvas.drawOval(skierScreenX - 80f, shadowY, skierScreenX + 80f, shadowY + 25f, paint)
         } else {
             // Ombre projetée en l'air (où on va atterrir)
-            val projectedLanding = skierScreenX + activity.horizontalVelocity * 100f
+            val projectedLanding = skierScreenX + activity.horizontalVelocity * 150f
+            val shadowY = h * 0.75f + curveOffset * 0.5f
             paint.color = Color.parseColor("#33FF0000")
-            canvas.drawOval(projectedLanding - 40f, h * 0.92f, projectedLanding + 40f, h * 0.95f, paint)
+            canvas.drawOval(projectedLanding - 60f, shadowY, projectedLanding + 60f, shadowY + 20f, paint)
             
-            // Ligne qui relie le skieur à son ombre
             paint.color = Color.parseColor("#44FFFFFF")
-            paint.strokeWidth = 3f
+            paint.strokeWidth = 4f
             paint.style = Paint.Style.STROKE
-            canvas.drawLine(skierScreenX, skierScreenY, projectedLanding, h * 0.93f, paint)
+            canvas.drawLine(skierScreenX, skierScreenY, projectedLanding, shadowY + 10f, paint)
             paint.style = Paint.Style.FILL
         }
+        
+        // INSTRUCTIONS TOUJOURS VISIBLES en bas
+        paint.color = Color.parseColor("#FFFF00")
+        paint.textSize = 32f
+        paint.textAlign = Paint.Align.CENTER
+        canvas.drawText("🎿 PASSE SUR LES KICKERS ROUGES POUR SAUTER!", w/2f, h - 60f, paint)
+        canvas.drawText("📱 Incline en l'air pour faire des tricks!", w/2f, h - 25f, paint)
     }
     
     private fun drawGameInterface(canvas: Canvas, w: Int, h: Int) {
@@ -526,21 +604,21 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
         canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
         paint.shader = null
         
-        // Score final
+        // Score final ÉNORME
         paint.color = Color.parseColor("#001122")
-        paint.textSize = 72f
+        paint.textSize = 150f // 4x plus gros (était ~36f)
         paint.textAlign = Paint.Align.CENTER
         canvas.drawText("${activity.finalScore}", w/2f, h * 0.2f, paint)
         
-        paint.textSize = 32f
+        paint.textSize = 64f // 4x plus gros
         canvas.drawText("POINTS", w/2f, h * 0.28f, paint)
         
-        // Breakdown détaillé
-        paint.color = Color.parseColor("#333333")
-        paint.textSize = 22f
+        // Breakdown détaillé BEAUCOUP PLUS GROS
+        paint.color = Color.parseColor("#001122")
+        paint.textSize = 44f // 4x plus gros (était ~11f)
         
         val startY = h * 0.4f
-        val lineHeight = 30f
+        val lineHeight = 50f // Plus d'espace entre les lignes
         
         canvas.drawText("🎿 Kickers touchés: ${activity.kickersHit}/6", w/2f, startY, paint)
         canvas.drawText("🎪 Tricks réussis: ${activity.tricksCompleted}", w/2f, startY + lineHeight, paint)
@@ -549,7 +627,7 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
         canvas.drawText("🌈 Variété: ${activity.tricksUsed.size} tricks différents", w/2f, startY + lineHeight * 4, paint)
         canvas.drawText("⚡ Vitesse max: ${activity.speed.toInt()} km/h", w/2f, startY + lineHeight * 5, paint)
         
-        // Message selon performance
+        // Message selon performance PLUS GROS
         val message = when {
             activity.finalScore >= 300 -> "🏆 RUN LÉGENDAIRE!"
             activity.finalScore >= 250 -> "🥇 EXCELLENT STYLE!"
@@ -559,7 +637,7 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
         }
         
         paint.color = Color.parseColor("#FF6600")
-        paint.textSize = 28f
+        paint.textSize = 56f // 4x plus gros
         canvas.drawText(message, w/2f, h * 0.9f, paint)
     }
     
