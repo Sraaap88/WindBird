@@ -567,8 +567,8 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         val windEffect = activity.getWindDirection() * activity.getWindStrength() * activity.getWindTransition()
         canvas.rotate(windEffect * 8f)
         
-        // PERSPECTIVE - 30% plus petit
-        val scale = 0.56f - flightProgress * 0.21f // De 0.56f à 0.35f (au lieu de 0.8f à 0.5f)
+        // PERSPECTIVE - ENCORE 30% plus petit
+        val scale = 0.39f - flightProgress * 0.147f // De 0.39f à 0.243f (30% plus petit que 0.56f-0.35f)
         
         skierFlightBitmap?.let { bmp ->
             val dstRect = RectF(
