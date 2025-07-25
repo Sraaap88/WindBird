@@ -101,6 +101,18 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
     private var trickVariety = mutableSetOf<TrickType>()
     private var speedHistory = mutableListOf<Float>()
     
+    // Images du snowboarder avec sprite-sheets
+    private var snowLeftSpriteBitmap: Bitmap? = null
+    private var snowRightSpriteBitmap: Bitmap? = null
+    private var snowLeftLandingBitmap: Bitmap? = null
+    private var snowRightLandingBitmap: Bitmap? = null
+    private var snowLeftRotationBitmap: Bitmap? = null
+    private var snowRightRotationBitmap: Bitmap? = null
+    private var snowLeftGrabBitmap: Bitmap? = null
+    private var snowRightGrabBitmap: Bitmap? = null
+    private var snowLeftSpinBitmap: Bitmap? = null
+    private var snowRightSpinBitmap: Bitmap? = null
+    
     // Effets visuels
     private var pipeScroll = 0f           // Défilement de la piste
     private var wallBounceEffect = 0f     // Effet visuel des murs
@@ -130,6 +142,9 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
         accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
+        // Charger les images
+        loadSnowboarderImages()
+
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         statusText = TextView(this).apply {
@@ -147,6 +162,23 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         setContentView(layout)
         
         initializeGame()
+    }
+    
+    private fun loadSnowboarderImages() {
+        try {
+            snowLeftSpriteBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_left_sprite)
+            snowRightSpriteBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_right_sprite)
+            snowLeftLandingBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_left_landing)
+            snowRightLandingBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_right_landing)
+            snowLeftRotationBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_left_rotation)
+            snowRightRotationBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_right_rotation)
+            snowLeftGrabBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_left_grab)
+            snowRightGrabBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_right_grab)
+            snowLeftSpinBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_left_spin)
+            snowRightSpinBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_right_spin)
+        } catch (e: Exception) {
+            // Les bitmaps resteront null, le fallback sera utilisé
+        }
     }
     
     private fun initializeGame() {
@@ -756,7 +788,20 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         }
     }
 
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+    override fun onDestroy() {
+        super.onDestroy()
+        // Libérer les bitmaps
+        snowLeftSpriteBitmap?.recycle()
+        snowRightSpriteBitmap?.recycle()
+        snowLeftLandingBitmap?.recycle()
+        snowRightLandingBitmap?.recycle()
+        snowLeftRotationBitmap?.recycle()
+        snowRightRotationBitmap?.recycle()
+        snowLeftGrabBitmap?.recycle()
+        snowRightGrabBitmap?.recycle()
+        snowLeftSpinBitmap?.recycle()
+        snowRightSpinBitmap?.recycle()
+    }
 
     private fun updateStatus() {
         statusText.text = when (gameState) {
@@ -1067,7 +1112,7 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
                 // Phase de landing
                 isLanding -> {
                     val sideLanding = if (lastSide == RiderSide.LEFT) RiderSide.LEFT else RiderSide.RIGHT
-                    val image = if (sideLanding == RiderSide.LEFT) snowLeftLandingBitmap else snowRightLandingBitmap
+                    val image = if (sideLanding == RiderSide.LEFT) this@SnowboardHalfpipeActivity.snowLeftLandingBitmap else this@SnowboardHalfpipeActivity.snowRightLandingBitmap
                     Pair(image, 0f)
                 }
                 
@@ -1076,27 +1121,27 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
                     when (currentTrick) {
                         TrickType.SPIN -> {
                             val side = if (riderPosition < 0.5f) RiderSide.LEFT else RiderSide.RIGHT
-                            val image = if (side == RiderSide.LEFT) snowLeftRotationBitmap else snowRightRotationBitmap
+                            val image = if (side == RiderSide.LEFT) this@SnowboardHalfpipeActivity.snowLeftRotationBitmap else this@SnowboardHalfpipeActivity.snowRightRotationBitmap
                             Pair(image, trickRotation * 0.8f) // Rotation selon progression
                         }
                         TrickType.FLIP -> {
                             val side = if (riderPosition < 0.5f) RiderSide.LEFT else RiderSide.RIGHT
-                            val image = if (side == RiderSide.LEFT) snowLeftSpinBitmap else snowRightSpinBitmap
+                            val image = if (side == RiderSide.LEFT) this@SnowboardHalfpipeActivity.snowLeftSpinBitmap else this@SnowboardHalfpipeActivity.snowRightSpinBitmap
                             Pair(image, trickFlip * 0.6f)
                         }
                         TrickType.GRAB -> {
                             val side = if (riderPosition < 0.5f) RiderSide.LEFT else RiderSide.RIGHT
-                            val image = if (side == RiderSide.LEFT) snowLeftGrabBitmap else snowRightGrabBitmap
+                            val image = if (side == RiderSide.LEFT) this@SnowboardHalfpipeActivity.snowLeftGrabBitmap else this@SnowboardHalfpipeActivity.snowRightGrabBitmap
                             Pair(image, 0f)
                         }
                         TrickType.COMBO -> {
                             val side = if (riderPosition < 0.5f) RiderSide.LEFT else RiderSide.RIGHT
-                            val image = if (side == RiderSide.LEFT) snowLeftRotationBitmap else snowRightRotationBitmap
+                            val image = if (side == RiderSide.LEFT) this@SnowboardHalfpipeActivity.snowLeftRotationBitmap else this@SnowboardHalfpipeActivity.snowRightRotationBitmap
                             Pair(image, (trickRotation + trickFlip) * 0.5f)
                         }
                         else -> {
                             val side = if (riderPosition < 0.5f) RiderSide.LEFT else RiderSide.RIGHT
-                            val image = if (side == RiderSide.LEFT) snowLeftSpriteBitmap else snowRightSpriteBitmap
+                            val image = if (side == RiderSide.LEFT) this@SnowboardHalfpipeActivity.snowLeftSpriteBitmap else this@SnowboardHalfpipeActivity.snowRightSpriteBitmap
                             Pair(image, 0f)
                         }
                     }
@@ -1105,14 +1150,14 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
                 // Montée/descente normale
                 else -> {
                     when (currentSide) {
-                        RiderSide.LEFT -> Pair(snowLeftSpriteBitmap, 0f)
-                        RiderSide.RIGHT -> Pair(snowRightSpriteBitmap, 0f)
+                        RiderSide.LEFT -> Pair(this@SnowboardHalfpipeActivity.snowLeftSpriteBitmap, 0f)
+                        RiderSide.RIGHT -> Pair(this@SnowboardHalfpipeActivity.snowRightSpriteBitmap, 0f)
                         RiderSide.CENTER -> {
                             // Au centre, utiliser l'image selon d'où on vient
                             when (lastSide) {
-                                RiderSide.LEFT -> Pair(snowLeftSpriteBitmap, 0f)
-                                RiderSide.RIGHT -> Pair(snowRightSpriteBitmap, 0f)
-                                else -> Pair(snowLeftSpriteBitmap, 0f) // Par défaut
+                                RiderSide.LEFT -> Pair(this@SnowboardHalfpipeActivity.snowLeftSpriteBitmap, 0f)
+                                RiderSide.RIGHT -> Pair(this@SnowboardHalfpipeActivity.snowRightSpriteBitmap, 0f)
+                                else -> Pair(this@SnowboardHalfpipeActivity.snowLeftSpriteBitmap, 0f) // Par défaut
                             }
                         }
                     }
