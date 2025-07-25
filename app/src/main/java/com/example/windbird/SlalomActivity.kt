@@ -180,17 +180,17 @@ class SlalomActivity : Activity(), SensorEventListener {
     }
     
     private fun generateSlalomCourse() {
-        // Générer des PAIRES de drapeaux avec positions VARIÉES
-        var currentPosition = 150f
+        // Générer des PAIRES de drapeaux avec VRAIE variabilité et portes plus larges
+        var currentPosition = 200f // Commencer plus loin
         
-        repeat(20) { i ->
-            // Positions variées au lieu d'être toutes alignées
-            val baseX = 0.3f + (i % 2) * 0.4f // Base alternée gauche-droite
-            val randomOffset = (kotlin.random.Random.nextFloat() - 0.5f) * 0.15f // Variation aléatoire
-            val gateCenter = (baseX + randomOffset).coerceIn(0.25f, 0.75f)
+        repeat(15) { i -> // Moins de portes mais mieux espacées
+            // Positions vraiment variées avec plus d'amplitude
+            val baseX = 0.25f + (i % 3) * 0.25f // 3 couloirs au lieu de 2
+            val randomOffset = (kotlin.random.Random.nextFloat() - 0.5f) * 0.3f // Plus de variation
+            val gateCenter = (baseX + randomOffset).coerceIn(0.2f, 0.8f)
             
-            // Largeur variable des portes
-            val gateWidth = 0.12f + kotlin.random.Random.nextFloat() * 0.06f // Entre 0.12f et 0.18f
+            // Portes PLUS LARGES et largeur encore plus variable
+            val gateWidth = 0.18f + kotlin.random.Random.nextFloat() * 0.12f // Entre 0.18f et 0.30f (beaucoup plus large)
             
             // Paire de drapeaux (rouge à gauche, bleu à droite)
             gates.add(SlalomGate(
@@ -201,8 +201,10 @@ class SlalomActivity : Activity(), SensorEventListener {
                 passed = false
             ))
             
-            // Espacement variable entre les portes
-            currentPosition += 75f + kotlin.random.Random.nextFloat() * 30f // Entre 75f et 105f
+            // Espacement VRAIMENT variable et plus étalé
+            val baseSpacing = 120f + i * 15f // Espacement qui augmente progressivement
+            val randomSpacing = kotlin.random.Random.nextFloat() * 80f // Variation énorme (0-80f)
+            currentPosition += baseSpacing + randomSpacing // Entre 120f et 200f+ selon la progression
         }
     }
 
@@ -579,9 +581,9 @@ class SlalomActivity : Activity(), SensorEventListener {
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     private fun updateStatus() {
-        statusText.text = when (gameState) {
+                    statusText.text = when (gameState) {
             GameState.PREPARATION -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Préparation... ${(preparationDuration - phaseTimer).toInt() + 1}s"
-            GameState.RACE -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Portes: $gatesPassed/20 | ${speed.toInt()} km/h | Carving: ${(carvingQuality * 100).toInt()}%"
+            GameState.RACE -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Portes: $gatesPassed/15 | ${speed.toInt()} km/h | Carving: ${(carvingQuality * 100).toInt()}%"
             GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | Temps: ${raceTime.toInt()}s | Score: ${finalScore}"
             GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Course terminée!"
         }
@@ -694,48 +696,49 @@ class SlalomActivity : Activity(), SensorEventListener {
         }
         
         private fun drawSlopePerspective(canvas: Canvas, w: Int, h: Int) {
-            // Piste en perspective avec point de fuite au CENTRE (effet montagne/cylindre)
+            // Piste en perspective avec point de fuite plus haut pour effet sommet de colline
             paint.color = Color.WHITE
             
             val slopePath = Path()
-            // Point de fuite au centre de l'écran
+            // Point de fuite plus haut pour effet "sommet de colline"
             val vanishingPointX = w / 2f
-            val vanishingPointY = h * 0.4f // Centre vertical
+            val vanishingPointY = h * 0.25f // Plus haut (était 0.4f)
             
-            // Piste qui converge vers le point de fuite
-            slopePath.moveTo(vanishingPointX - 10f, vanishingPointY) // Très étroit au centre
-            slopePath.lineTo(vanishingPointX + 10f, vanishingPointY)
-            slopePath.lineTo(w * 0.85f, h.toFloat()) // Large en bas (proche)
-            slopePath.lineTo(w * 0.15f, h.toFloat())
+            // Piste qui converge vers le point de fuite plus haut
+            slopePath.moveTo(vanishingPointX - 6f, vanishingPointY) // Très étroit au sommet
+            slopePath.lineTo(vanishingPointX + 6f, vanishingPointY)
+            slopePath.lineTo(w * 0.88f, h.toFloat()) // Plus large en bas pour effet cylindre
+            slopePath.lineTo(w * 0.12f, h.toFloat())
             slopePath.close()
             canvas.drawPath(slopePath, paint)
             
-            // Lignes de perspective qui défilent avec la progression
+            // Lignes de perspective avec effet sommet de colline
             paint.color = Color.parseColor("#EEEEEE")
             paint.strokeWidth = 2f
             paint.style = Paint.Style.STROKE
             
             // Espacement des lignes basé sur la progression du parcours
-            val lineSpacing = 50f // Distance entre les lignes sur le parcours
+            val lineSpacing = 60f // Distance entre les lignes sur le parcours
             val startPosition = (courseProgress / lineSpacing).toInt() * lineSpacing
             
-            for (i in 0..15) {
+            for (i in 0..20) { // Plus de lignes pour effet continu
                 val linePosition = startPosition + i * lineSpacing - courseProgress
                 
-                if (linePosition > 0f && linePosition < 600f) {
-                    // Calcul de la position Y selon la distance
-                    val distanceRatio = linePosition / 600f
-                    val lineY = h - (1f - distanceRatio) * (h - vanishingPointY)
+                if (linePosition > 0f && linePosition < 1000f) {
+                    // Calcul avec courbe pour effet colline/cylindre
+                    val distanceRatio = linePosition / 1000f
+                    val curveFactor = 1f - cos(distanceRatio * Math.PI / 2f).toFloat()
+                    val lineY = vanishingPointY + curveFactor * (h - vanishingPointY)
                     
                     if (lineY >= vanishingPointY && lineY <= h) {
-                        // Largeur de la ligne selon la perspective
+                        // Largeur de la ligne avec perspective cylindrique
                         val perspectiveFactor = (lineY - vanishingPointY) / (h - vanishingPointY)
-                        val lineLeft = vanishingPointX - (w * 0.35f * perspectiveFactor)
-                        val lineRight = vanishingPointX + (w * 0.35f * perspectiveFactor)
+                        val lineLeft = vanishingPointX - (w * 0.38f * perspectiveFactor) // Plus large
+                        val lineRight = vanishingPointX + (w * 0.38f * perspectiveFactor)
                         
                         // Épaisseur et transparence selon la distance
-                        paint.strokeWidth = perspectiveFactor * 3f + 0.5f
-                        paint.alpha = (perspectiveFactor * 150f + 50f).toInt()
+                        paint.strokeWidth = perspectiveFactor * 4f + 0.5f
+                        paint.alpha = (perspectiveFactor * 120f + 60f).toInt()
                         
                         canvas.drawLine(lineLeft, lineY, lineRight, lineY, paint)
                     }
@@ -762,36 +765,41 @@ class SlalomActivity : Activity(), SensorEventListener {
         private fun drawSlalomGates(canvas: Canvas, w: Int, h: Int) {
             // Point de fuite au centre pour cohérence avec la piste
             val vanishingPointX = w / 2f
-            val vanishingPointY = h * 0.4f
+            val vanishingPointY = h * 0.25f // Plus haut pour effet sommet de colline
             
             // Dessiner les DRAPEAUX FIXES plantés sur le parcours
             for (gate in gates) {
                 val distanceToGate = gate.position - courseProgress
                 
-                // Seulement dessiner les portes visibles devant nous
-                if (distanceToGate > 0f && distanceToGate < 600f) {
-                    // LOGIQUE CORRIGÉE : plus la distance diminue, plus ils sont proches (plus gros)
-                    val distanceRatio = distanceToGate / 600f // 1.0 = loin, 0.0 = proche
-                    val screenY = vanishingPointY + (1f - distanceRatio) * (h - vanishingPointY)
+                // Drapeaux visibles BEAUCOUP PLUS TÔT (apparaissent de loin)
+                if (distanceToGate > 0f && distanceToGate < 1200f) { // Distance doublée (était 600f)
+                    // Logique perspective avec effet sommet de colline plus prononcé
+                    val distanceRatio = distanceToGate / 1200f // 1.0 = très loin, 0.0 = très proche
+                    
+                    // Courbe plus prononcée pour effet colline/cylindre
+                    val curveFactor = 1f - cos(distanceRatio * Math.PI / 2f).toFloat() // Courbe cosinus
+                    val screenY = vanishingPointY + curveFactor * (h - vanishingPointY)
                     
                     if (screenY >= vanishingPointY && screenY <= h) {
-                        // Facteur de perspective : plus proche = plus gros
+                        // Facteur de perspective : plus proche = beaucoup plus gros
                         val perspectiveFactor = (screenY - vanishingPointY) / (h - vanishingPointY)
                         
-                        // Taille des drapeaux selon la distance - PLUS GROS
-                        val flagScale = perspectiveFactor * 1.2f + 0.15f // Augmenté de 0.8f à 1.2f
+                        // Taille des drapeaux avec progression plus douce
+                        val flagScale = perspectiveFactor * 1.5f + 0.1f // Plus de variation
                         
                         // Positions X des drapeaux avec perspective correcte
-                        val gateLeftRelative = gate.leftX - 0.5f // Position relative au centre
+                        val gateLeftRelative = gate.leftX - 0.5f
                         val gateRightRelative = gate.rightX - 0.5f
                         
-                        val leftScreenX = vanishingPointX + (gateLeftRelative * w * 0.35f * perspectiveFactor)
-                        val rightScreenX = vanishingPointX + (gateRightRelative * w * 0.35f * perspectiveFactor)
+                        // Perspective plus large pour effet cylindre
+                        val perspectiveWidth = 0.45f * perspectiveFactor // Plus large
+                        val leftScreenX = vanishingPointX + (gateLeftRelative * w * perspectiveWidth)
+                        val rightScreenX = vanishingPointX + (gateRightRelative * w * perspectiveWidth)
                         
                         // Dessiner le drapeau ROUGE (gauche)
                         flagRed?.let { bitmap ->
-                            val scaledWidth = bitmap.width * flagScale * 0.18f // Augmenté de 0.12f à 0.18f
-                            val scaledHeight = bitmap.height * flagScale * 0.18f
+                            val scaledWidth = bitmap.width * flagScale * 0.20f // Légèrement plus gros
+                            val scaledHeight = bitmap.height * flagScale * 0.20f
                             
                             canvas.drawBitmap(
                                 bitmap,
@@ -808,8 +816,8 @@ class SlalomActivity : Activity(), SensorEventListener {
                         
                         // Dessiner le drapeau BLEU (droite)
                         flagBlue?.let { bitmap ->
-                            val scaledWidth = bitmap.width * flagScale * 0.18f // Augmenté de 0.12f à 0.18f
-                            val scaledHeight = bitmap.height * flagScale * 0.18f
+                            val scaledWidth = bitmap.width * flagScale * 0.20f
+                            val scaledHeight = bitmap.height * flagScale * 0.20f
                             
                             canvas.drawBitmap(
                                 bitmap,
@@ -828,19 +836,19 @@ class SlalomActivity : Activity(), SensorEventListener {
                         if (gate == gates.getOrNull(nextGateIndex)) {
                             paint.color = Color.parseColor("#44FFFFFF")
                             canvas.drawRect(
-                                leftScreenX, screenY - flagScale * 30f,
+                                leftScreenX, screenY - flagScale * 35f,
                                 rightScreenX, screenY,
                                 paint
                             )
                         }
                         
-                        // Numéro de porte (seulement si assez proche)
-                        if (perspectiveFactor > 0.25f) {
+                        // Numéro de porte (visible de plus loin)
+                        if (perspectiveFactor > 0.15f) { // Seuil plus bas
                             paint.color = Color.BLACK
-                            paint.textSize = 16f * flagScale
+                            paint.textSize = 14f * flagScale
                             paint.textAlign = Paint.Align.CENTER
                             val centerX = (leftScreenX + rightScreenX) / 2f
-                            canvas.drawText("${gate.number}", centerX, screenY + 25f * flagScale, paint)
+                            canvas.drawText("${gate.number}", centerX, screenY + 20f * flagScale, paint)
                         }
                         
                         // Effet pour porte passée
@@ -982,7 +990,7 @@ class SlalomActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#000033")
             paint.textSize = 20f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("Portes: $gatesPassed/20", 30f, baseY, paint)
+            canvas.drawText("Portes: $gatesPassed/15", 30f, baseY, paint)
             canvas.drawText("Parfaites: $perfectGates", 30f, baseY + 30f, paint)
             canvas.drawText("Manquées: $gatesMissed", 30f, baseY + 60f, paint)
             
