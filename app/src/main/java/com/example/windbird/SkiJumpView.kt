@@ -678,7 +678,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
             }
         }
         
-        // Dessiner le skieur
+        // Dessiner le skieur avec dimension fixe
         currentBitmap?.let { bmp ->
             val dstRect = RectF(
                 skierX - bmp.width * scale / 4f,
