@@ -238,20 +238,17 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         canvas.drawText("🎿 SAUT À SKI 🎿", w/2f, h * 0.35f, paint)
         
         paint.textSize = 80f
-        paint.typeface = Typeface.DEFAULT_BOLD
-        canvas.drawText("Préparez-vous...", w/2f, h * 0.45f, paint)
+        canvas.drawText("Préparez-vous...", w/2f, h * 0.47f, paint) // Plus espacé
         
         paint.textSize = 72f
         paint.color = Color.YELLOW
-        paint.typeface = Typeface.DEFAULT_BOLD
-        canvas.drawText("Dans ${(activity.getPreparationDuration() - activity.getPhaseTimer()).toInt() + 1} secondes", w/2f, h * 0.53f, paint)
+        canvas.drawText("Dans ${(activity.getPreparationDuration() - activity.getPhaseTimer()).toInt() + 1} secondes", w/2f, h * 0.57f, paint) // Plus espacé
         
         paint.textSize = 80f
-        paint.color = Color.CYAN
-        paint.typeface = Typeface.DEFAULT_BOLD
-        canvas.drawText("📱 2 TAPS sur l'écran pour démarrer", w/2f, h * 0.70f, paint)
-        canvas.drawText("📱 SUIVEZ la zone verte qui descend", w/2f, h * 0.76f, paint)
-        canvas.drawText("📱 COUP DE FOUET au moment du saut", w/2f, h * 0.82f, paint)
+        paint.color = Color.parseColor("#00FF00") // Vert brillant au lieu de turquoise
+        canvas.drawText("📱 2 TAPS sur l'écran pour démarrer", w/2f, h * 0.72f, paint) // Plus espacé
+        canvas.drawText("📱 SUIVEZ la zone verte qui descend", w/2f, h * 0.80f, paint) // Plus espacé
+        canvas.drawText("📱 COUP DE FOUET au moment du saut", w/2f, h * 0.88f, paint) // Plus espacé
         
         paint.typeface = Typeface.DEFAULT
     }
@@ -350,7 +347,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
     
     private fun drawAngleControlBar(canvas: Canvas, w: Int, h: Int) {
         val barWidth = 80f
-        val barHeight = h * 0.6f
+        val barHeight = h * 0.42f // 30% plus court (0.6f * 0.7)
         val barX = 50f
         val barY = h * 0.2f
         
@@ -532,7 +529,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         val windEffect = activity.getWindDirection() * activity.getWindStrength() * activity.getWindTransition()
         canvas.rotate(windEffect * 8f)
         
-        val scale = 0.12f
+        val scale = 0.48f // 4 fois plus gros (0.12f * 4)
         
         skierFlightBitmap?.let { bmp ->
             val dstRect = RectF(
@@ -601,7 +598,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         paint.style = Paint.Style.FILL
         
         val landingProgress = activity.getPhaseTimer() / activity.getLandingDuration()
-        val scale = 0.12f
+        val scale = 0.96f // 8 fois plus gros (0.12f * 8)
         
         val skierX: Float
         val skierY: Float
