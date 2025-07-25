@@ -214,19 +214,20 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
             canvas.drawBitmap(prep, null, dstRect, paint)
         }
         
-        val flagRectWidth = w * 0.19f
-        val flagRectHeight = h * 0.17f
-        val flagRectX = w * 0.75f
-        val flagRectY = h * 0.08f
+        // CORRIGÉ - Position et taille du rectangle blanc pour le drapeau
+        val flagRectWidth = w * 0.25f   // Plus large
+        val flagRectHeight = h * 0.25f  // Plus haut
+        val flagRectX = w * 0.72f       // Décalé vers la gauche pour bien centrer
+        val flagRectY = h * 0.06f       // Un peu plus bas
         
-        // CORRIGÉ - Drapeau mieux centré
+        // CORRIGÉ - Drapeau 2 fois plus gros et parfaitement centré
         val flagBitmap = getPlayerFlagBitmap()
         flagBitmap?.let { flag ->
-            // Calculer les dimensions pour centrer parfaitement
-            val flagWidth = flagRectWidth * 0.8f  // Un peu plus petit pour marge
-            val flagHeight = flagRectHeight * 0.7f  // Proportion correcte
+            // Drapeau 2 fois plus gros et bien centré
+            val flagWidth = flagRectWidth * 0.85f   // Presque toute la largeur
+            val flagHeight = flagRectHeight * 0.7f  // Bonne proportion
             
-            // Centrer parfaitement dans le rectangle
+            // Centrage parfait
             val flagX = flagRectX + (flagRectWidth - flagWidth) / 2f
             val flagY = flagRectY + (flagRectHeight - flagHeight) / 2f
             
@@ -237,25 +238,33 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         val playerCountry = activity.getTournamentData().playerCountries[activity.getCurrentPlayerIndex()]
         
         paint.color = Color.WHITE
-        paint.textSize = 48f
+        paint.textSize = 96f  // 2 fois plus gros (48f -> 96f)
         paint.textAlign = Paint.Align.CENTER
+        paint.typeface = Typeface.DEFAULT_BOLD  // Plus gras
         canvas.drawText(playerCountry.uppercase(), w/2f, h * 0.35f, paint)
         
-        paint.textSize = 56f
+        paint.textSize = 112f  // 2 fois plus gros (56f -> 112f)
+        paint.typeface = Typeface.DEFAULT_BOLD  // Plus gras
         canvas.drawText("🎿 SAUT À SKI 🎿", w/2f, h * 0.43f, paint)
         
-        paint.textSize = 40f
+        paint.textSize = 80f  // 2 fois plus gros (40f -> 80f)
+        paint.typeface = Typeface.DEFAULT_BOLD  // Plus gras
         canvas.drawText("Préparez-vous...", w/2f, h * 0.5f, paint)
         
-        paint.textSize = 36f
+        paint.textSize = 72f  // 2 fois plus gros (36f -> 72f)
         paint.color = Color.YELLOW
+        paint.typeface = Typeface.DEFAULT_BOLD  // Plus gras
         canvas.drawText("Dans ${(activity.getPreparationDuration() - activity.getPhaseTimer()).toInt() + 1} secondes", w/2f, h * 0.57f, paint)
         
-        paint.textSize = 40f
+        paint.textSize = 80f  // 2 fois plus gros (40f -> 80f)
         paint.color = Color.CYAN
+        paint.typeface = Typeface.DEFAULT_BOLD  // Plus gras
         canvas.drawText("📱 2 TAPS sur l'écran pour démarrer", w/2f, h * 0.75f, paint)
         canvas.drawText("📱 SUIVEZ la zone verte qui descend", w/2f, h * 0.8f, paint)
         canvas.drawText("📱 COUP DE FOUET au moment du saut", w/2f, h * 0.85f, paint)
+        
+        // Reset typeface
+        paint.typeface = Typeface.DEFAULT
     }
     
     private fun drawApproach(canvas: Canvas, w: Int, h: Int) {
