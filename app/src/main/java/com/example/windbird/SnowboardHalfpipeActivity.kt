@@ -166,7 +166,7 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             setPadding(25, 20, 25, 20)
         }
 
-        gameView = SnowboardHalfpipeView(this)
+        gameView = SnowboardHalfpipeView(this, this)
 
         layout.addView(statusText)
         layout.addView(gameView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -986,7 +986,7 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         }
     }
 
-    private fun getCountryFlag(country: String): String {
+    fun getCountryFlag(country: String): String {
         return when (country.uppercase()) {
             "FRANCE" -> "🇫🇷"
             "CANADA" -> "🇨🇦"
@@ -1007,6 +1007,61 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             else -> "🏴"
         }
     }
+
+    // Méthodes getter pour la vue
+    fun getGameState() = gameState
+    fun getPhaseTimer() = phaseTimer
+    fun getPreparationDuration() = preparationDuration
+    fun getHalfpipePreparationBitmap() = halfpipePreparationBitmap
+    fun getCountryFlagBitmap() = countryFlagBitmap
+    fun getTournamentData() = tournamentData
+    fun getCurrentPlayerIndex() = currentPlayerIndex
+    fun getPracticeMode() = practiceMode
+    fun getSnowTrackSpriteBitmap() = snowTrackSpriteBitmap
+    fun getTrackFrames() = trackFrames
+    fun getSpeed() = speed
+    fun getPipeScroll() = pipeScroll
+    fun getRiderPosition() = riderPosition
+    fun getRiderHeight() = riderHeight
+    fun getIsInAir() = isInAir
+    fun getMomentum() = momentum
+    fun getIsLanding() = isLanding
+    fun getLandingTimer() = landingTimer
+    fun getCurrentSide() = currentSide
+    fun getLastSide() = lastSide
+    fun getCurrentTrick() = currentTrick
+    fun getTrickRotation() = trickRotation
+    fun getTrickFlip() = trickFlip
+    fun getTrickProgress() = trickProgress
+    fun getTrickPhase() = trickPhase
+    fun getSnowLeftSpriteBitmap() = snowLeftSpriteBitmap
+    fun getSnowRightSpriteBitmap() = snowRightSpriteBitmap
+    fun getSnowLeftLandingBitmap() = snowLeftLandingBitmap
+    fun getSnowRightLandingBitmap() = snowRightLandingBitmap
+    fun getSnowLeftRotationBitmap() = snowLeftRotationBitmap
+    fun getSnowRightRotationBitmap() = snowRightRotationBitmap
+    fun getSnowLeftGrabBitmap() = snowLeftGrabBitmap
+    fun getSnowRightGrabBitmap() = snowRightGrabBitmap
+    fun getSnowLeftSpinBitmap() = snowLeftSpinBitmap
+    fun getSnowRightSpinBitmap() = snowRightSpinBitmap
+    fun getSnowboarderFrameCache() = snowboarderFrameCache
+    fun getTotalScore() = totalScore
+    fun getTricksCompleted() = tricksCompleted
+    fun getAmplitude() = amplitude
+    fun getFlow() = flow
+    fun getStyle() = style
+    fun getTrickCombo() = trickCombo
+    fun getPumpWindow() = pumpWindow
+    fun getPumpEnergy() = pumpEnergy
+    fun getPumpEfficiency() = pumpEfficiency
+    fun getPumpCombo() = pumpCombo
+    fun getAltimeter() = altimeter
+    fun getAirTime() = airTime
+    fun getFinalScore() = finalScore
+    fun getTrickVariety() = trickVariety
+    fun getMaxHeight() = maxHeight
+    fun getMaxAirTime() = maxAirTime
+    fun getPerfectLandings() = perfectLandings
 
     enum class TrickType(val displayName: String) {
         NONE(""),
