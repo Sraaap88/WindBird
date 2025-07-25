@@ -15,7 +15,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.view.ViewGroup
 import kotlin.math.*
- 
+
 class SlalomActivity : Activity(), SensorEventListener {
 
     private lateinit var gameView: SlalomView
@@ -46,7 +46,7 @@ class SlalomActivity : Activity(), SensorEventListener {
     private var maxSpeed = 55f // Zone rouge à partir de 50
     private var skierX = 0.5f // Position horizontale (0.0 = gauche, 1.0 = droite)
     private var courseProgress = 0f // Progression sur le parcours
-    private var totalCourseLength = 2000f
+    private var totalCourseLength = 4000f // Doublé de 2000f à 4000f pour épreuve 2x plus longue
     private var raceTime = 0f
     
     // Contrôles gyroscope - LÉGERS AJUSTEMENTS
@@ -585,7 +585,7 @@ class SlalomActivity : Activity(), SensorEventListener {
     private fun updateStatus() {
                     statusText.text = when (gameState) {
             GameState.PREPARATION -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Préparation... ${(preparationDuration - phaseTimer).toInt() + 1}s"
-            GameState.RACE -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Portes: $gatesPassed/15 | ${speed.toInt()} km/h | Carving: ${(carvingQuality * 100).toInt()}%"
+            GameState.RACE -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Portes: $gatesPassed/25 | ${speed.toInt()} km/h | Carving: ${(carvingQuality * 100).toInt()}%"
             GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | Temps: ${raceTime.toInt()}s | Score: ${finalScore}"
             GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Course terminée!"
         }
@@ -752,19 +752,20 @@ class SlalomActivity : Activity(), SensorEventListener {
             slopePath.close()
             canvas.drawPath(slopePath, paint)
             
-            // Lignes de perspective avec COURBE DE COLLINE
+            // Lignes de perspective avec COURBE DE COLLINE - SENS CORRIGÉ
             paint.color = Color.parseColor("#EEEEEE")
             paint.strokeWidth = 2f
             paint.style = Paint.Style.STROKE
             
             val lineSpacing = 60f
-            val startPosition = (courseProgress / lineSpacing).toInt() * lineSpacing
+            val startPosition = courseProgress - (courseProgress % lineSpacing) // CORRIGÉ : partir de la progression actuelle
             
-            for (i in 0..25) {
-                val linePosition = startPosition + i * lineSpacing - courseProgress
+            for (i in -5..25) { // Inclure des lignes derrière et devant
+                val linePosition = startPosition + i * lineSpacing
+                val relativePosition = linePosition - courseProgress // Distance par rapport au joueur
                 
-                if (linePosition > 0f && linePosition < 1500f) {
-                    val distanceRatio = linePosition / 1500f
+                if (relativePosition > -200f && relativePosition < 1500f) {
+                    val distanceRatio = (relativePosition + 200f) / 1700f // Normaliser entre 0 et 1
                     
                     // VRAIE COURBE de colline au lieu de cosinus linéaire
                     val hillCurve = distanceRatio * distanceRatio * 0.4f + distanceRatio * 0.6f
@@ -787,6 +788,9 @@ class SlalomActivity : Activity(), SensorEventListener {
             paint.alpha = 255
             paint.style = Paint.Style.FILL
             
+            // NOUVEAU - Décor qui défile (sapins, rochers)
+            drawScrollingDecor(canvas, w, h, vanishingPointX, vanishingPointY)
+            
             // Effet de vitesse - flou sur les bords
             if (speed > 35f) {
                 paint.color = Color.parseColor("#66E6F3FF")
@@ -801,6 +805,57 @@ class SlalomActivity : Activity(), SensorEventListener {
             }
         }
         
+        private fun drawScrollingDecor(canvas: Canvas, w: Int, h: Int, vanishingPointX: Float, vanishingPointY: Float) {
+            // Décor qui défile : sapins, rochers, etc.
+            val decorSpacing = 200f
+            val startPosition = courseProgress - (courseProgress % decorSpacing)
+            
+            for (i in -2..10) {
+                val decorPosition = startPosition + i * decorSpacing + kotlin.random.Random(i + 100).nextFloat() * 100f
+                val relativePosition = decorPosition - courseProgress
+                
+                if (relativePosition > -100f && relativePosition < 1200f) {
+                    val distanceRatio = (relativePosition + 100f) / 1300f
+                    val hillCurve = distanceRatio * distanceRatio * 0.4f + distanceRatio * 0.6f
+                    val decorY = vanishingPointY + hillCurve * (h - vanishingPointY)
+                    
+                    if (decorY >= vanishingPointY && decorY <= h) {
+                        val perspectiveFactor = (decorY - vanishingPointY) / (h - vanishingPointY)
+                        val decorSize = perspectiveFactor * 30f + 5f
+                        
+                        // Alterner les côtés et types de décor
+                        val side = if (i % 2 == 0) -1f else 1f
+                        val decorX = vanishingPointX + side * (w * 0.3f + kotlin.random.Random(i + 200).nextFloat() * w * 0.2f) * perspectiveFactor
+                        
+                        if (decorX > 0 && decorX < w) {
+                            // Type de décor aléatoire
+                            when (i % 4) {
+                                0 -> { // Sapin
+                                    paint.color = Color.parseColor("#006600")
+                                    canvas.drawCircle(decorX, decorY - decorSize, decorSize * 0.8f, paint)
+                                    paint.color = Color.parseColor("#8B4513")
+                                    canvas.drawRect(decorX - decorSize * 0.1f, decorY - decorSize * 0.2f, 
+                                                   decorX + decorSize * 0.1f, decorY, paint)
+                                }
+                                1 -> { // Rocher
+                                    paint.color = Color.parseColor("#666666")
+                                    canvas.drawCircle(decorX, decorY - decorSize * 0.3f, decorSize * 0.6f, paint)
+                                }
+                                2 -> { // Buisson
+                                    paint.color = Color.parseColor("#228B22")
+                                    canvas.drawCircle(decorX, decorY - decorSize * 0.4f, decorSize * 0.5f, paint)
+                                }
+                                3 -> { // Petit sapin
+                                    paint.color = Color.parseColor("#004400")
+                                    canvas.drawCircle(decorX, decorY - decorSize * 0.6f, decorSize * 0.4f, paint)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
         private fun drawSlalomGates(canvas: Canvas, w: Int, h: Int) {
             // Point de fuite au centre pour cohérence avec la piste
             val vanishingPointX = w / 2f
@@ -810,8 +865,8 @@ class SlalomActivity : Activity(), SensorEventListener {
             for (gate in gates) {
                 val distanceToGate = gate.position - courseProgress
                 
-                // Drapeaux visibles BEAUCOUP PLUS TÔT (apparaissent de loin)
-                if (distanceToGate > -200f && distanceToGate < 1500f) { // Inclure les drapeaux passés pour tangage
+                // Drapeaux visibles et disparaissent PLUS VITE derrière nous
+                if (distanceToGate > -50f && distanceToGate < 1500f) { // Zone réduite derrière pour disparition rapide
                     
                     val distanceRatio = distanceToGate / 1500f
                     
@@ -820,7 +875,7 @@ class SlalomActivity : Activity(), SensorEventListener {
                     val hillCurve = approachFactor * approachFactor * 0.4f + approachFactor * 0.6f
                     val screenY = vanishingPointY + hillCurve * (h - vanishingPointY)
                     
-                    if (screenY >= vanishingPointY && screenY <= h + 100f) { // Permettre affichage un peu en dehors
+                    if (screenY >= vanishingPointY && screenY <= h + 50f) { // Zone d'affichage réduite
                         // Facteur de perspective : plus proche = beaucoup plus gros
                         val perspectiveFactor = (screenY - vanishingPointY) / (h - vanishingPointY)
                         
@@ -836,12 +891,12 @@ class SlalomActivity : Activity(), SensorEventListener {
                         val leftScreenX = vanishingPointX + (gateLeftRelative * w * perspectiveWidth)
                         val rightScreenX = vanishingPointX + (gateRightRelative * w * perspectiveWidth)
                         
-                        // NOUVEAU - Effet de tangage pour drapeaux traversés
+                        // NOUVEAU - Effet de tangage pour drapeaux traversés - PLUS RAPIDE
                         var leftTilt = 0f
                         var rightTilt = 0f
-                        if (gate.passed && distanceToGate > -200f && distanceToGate < 50f) {
-                            val tiltProgress = (distanceToGate + 200f) / 250f // Progression du tangage
-                            val tiltIntensity = sin(tiltProgress * Math.PI * 2f).toFloat() * 15f // Oscillation
+                        if (gate.passed && distanceToGate > -50f && distanceToGate < 20f) { // Zone réduite pour tangage
+                            val tiltProgress = (distanceToGate + 50f) / 70f // Progression plus rapide
+                            val tiltIntensity = sin(tiltProgress * Math.PI * 3f).toFloat() * 20f // Oscillation plus rapide
                             leftTilt = tiltIntensity
                             rightTilt = -tiltIntensity // Tangage opposé
                         }
@@ -911,8 +966,8 @@ class SlalomActivity : Activity(), SensorEventListener {
                             canvas.drawText("${gate.number}", centerX, screenY + 20f * flagScale, paint)
                         }
                         
-                        // Effet pour porte passée (plus discret maintenant)
-                        if (gate.passed && distanceToGate > -100f) {
+                        // Effet pour porte passée (plus discret et disparaît vite)
+                        if (gate.passed && distanceToGate > -30f) { // Disparaît encore plus vite
                             paint.color = Color.parseColor("#22FFFF00")
                             val centerX = (leftScreenX + rightScreenX) / 2f
                             canvas.drawCircle(centerX, screenY - flagScale * 15f, flagScale * 25f, paint)
@@ -1050,7 +1105,7 @@ class SlalomActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#000033")
             paint.textSize = 20f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("Portes: $gatesPassed/15", 30f, baseY, paint)
+            canvas.drawText("Portes: $gatesPassed/25", 30f, baseY, paint)
             canvas.drawText("Parfaites: $perfectGates", 30f, baseY + 30f, paint)
             canvas.drawText("Manquées: $gatesMissed", 30f, baseY + 60f, paint)
             
