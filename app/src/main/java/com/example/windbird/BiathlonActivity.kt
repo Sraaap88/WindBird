@@ -143,13 +143,13 @@ class BiathlonActivity : Activity(), SensorEventListener {
             val totalWidth = spriteSheet.width
             val totalHeight = spriteSheet.height
             
-            // CORRECTION : Éliminer complètement le cadre noir - encore 3 pixels supplémentaires
-            val frameWidth = (totalWidth - 31) / 2  // -31 = cadres + marges supplémentaires
-            val frameHeight = totalHeight - 24      // -24 = cadres haut/bas + marges
+            // CORRECTION : Éliminer complètement le cadre noir - encore 2 pixels supplémentaires
+            val frameWidth = (totalWidth - 35) / 2  // -35 = cadres + marges supplémentaires
+            val frameHeight = totalHeight - 28      // -28 = cadres haut/bas + marges
             
             // Extraire les frames en évitant les bordures noires - décalage encore augmenté
-            leftFrame = Bitmap.createBitmap(spriteSheet, 12, 12, frameWidth, frameHeight)
-            rightFrame = Bitmap.createBitmap(spriteSheet, 19 + frameWidth, 12, frameWidth, frameHeight)
+            leftFrame = Bitmap.createBitmap(spriteSheet, 14, 14, frameWidth, frameHeight)
+            rightFrame = Bitmap.createBitmap(spriteSheet, 21 + frameWidth, 14, frameWidth, frameHeight)
             
             // Redimensionner
             val newWidth = frameWidth / 3
@@ -240,10 +240,10 @@ class BiathlonActivity : Activity(), SensorEventListener {
         val currentTime = System.currentTimeMillis()
         
         if (isGliding && currentTime - lastGlideUpdate > 16) { // 60 FPS
-            // Décélération progressive de la glisse
-            currentSpeed *= 0.985f // Friction de la neige
+            // Décélération progressive de la glisse PLUS FORTE
+            currentSpeed *= 0.975f // PLUS de friction (au lieu de 0.985f)
             
-            if (currentSpeed > 0.001f) {
+            if (currentSpeed > 0.0005f) { // SEUIL plus élevé pour arrêter plus tôt
                 skierX += currentSpeed
                 distance += currentSpeed * screenDistance
                 backgroundOffset -= currentSpeed * 200f
@@ -358,9 +358,9 @@ class BiathlonActivity : Activity(), SensorEventListener {
             currentRhythmQuality = calculateRhythmQuality(intervalSinceLastPush)
             
             // NOUVEAU - Rythme plus strict : si on pousse trop vite sans avoir ralenti, pénalité
-            val speedPenalty = if (currentSpeed > 0.02f && intervalSinceLastPush < 400L) {
+            val speedPenalty = if (currentSpeed > 0.008f && intervalSinceLastPush < 400L) { // AJUSTÉ pour nouvelles vitesses
                 0.5f // Grosse pénalité si on pousse avant d'avoir ralenti
-            } else if (currentSpeed > 0.015f && intervalSinceLastPush < 600L) {
+            } else if (currentSpeed > 0.006f && intervalSinceLastPush < 600L) { // AJUSTÉ
                 0.7f // Pénalité moyenne
             } else {
                 1f // Pas de pénalité
@@ -372,13 +372,13 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 else -> 0.8f
             } * speedPenalty
             
-            // NOUVEAU - Système de poussée avec glisse réaliste
+            // NOUVEAU - Système de poussée avec glisse réaliste PLUS LENTE
             val combinedQuality = (currentPushQuality * 0.4f + currentRhythmQuality * 0.6f) * speedPenalty
-            val pushStrength = 0.02f + (combinedQuality * 0.025f) // Force de la poussée
+            val pushStrength = 0.008f + (combinedQuality * 0.01f) // RÉDUIT : 0.008 à 0.018 par poussée (au lieu de 0.02 à 0.045)
             
             // Ajouter la force de poussée à la vitesse actuelle
             currentSpeed += pushStrength
-            currentSpeed = currentSpeed.coerceAtMost(0.08f) // Vitesse max
+            currentSpeed = currentSpeed.coerceAtMost(0.03f) // RÉDUIT : Vitesse max beaucoup plus faible (au lieu de 0.08f)
             
             // Démarrer la glisse
             isGliding = true
@@ -576,22 +576,22 @@ class BiathlonActivity : Activity(), SensorEventListener {
             val playerCountry = tournamentData.playerCountries[currentPlayerIndex]
             drawCountryFlag(canvas, flagX, flagY, flagSize, playerCountry)
             
-            // Temps restant en très gros
+            // Temps restant en très gros EN HAUT
             val timeLeft = 5 - (System.currentTimeMillis() - preparationTimer) / 1000
-            paint.color = Color.parseColor("#FFFF00") // JAUNE au lieu de rouge
-            paint.textSize = 150f // Plus gros
+            paint.color = Color.parseColor("#FF0000") // ROUGE
+            paint.textSize = 180f // PLUS GROS
             paint.textAlign = Paint.Align.CENTER
             paint.isFakeBoldText = true
-            canvas.drawText("$timeLeft", w/2f, h * 0.25f, paint)
+            canvas.drawText("$timeLeft", w/2f, h * 0.15f, paint) // PLUS HAUT
             
             // TITRE PRINCIPAL
-            paint.color = Color.parseColor("#FFFF00") // JAUNE
-            paint.textSize = 80f // Plus gros
-            canvas.drawText("🎿 BIATHLON 🎯", w/2f, h * 0.4f, paint)
+            paint.color = Color.parseColor("#FF0000") // ROUGE
+            paint.textSize = 100f // PLUS GROS
+            canvas.drawText("🎿 BIATHLON 🎯", w/2f, h * 0.3f, paint) // PLUS HAUT
             
             // INSTRUCTIONS EN GROS ET GRAS
-            paint.color = Color.parseColor("#FFFF00") // JAUNE
-            paint.textSize = 55f // Plus gros
+            paint.color = Color.parseColor("#FF0000") // ROUGE
+            paint.textSize = 70f // PLUS GROS
             paint.isFakeBoldText = true
             
             val instructions = listOf(
@@ -601,15 +601,15 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 "🏃 GARDEZ LE RYTHME!"
             )
             
-            var yPos = h * 0.55f
+            var yPos = h * 0.45f // PLUS HAUT
             for (instruction in instructions) {
                 canvas.drawText(instruction, w/2f, yPos, paint)
-                yPos += 70f // Plus d'espace
+                yPos += 80f // Plus d'espace
             }
             
             // Message de départ
-            paint.color = Color.parseColor("#FFFF00") // JAUNE
-            paint.textSize = 60f // Plus gros
+            paint.color = Color.parseColor("#FF0000") // ROUGE
+            paint.textSize = 80f // PLUS GROS
             canvas.drawText("PRÉPAREZ-VOUS!", w/2f, h * 0.9f, paint)
             
             paint.isFakeBoldText = false
@@ -1177,12 +1177,24 @@ class BiathlonActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#003366")
             paint.textSize = 30f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("🔫 Munitions: ${5-shotsFired}/5", 30f, h - 100f, paint)
-            canvas.drawText("🎯 Score: $totalScore pts", 30f, h - 60f, paint)
+            canvas.drawText("🔫 Munitions: ${5-shotsFired}/5", 30f, h - 200f, paint) // Plus haut pour faire place aux gros rectangles
+            canvas.drawText("🎯 Score: $totalScore pts", 30f, h - 160f, paint)
+            
+            // RECTANGLES DE MUNITIONS 5 FOIS PLUS GROS
+            val rectWidth = 200f  // 5 fois plus large (était 40f)
+            val rectHeight = 100f // 5 fois plus haut (était 30f)
+            val rectSpacing = 220f // Espacement ajusté
             
             for (i in 0 until 5) {
                 paint.color = if (i < shotsFired) Color.GRAY else Color.YELLOW
-                canvas.drawRect(w - 250f + i * 40f, h - 70f, w - 220f + i * 40f, h - 40f, paint)
+                val rectX = w - 1200f + i * rectSpacing // Ajusté pour les gros rectangles
+                canvas.drawRect(rectX, h - 120f, rectX + rectWidth, h - 20f, paint)
+                
+                // Numéro sur chaque rectangle
+                paint.color = Color.BLACK
+                paint.textSize = 50f // Texte plus gros aussi
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("${i+1}", rectX + rectWidth/2f, h - 60f, paint)
             }
         }
     }
