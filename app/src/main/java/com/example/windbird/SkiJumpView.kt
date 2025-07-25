@@ -219,10 +219,14 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         val flagRectX = w * 0.75f
         val flagRectY = h * 0.08f
         
+        // CORRIGÉ - Drapeau mieux centré
         val flagBitmap = getPlayerFlagBitmap()
         flagBitmap?.let { flag ->
-            val flagWidth = flagRectWidth * 0.9f
-            val flagHeight = flagRectHeight * 0.9f
+            // Calculer les dimensions pour centrer parfaitement
+            val flagWidth = flagRectWidth * 0.8f  // Un peu plus petit pour marge
+            val flagHeight = flagRectHeight * 0.7f  // Proportion correcte
+            
+            // Centrer parfaitement dans le rectangle
             val flagX = flagRectX + (flagRectWidth - flagWidth) / 2f
             val flagY = flagRectY + (flagRectHeight - flagHeight) / 2f
             
@@ -563,8 +567,8 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         val windEffect = activity.getWindDirection() * activity.getWindStrength() * activity.getWindTransition()
         canvas.rotate(windEffect * 8f)
         
-        // PERSPECTIVE - devient plus petit mais pas trop
-        val scale = 0.8f - flightProgress * 0.3f // De 0.8f à 0.5f
+        // PERSPECTIVE - 30% plus petit
+        val scale = 0.56f - flightProgress * 0.21f // De 0.56f à 0.35f (au lieu de 0.8f à 0.5f)
         
         skierFlightBitmap?.let { bmp ->
             val dstRect = RectF(
@@ -649,14 +653,14 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
                 skierX = w * (0.2f + descentProgress * 0.3f)
                 skierY = h * (0.3f + descentProgress * 0.45f)
                 currentBitmap = skierLand1Bitmap
-                scale = 1.5f - descentProgress * 0.9f // De 1.5f à 0.6f - GROS puis diminue
+                scale = 1.05f - descentProgress * 0.63f // 30% plus petit (1.5f -> 1.05f)
             }
             landingProgress < 0.82f -> {
                 val impactProgress = (landingProgress - 0.3f) / 0.52f
                 skierX = w * (0.5f + impactProgress * 0.1f)
                 skierY = h * 0.75f
                 currentBitmap = skierLand2Bitmap
-                scale = 0.6f // Taille normale à l'atterrissage
+                scale = 0.42f // 30% plus petit (0.6f -> 0.42f)
                 
                 // Explosion de neige
                 paint.color = Color.WHITE
@@ -674,7 +678,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
                 skierX = w * (0.6f + standingProgress * 0.1f)
                 skierY = h * 0.75f
                 currentBitmap = skierLand3Bitmap
-                scale = 0.65f // Légèrement plus grand pour célébration
+                scale = 0.455f // 30% plus petit (0.65f -> 0.455f)
             }
         }
         
@@ -695,64 +699,65 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         paint.textAlign = Paint.Align.CENTER
         canvas.drawText("${activity.getJumpDistance().toInt()}m", w/2f, h * 0.15f, paint)
         
-        // INSTRUCTIONS selon la phase - ÉNORMES et ÉVIDENTES
+        // INSTRUCTIONS selon la phase - DÉPLACÉES VERS LA DROITE
         when (activity.getLandingPhase()) {
             0 -> {
-                // FOND semi-transparent pour lisibilité
-                paint.color = Color.parseColor("#80000000") // Noir transparent
-                canvas.drawRect(0f, h * 0.05f, w.toFloat(), h * 0.45f, paint)
+                // FOND semi-transparent DÉCALÉ À DROITE
+                paint.color = Color.parseColor("#80000000")
+                canvas.drawRect(w * 0.3f, h * 0.05f, w.toFloat(), h * 0.45f, paint)
                 
-                paint.color = Color.parseColor("#00FFFF") // Cyan brillant
-                paint.textSize = 140f
+                paint.color = Color.parseColor("#00FFFF")
+                paint.textSize = 120f // Un peu plus petit
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("🎯 PRÉPAREZ-VOUS!", w/2f, h * 0.15f, paint)
+                canvas.drawText("🎯 PRÉPAREZ!", w * 0.65f, h * 0.15f, paint)
                 
                 paint.color = Color.WHITE
-                paint.textSize = 100f
-                canvas.drawText("GARDEZ LE TÉLÉPHONE", w/2f, h * 0.25f, paint)
-                canvas.drawText("PARFAITEMENT STABLE", w/2f, h * 0.35f, paint)
+                paint.textSize = 80f
+                canvas.drawText("GARDEZ LE", w * 0.65f, h * 0.23f, paint)
+                canvas.drawText("TÉLÉPHONE", w * 0.65f, h * 0.31f, paint)
+                canvas.drawText("STABLE", w * 0.65f, h * 0.39f, paint)
                 
                 paint.color = Color.YELLOW
-                paint.textSize = 80f
-                canvas.drawText("📱 NE BOUGEZ PAS! 📱", w/2f, h * 0.42f, paint)
+                paint.textSize = 60f
+                canvas.drawText("📱 NE BOUGEZ PAS!", w * 0.65f, h * 0.45f, paint)
             }
             1 -> {
-                // FOND semi-transparent pour lisibilité
-                paint.color = Color.parseColor("#80000000") // Noir transparent
-                canvas.drawRect(0f, h * 0.05f, w.toFloat(), h * 0.45f, paint)
+                paint.color = Color.parseColor("#80000000")
+                canvas.drawRect(w * 0.3f, h * 0.05f, w.toFloat(), h * 0.45f, paint)
                 
                 paint.color = Color.RED
-                paint.textSize = 150f
+                paint.textSize = 130f
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("💥 IMPACT! 💥", w/2f, h * 0.15f, paint)
+                canvas.drawText("💥 IMPACT!", w * 0.65f, h * 0.15f, paint)
                 
                 paint.color = Color.WHITE
-                paint.textSize = 110f
-                canvas.drawText("PENCHEZ VERS VOUS", w/2f, h * 0.27f, paint)
-                canvas.drawText("POUR AMORTIR!", w/2f, h * 0.37f, paint)
+                paint.textSize = 90f
+                canvas.drawText("PENCHEZ", w * 0.65f, h * 0.25f, paint)
+                canvas.drawText("VERS VOUS", w * 0.65f, h * 0.33f, paint)
+                canvas.drawText("AMORTIR!", w * 0.65f, h * 0.41f, paint)
                 
                 paint.color = Color.YELLOW
-                paint.textSize = 90f
-                canvas.drawText("⬇️ TIREZ LE TÉLÉPHONE! ⬇️", w/2f, h * 0.44f, paint)
+                paint.textSize = 70f
+                canvas.drawText("⬇️ TIREZ! ⬇️", w * 0.65f, h * 0.48f, paint)
             }
             2 -> {
-                // FOND semi-transparent pour lisibilité
-                paint.color = Color.parseColor("#80000000") // Noir transparent
-                canvas.drawRect(0f, h * 0.05f, w.toFloat(), h * 0.45f, paint)
+                paint.color = Color.parseColor("#80000000")
+                canvas.drawRect(w * 0.3f, h * 0.05f, w.toFloat(), h * 0.45f, paint)
                 
                 paint.color = Color.GREEN
-                paint.textSize = 140f
+                paint.textSize = 120f
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("⚖️ STABILISEZ! ⚖️", w/2f, h * 0.15f, paint)
+                canvas.drawText("⚖️ STABILISEZ!", w * 0.65f, h * 0.15f, paint)
                 
                 paint.color = Color.WHITE
-                paint.textSize = 100f
-                canvas.drawText("REMETTEZ TOUT", w/2f, h * 0.27f, paint)
-                canvas.drawText("PARFAITEMENT STABLE!", w/2f, h * 0.37f, paint)
+                paint.textSize = 80f
+                canvas.drawText("REMETTEZ", w * 0.65f, h * 0.25f, paint)
+                canvas.drawText("TOUT", w * 0.65f, h * 0.33f, paint)
+                canvas.drawText("STABLE!", w * 0.65f, h * 0.41f, paint)
                 
                 paint.color = Color.YELLOW
-                paint.textSize = 80f
-                canvas.drawText("📱 PLUS AUCUN MOUVEMENT! 📱", w/2f, h * 0.44f, paint)
+                paint.textSize = 60f
+                canvas.drawText("📱 AUCUN MOUVEMENT!", w * 0.65f, h * 0.48f, paint)
             }
         }
         
