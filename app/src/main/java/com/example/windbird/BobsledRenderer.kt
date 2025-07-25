@@ -163,24 +163,53 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         }
     }
     
-    // VRAI SYSTÈME WINTER GAMES 1985
+    // SYSTÈME WINTER GAMES AMÉLIORÉ
     private fun drawWinterGamesSystem(canvas: Canvas, w: Int, h: Int, gameData: GameData) {
-        val midHeight = h / 2f
+        val trackStartY = h * 0.15f // PISTE PREND 85% DE L'ÉCRAN (était 50%)
         
         // Mettre à jour le défilement du paysage
         updateLandscapeScrolling(gameData.speed)
         
-        // 1. PAYSAGE HIVERNAL EN HAUT (moitié haute)
-        drawWinterLandscape(canvas, w, midHeight.toInt(), gameData)
+        // 1. MONTAGNES SIMPLES EN HAUT (15% seulement)
+        drawSimpleMountains(canvas, w, trackStartY.toInt(), gameData)
         
-        // 2. FOND SPRITE-SHEET EN BAS (moitié basse)
-        drawTrackSpriteBackground(canvas, w, h, midHeight, gameData)
+        // 2. PISTE SPRITE-SHEET (85% de l'écran)
+        drawTrackSpriteBackground(canvas, w, h, trackStartY, gameData)
         
-        // 3. BOBSLEIGH CENTRÉ PAR-DESSUS
-        drawCenteredBobsled(canvas, w, h, midHeight, gameData)
+        // 3. BOBSLEIGH CENTRÉ
+        drawCenteredBobsled(canvas, w, h, trackStartY, gameData)
         
-        // 4. Interface
+        // 4. SYMBOLES DE DIRECTION (TRÈS IMPORTANTS!)
+        drawTurnIndicators(canvas, w, h, gameData)
+        
+        // 5. Interface vitesse
         drawInterface(canvas, w, h, gameData)
+    }
+    
+    // Montagnes simples qui bougent selon les virages
+    private fun drawSimpleMountains(canvas: Canvas, w: Int, horizonHeight: Int, gameData: GameData) {
+        // Ciel simple
+        paint.color = Color.rgb(220, 235, 250)
+        canvas.drawRect(0f, 0f, w.toFloat(), horizonHeight.toFloat(), paint)
+        
+        // Montagnes qui bougent selon les virages SEULEMENT
+        val trackIndex = (gameData.trackPosition * (gameData.trackCurves.size - 1)).toInt()
+        val currentTrackCurve = if (trackIndex < gameData.trackCurves.size) gameData.trackCurves[trackIndex] else 0f
+        
+        // Déplacement selon la direction du virage
+        val mountainShift = currentTrackCurve * w * 0.6f // Plus prononcé
+        
+        paint.color = Color.rgb(180, 190, 210)
+        val mountains = Path().apply {
+            moveTo(-mountainShift, horizonHeight.toFloat())
+            lineTo(w * 0.25f - mountainShift, horizonHeight * 0.3f)
+            lineTo(w * 0.5f - mountainShift, horizonHeight * 0.1f)
+            lineTo(w * 0.75f - mountainShift, horizonHeight * 0.4f)
+            lineTo(w.toFloat() - mountainShift, horizonHeight * 0.2f)
+            lineTo(w.toFloat(), horizonHeight.toFloat())
+            close()
+        }
+        canvas.drawPath(mountains, paint)
     }
     
     private fun updateLandscapeScrolling(speed: Float) {
@@ -263,27 +292,119 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         
         val currentFrame = getCurrentTrackFrame()
         
-        // DESSINER LE SPRITE COMME FOND FIXE
+        // SYSTÈME HYBRIDE OPTIMISÉ
         currentFrame?.let { frame ->
-            val dstRect = RectF(0f, startY, w.toFloat(), h.toFloat())
+            // 1. DÉCALAGE SUBTIL selon vitesse (très léger pour performance)
+            val microOffsetY = (gameData.speed * 0.02f + frameTimer * 5f).toInt() % 3 // Max 3px
+            val microOffsetX = if (abs(getCurrentTrackCurve(gameData)) > 0.3f) {
+                ((gameData.speed * 0.01f).toInt() % 2) * if (getCurrentTrackCurve(gameData) > 0) 1 else -1
+            } else 0
+            
+            val dstRect = RectF(
+                microOffsetX.toFloat(), 
+                startY + microOffsetY, 
+                w.toFloat() + microOffsetX, 
+                h.toFloat() + microOffsetY
+            )
             canvas.drawBitmap(frame, null, dstRect, paint)
+            
+            // 2. LIGNES DE VITESSE OPTIMISÉES (calculées une fois)
+            drawOptimizedSpeedLines(canvas, w, h, startY, gameData)
+            
+            // 3. ZOOM SUBTIL (transformation simple)
+            if (gameData.speed > 60f) {
+                addSubtleZoomEffect(canvas, w, h, startY, gameData.speed)
+            }
+            
         } ?: run {
-            // Fallback
+            // Fallback léger
             paint.color = Color.WHITE
             canvas.drawRect(0f, startY, w.toFloat(), h.toFloat(), paint)
-            
-            paint.color = Color.rgb(200, 200, 200)
-            canvas.drawRect(0f, startY, w * 0.15f, h.toFloat(), paint)
-            canvas.drawRect(w * 0.85f, startY, w.toFloat(), h.toFloat(), paint)
         }
     }
     
+    // LIGNES DE VITESSE ULTRA-OPTIMISÉES
+    private fun drawOptimizedSpeedLines(canvas: Canvas, w: Int, h: Int, startY: Float, gameData: GameData) {
+        if (gameData.speed < 40f) return
+        
+        val speedFactor = (gameData.speed / 150f).coerceIn(0.3f, 1f)
+        val currentCurve = getCurrentTrackCurve(gameData)
+        
+        // OPTIMISATION: Calculer seulement les lignes visibles
+        val lineCount = (speedFactor * 8).toInt() // Max 8 lignes
+        val spacing = w / (lineCount + 1f)
+        
+        paint.strokeWidth = 2f + speedFactor * 2f
+        paint.style = Paint.Style.STROKE
+        paint.color = Color.argb((60 * speedFactor).toInt(), 255, 255, 255)
+        
+        val scrollOffset = (landscapeOffset * speedFactor * 4f) % (h - startY)
+        
+        for (i in 1..lineCount) {
+            val baseX = spacing * i
+            
+            // COURBURE selon le virage (calcul simple)
+            val curveOffset = currentCurve * w * 0.1f * (i / lineCount.toFloat())
+            val lineX = baseX + curveOffset
+            
+            // LIGNES qui défilent de haut en bas
+            val startLineY = startY - scrollOffset + (i * 20f) % (h - startY)
+            val endLineY = startLineY + 40f * speedFactor
+            
+            if (lineX > 0 && lineX < w && startLineY < h) {
+                // FONDU selon la position (optimisé)
+                val fadeAlpha = if (endLineY > h * 0.8f) {
+                    ((h - endLineY) / (h * 0.2f)).coerceIn(0f, 1f)
+                } else 1f
+                
+                paint.alpha = ((60 * speedFactor * fadeAlpha).toInt())
+                canvas.drawLine(lineX, startLineY, lineX, minOf(endLineY, h.toFloat()), paint)
+            }
+        }
+        
+        paint.style = Paint.Style.FILL
+        paint.alpha = 255
+    }
+    
+    // ZOOM SUBTIL ULTRA-LÉGER
+    private fun addSubtleZoomEffect(canvas: Canvas, w: Int, h: Int, startY: Float, speed: Float) {
+        // OPTIMISATION: Zoom seulement à haute vitesse
+        if (speed < 80f) return
+        
+        val zoomCycle = (frameTimer * 3f) % (2f * PI.toFloat())
+        val zoomFactor = 1f + sin(zoomCycle) * 0.01f // ±1% seulement
+        
+        // Transformation simple sur le canvas (très rapide)
+        val centerX = w / 2f
+        val centerY = (h + startY) / 2f
+        
+        canvas.save()
+        canvas.scale(zoomFactor, zoomFactor, centerX, centerY)
+        
+        // PARTICULES ULTRA-LÉGÈRES (seulement 5 max)
+        paint.color = Color.argb(40, 255, 255, 255)
+        repeat(5) { i ->
+            val particleX = (centerX + i * w / 6f + landscapeOffset * 2f) % w
+            val particleY = startY + (h - startY) * 0.7f + sin(frameTimer * 4f + i) * 10f
+            canvas.drawCircle(particleX, particleY, 1.5f, paint)
+        }
+        
+        canvas.restore()
+    }
+    
+    // HELPER: Obtenir la courbe actuelle (évite les recalculs)
+    private fun getCurrentTrackCurve(gameData: GameData): Float {
+        val trackIndex = (gameData.trackPosition * (gameData.trackCurves.size - 1)).toInt()
+        return if (trackIndex < gameData.trackCurves.size) gameData.trackCurves[trackIndex] else 0f
+    }
+    
     private fun updateTrackFrame(gameData: GameData) {
+        // VITESSE FLUIDE avec interpolation
         val frameSpeed = when {
-            gameData.speed > 120f -> 0.03f
-            gameData.speed > 80f -> 0.05f
-            gameData.speed > 40f -> 0.08f
-            else -> 0.12f
+            gameData.speed > 120f -> 0.02f  // PLUS RAPIDE pour effet de vitesse
+            gameData.speed > 80f -> 0.035f   
+            gameData.speed > 40f -> 0.05f   
+            else -> 0.08f          
         }
         
         frameTimer += frameSpeed
@@ -297,7 +418,9 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
             when {
                 abs(currentTrackCurve) < 0.3f -> {
                     trackSection = TrackSection.STRAIGHT
-                    currentFrameIndex = if (currentFrameIndex == 0) 1 else 0
+                    // VARIATION POUR MASQUER les 2 images seulement
+                    val variation = (gameData.speed * 0.1f + frameTimer * 10f).toInt() % 4
+                    currentFrameIndex = variation % 2 // Alterne 0,1,0,1 plus vite
                     isReversing = false
                 }
                 
@@ -350,6 +473,43 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         }
     }
     
+    // SYMBOLES DE DIRECTION ÉNORMES ET CLAIRS
+    private fun drawTurnIndicators(canvas: Canvas, w: Int, h: Int, gameData: GameData) {
+        val trackIndex = (gameData.trackPosition * (gameData.trackCurves.size - 1)).toInt()
+        val currentTrackCurve = if (trackIndex < gameData.trackCurves.size) gameData.trackCurves[trackIndex] else 0f
+        
+        // Seulement si il y a un virage
+        if (abs(currentTrackCurve) > 0.2f) {
+            // Fond semi-transparent
+            paint.color = Color.argb(180, 0, 0, 0)
+            canvas.drawRoundRect(w/8f, h * 0.2f, w*7f/8f, h * 0.45f, 25f, 25f, paint)
+            
+            // Symbole ÉNORME selon l'intensité
+            paint.textSize = 200f // ENCORE PLUS GROS
+            paint.textAlign = Paint.Align.CENTER
+            paint.color = Color.WHITE
+            
+            val directionSymbol = when {
+                currentTrackCurve < -0.6f -> "⬅️🔴" // FORT gauche
+                currentTrackCurve < -0.3f -> "⬅️🟡" // MOYEN gauche
+                currentTrackCurve > 0.6f -> "🔴➡️"  // FORT droite
+                currentTrackCurve > 0.3f -> "🟡➡️"  // MOYEN droite
+                else -> ""
+            }
+            
+            canvas.drawText(directionSymbol, w/2f, h * 0.35f, paint)
+            
+            // Performance avec couleur selon la qualité
+            paint.textSize = 120f // PLUS GROS
+            paint.color = when {
+                gameData.playerReactionAccuracy > 0.8f -> Color.GREEN
+                gameData.playerReactionAccuracy > 0.6f -> Color.YELLOW
+                else -> Color.RED
+            }
+            canvas.drawText("${(gameData.playerReactionAccuracy * 100).toInt()}%", w/2f, h * 0.42f, paint)
+        }
+    }
+    
     private fun getCurrentTrackFrame(): Bitmap? {
         return when (trackSection) {
             TrackSection.STRAIGHT -> {
@@ -366,8 +526,8 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
     
     private fun drawCenteredBobsled(canvas: Canvas, w: Int, h: Int, trackStartY: Float, gameData: GameData) {
         val baseBobX = w / 2f
-        val baseBobY = trackStartY + (h - trackStartY) * 0.6f
-        val bobScale = 0.25f
+        val baseBobY = trackStartY + (h - trackStartY) * 0.7f // Plus bas dans la grande piste
+        val bobScale = 0.28f // Légèrement plus gros
         
         val trackIndex = (gameData.trackPosition * (gameData.trackCurves.size - 1)).toInt()
         val currentTrackCurve = if (trackIndex < gameData.trackCurves.size) gameData.trackCurves[trackIndex] else 0f
@@ -444,8 +604,9 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
             }
         }
         
-        paint.color = Color.argb(120, 0, 0, 0)
-        canvas.drawOval(bobX - 20f, bobY + 15f, bobX + 20f, bobY + 25f, paint)
+        // Ombre plus prononcée
+        paint.color = Color.argb(150, 0, 0, 0)
+        canvas.drawOval(bobX - 25f, bobY + 18f, bobX + 25f, bobY + 28f, paint)
     }
     
     private fun drawInterface(canvas: Canvas, w: Int, h: Int, gameData: GameData) {
