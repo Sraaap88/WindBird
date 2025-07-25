@@ -660,8 +660,8 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         }
         
         flagBitmap?.let { flag ->
-            val flagWidth = flagRect.width() - 10f
-            val flagHeight = flagRect.height() - 10f
+            val flagWidth = flagRect.width() - 20f  // Plus de marge (était 10f)
+            val flagHeight = flagRect.height() - 20f // Plus de marge (était 10f)
             
             val imageRatio = flag.width.toFloat() / flag.height.toFloat()
             val rectRatio = flagWidth / flagHeight
@@ -670,13 +670,16 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
             val finalHeight: Float
             
             if (imageRatio > rectRatio) {
+                // L'image est plus large, on limite par la largeur
                 finalWidth = flagWidth
                 finalHeight = flagWidth / imageRatio
             } else {
+                // L'image est plus haute, on limite par la hauteur
                 finalHeight = flagHeight
                 finalWidth = flagHeight * imageRatio
             }
             
+            // Centrage PARFAIT dans le rectangle
             val centerX = flagRect.centerX()
             val centerY = flagRect.centerY()
             
@@ -686,13 +689,23 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
                 centerX + finalWidth / 2f,
                 centerY + finalHeight / 2f
             )
-            canvas.drawBitmap(flag, null, flagImageRect, paint)
+            
+            // VÉRIFICATION: Le drapeau doit être à l'intérieur du rectangle
+            val adjustedRect = RectF(
+                maxOf(flagImageRect.left, flagRect.left + 10f),
+                maxOf(flagImageRect.top, flagRect.top + 10f),
+                minOf(flagImageRect.right, flagRect.right - 10f),
+                minOf(flagImageRect.bottom, flagRect.bottom - 10f)
+            )
+            
+            canvas.drawBitmap(flag, null, adjustedRect, paint)
         } ?: run {
+            // Fallback: emoji centré
             val flag = getCountryFlag(playerCountry)
             paint.color = Color.BLACK
-            paint.textSize = 120f
+            paint.textSize = 100f // Légèrement plus petit
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText(flag, flagRect.centerX(), flagRect.centerY() + 40f, paint)
+            canvas.drawText(flag, flagRect.centerX(), flagRect.centerY() + 30f, paint)
         }
         
         paint.color = Color.BLACK
