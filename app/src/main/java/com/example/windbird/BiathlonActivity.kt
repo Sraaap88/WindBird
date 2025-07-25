@@ -110,26 +110,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
             textSize = 18f
             setBackgroundColor(Color.parseColor("#001122"))
             setPadding(20, 15, 20, 15)
-        // NOUVEAU - Système de glisse fluide et réaliste
-    private fun updateGliding() {
-        val currentTime = System.currentTimeMillis()
-        
-        if (isGliding && currentTime - lastGlideUpdate > 16) { // 60 FPS
-            // Décélération progressive de la glisse
-            currentSpeed *= 0.985f // Friction de la neige
-            
-            if (currentSpeed > 0.001f) {
-                skierX += currentSpeed
-                distance += currentSpeed * screenDistance
-                backgroundOffset -= currentSpeed * 200f
-            } else {
-                isGliding = false
-                currentSpeed = 0f
-            }
-            
-            lastGlideUpdate = currentTime
         }
-    }
 
         gameView = BiathlonView(this)
 
@@ -252,6 +233,27 @@ class BiathlonActivity : Activity(), SensorEventListener {
         
         updateStatus()
         gameView.invalidate()
+    }
+
+    // NOUVEAU - Système de glisse fluide et réaliste
+    private fun updateGliding() {
+        val currentTime = System.currentTimeMillis()
+        
+        if (isGliding && currentTime - lastGlideUpdate > 16) { // 60 FPS
+            // Décélération progressive de la glisse
+            currentSpeed *= 0.985f // Friction de la neige
+            
+            if (currentSpeed > 0.001f) {
+                skierX += currentSpeed
+                distance += currentSpeed * screenDistance
+                backgroundOffset -= currentSpeed * 200f
+            } else {
+                isGliding = false
+                currentSpeed = 0f
+            }
+            
+            lastGlideUpdate = currentTime
+        }
     }
 
     private fun handleScreenTransitions() {
