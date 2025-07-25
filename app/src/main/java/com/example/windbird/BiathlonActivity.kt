@@ -143,13 +143,13 @@ class BiathlonActivity : Activity(), SensorEventListener {
             val totalWidth = spriteSheet.width
             val totalHeight = spriteSheet.height
             
-            // CORRECTION FINALE : Éliminer complètement le cadre noir - 4 pixels de chaque côté
-            val frameWidth = (totalWidth - 47) / 2  // -47 = cadres + marges supplémentaires DROITE/GAUCHE
-            val frameHeight = totalHeight - 32      // -32 = cadres haut/bas + marges
+            // CORRECTION FINALE BRUTALE : COUPER VRAIMENT DANS LE VIF
+            val frameWidth = (totalWidth - 60) / 2  // COUPER ENCORE PLUS
+            val frameHeight = totalHeight - 40      // COUPER ENCORE PLUS
             
-            // Extraire les frames en évitant les bordures noires - décalage maximal
-            leftFrame = Bitmap.createBitmap(spriteSheet, 20, 16, frameWidth, frameHeight)  // +4 pixels à gauche
-            rightFrame = Bitmap.createBitmap(spriteSheet, 27 + frameWidth, 16, frameWidth, frameHeight)  // +4 pixels entre les frames
+            // VRAIMENT au centre des images pour éviter TOUT cadre
+            leftFrame = Bitmap.createBitmap(spriteSheet, 30, 20, frameWidth, frameHeight)  // CENTRE DE L'IMAGE GAUCHE
+            rightFrame = Bitmap.createBitmap(spriteSheet, 30 + frameWidth + 30, 20, frameWidth, frameHeight)  // CENTRE DE L'IMAGE DROITE
             
             // Redimensionner
             val newWidth = frameWidth / 3
@@ -432,12 +432,17 @@ class BiathlonActivity : Activity(), SensorEventListener {
                     val distance = sqrt(dx * dx + dy * dy)
                     
                     val score = when {
-                        distance < 0.03f -> 10
-                        distance < 0.05f -> 8
-                        distance < 0.07f -> 6
-                        distance < 0.09f -> 4
-                        distance < 0.11f -> 2
-                        else -> 0
+                        distance < 0.02f -> 10 // CENTRE ROUGE - 10 points
+                        distance < 0.04f -> 9  // Cercle 2 - 9 points  
+                        distance < 0.06f -> 8  // Cercle 3 - 8 points
+                        distance < 0.08f -> 7  // Cercle 4 - 7 points
+                        distance < 0.10f -> 6  // Cercle 5 - 6 points
+                        distance < 0.12f -> 5  // Cercle 6 - 5 points
+                        distance < 0.14f -> 4  // Cercle 7 - 4 points
+                        distance < 0.16f -> 3  // Cercle 8 - 3 points
+                        distance < 0.18f -> 2  // Cercle 9 - 2 points
+                        distance < 0.20f -> 1  // Cercle extérieur - 1 point
+                        else -> 0 // RATÉ - 0 point
                     }
                     
                     if (score > 0) {
@@ -1152,7 +1157,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
         private fun drawTarget(canvas: Canvas, px: Float, py: Float, index: Int) {
             if (targetHitStatus[index]) {
                 paint.color = Color.parseColor("#00aa00")
-                canvas.drawCircle(px, py, 50f, paint)
+                canvas.drawCircle(px, py, 60f, paint)
                 
                 paint.color = Color.WHITE
                 paint.textSize = 30f
@@ -1162,26 +1167,53 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 paint.textSize = 20f
                 canvas.drawText("TOUCHÉ", px, py + 70f, paint)
             } else {
-                // Cercles concentriques
-                paint.color = Color.parseColor("#FFFFFF")
-                canvas.drawCircle(px, py, 50f, paint)
+                // VRAIE CIBLE DE BIATHLON avec cercles concentriques et points différents
                 
+                // Cercle extérieur - 1 point (blanc)
+                paint.color = Color.parseColor("#FFFFFF")
+                canvas.drawCircle(px, py, 60f, paint)
+                
+                // Cercle 9 - 2 points (noir)
                 paint.color = Color.parseColor("#000000")
-                canvas.drawCircle(px, py, 40f, paint)
+                canvas.drawCircle(px, py, 54f, paint)
                 
+                // Cercle 8 - 3 points (blanc)
                 paint.color = Color.parseColor("#FFFFFF")
+                canvas.drawCircle(px, py, 48f, paint)
+                
+                // Cercle 7 - 4 points (noir)
+                paint.color = Color.parseColor("#000000")
+                canvas.drawCircle(px, py, 42f, paint)
+                
+                // Cercle 6 - 5 points (blanc)
+                paint.color = Color.parseColor("#FFFFFF")
+                canvas.drawCircle(px, py, 36f, paint)
+                
+                // Cercle 5 - 6 points (noir)
+                paint.color = Color.parseColor("#000000")
                 canvas.drawCircle(px, py, 30f, paint)
                 
+                // Cercle 4 - 7 points (blanc)
+                paint.color = Color.parseColor("#FFFFFF")
+                canvas.drawCircle(px, py, 24f, paint)
+                
+                // Cercle 3 - 8 points (noir)
                 paint.color = Color.parseColor("#000000")
-                canvas.drawCircle(px, py, 20f, paint)
+                canvas.drawCircle(px, py, 18f, paint)
                 
+                // Cercle 2 - 9 points (blanc)
+                paint.color = Color.parseColor("#FFFFFF")
+                canvas.drawCircle(px, py, 12f, paint)
+                
+                // CENTRE ROUGE - 10 points (le jackpot !)
                 paint.color = Color.parseColor("#FF0000")
-                canvas.drawCircle(px, py, 10f, paint)
+                canvas.drawCircle(px, py, 6f, paint)
                 
+                // Numéro de la cible
                 paint.color = Color.WHITE
                 paint.textSize = 16f
                 paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("${index + 1}", px, py + 70f, paint)
+                canvas.drawText("${index + 1}", px, py + 80f, paint)
             }
         }
         
