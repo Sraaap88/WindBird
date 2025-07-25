@@ -296,31 +296,72 @@ class SnowboardHalfpipeView(
             val trackFrames = activity.getTrackFrames()
             if (trackFrames.isEmpty()) return
             
-            val scrollSpeed = activity.getSpeed() * 2f
-            val scrollOffset = (activity.getPipeScroll() * scrollSpeed) % h.toFloat()
+            // Animation de défilement basée sur la vitesse et le temps
+            val currentTime = System.currentTimeMillis()
+            val scrollSpeed = activity.getSpeed() * 3f
+            val timeBasedScroll = (currentTime / 50f) * (scrollSpeed / 10f)
+            val scrollOffset = (timeBasedScroll + activity.getPipeScroll() * scrollSpeed) % (h * 2f)
             
-            // Dessiner plusieurs segments de piste plein écran pour couvrir tout l'écran
-            val segmentHeight = h.toFloat() // Hauteur d'un segment = hauteur de l'écran
-            val numberOfSegments = 3 // 3 segments pour assurer la couverture complète
+            // Dessiner plusieurs segments animés pour créer l'effet de défilement
+            val segmentHeight = h.toFloat()
+            val numberOfSegments = 4 // Plus de segments pour une animation plus fluide
             
             for (i in -1..numberOfSegments) {
                 val segmentY = i * segmentHeight - scrollOffset
                 
                 // Vérifier si le segment est visible
                 if (segmentY < h + segmentHeight && segmentY > -segmentHeight) {
-                    // Sélectionner la frame selon la position (cycle à travers les frames disponibles)
-                    val frameIndex = ((scrollOffset / segmentHeight + i).toInt() % trackFrames.size + trackFrames.size) % trackFrames.size
+                    // Animation des frames : changer de frame selon le défilement
+                    val animationSpeed = scrollSpeed / 20f
+                    val frameIndex = ((timeBasedScroll / 100f + i * animationSpeed).toInt() % trackFrames.size + trackFrames.size) % trackFrames.size
                     val frame = trackFrames[frameIndex]
                     
-                    // Dessiner le segment en plein écran
+                    // Effet de perspective légère pour plus de réalisme
+                    val perspectiveOffset = (segmentY / h) * 20f
+                    
+                    // Dessiner le segment avec effet de mouvement
                     reusableRectF.set(
-                        0f,
+                        -perspectiveOffset,
                         segmentY,
-                        w.toFloat(),
+                        w.toFloat() + perspectiveOffset,
                         segmentY + segmentHeight
                     )
                     
+                    // Effet de transparence pour les segments éloignés
+                    val alpha = if (i == 0) 255 else (255 * 0.8f).toInt()
+                    paint.alpha = alpha
                     canvas.drawBitmap(trackBitmap, frame, reusableRectF, paint)
+                    paint.alpha = 255
+                }
+            }
+            
+            // Ajouter des lignes de vitesse pour accentuer l'effet de mouvement
+            drawSpeedLines(canvas, w, h, scrollSpeed)
+        }
+    }
+    
+    private fun drawSpeedLines(canvas: Canvas, w: Int, h: Int, speed: Float) {
+        if (speed > 10f) {
+            paint.color = Color.parseColor("#40FFFFFF") // Blanc semi-transparent
+            paint.strokeWidth = 2f
+            
+            val currentTime = System.currentTimeMillis()
+            val lineSpeed = speed * 4f
+            
+            // Dessiner des lignes de vitesse qui défilent
+            for (i in 0..8) {
+                val lineOffset = ((currentTime / 30f + i * 50f) * lineSpeed / 10f) % (h * 1.5f)
+                val lineY = lineOffset - h * 0.25f
+                
+                if (lineY > 0 && lineY < h) {
+                    val lineLength = 30f + (speed / 30f) * 20f
+                    canvas.drawLine(
+                        w * (0.1f + i * 0.1f),
+                        lineY,
+                        w * (0.1f + i * 0.1f),
+                        lineY + lineLength,
+                        paint
+                    )
                 }
             }
         }
@@ -328,8 +369,9 @@ class SnowboardHalfpipeView(
     
     private fun drawSnowboarderFromBehind(canvas: Canvas, w: Int, h: Int) {
         // Position du snowboarder qui suit la forme du halfpipe
+        // Positionner le skieur 10% plus haut dans l'écran
         val riderScreenX = w * activity.getRiderPosition()
-        val riderScreenY = h * activity.getRiderHeight()
+        val riderScreenY = h * (activity.getRiderHeight() - 0.1f) // 10% plus haut
         
         canvas.save()
         canvas.translate(riderScreenX, riderScreenY)
@@ -368,9 +410,10 @@ class SnowboardHalfpipeView(
             paint.color = Color.parseColor("#60FFFFFF")
             for (i in 1..3) {
                 val trailX = riderScreenX - activity.getMomentum() * i * 30f
+                val trailY = riderScreenY // Utiliser la même position Y ajustée
                 val trailAlpha = (255 * (1f - i * 0.3f)).toInt()
                 paint.alpha = trailAlpha
-                canvas.drawCircle(trailX, riderScreenY, (4f - i) * 6f, paint)
+                canvas.drawCircle(trailX, trailY, (4f - i) * 6f, paint)
             }
             paint.alpha = 255
         }
