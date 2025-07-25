@@ -695,45 +695,95 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         paint.textAlign = Paint.Align.CENTER
         canvas.drawText("${activity.getJumpDistance().toInt()}m", w/2f, h * 0.15f, paint)
         
-        // INSTRUCTIONS selon la phase
+        // INSTRUCTIONS selon la phase - ÉNORMES et ÉVIDENTES
         when (activity.getLandingPhase()) {
             0 -> {
-                paint.color = Color.BLUE
-                paint.textSize = 90f
-                canvas.drawText("🎯 PRÉPAREZ-VOUS!", w/2f, h * 0.25f, paint)
+                // FOND semi-transparent pour lisibilité
+                paint.color = Color.parseColor("#80000000") // Noir transparent
+                canvas.drawRect(0f, h * 0.05f, w.toFloat(), h * 0.45f, paint)
                 
-                paint.color = Color.CYAN
-                paint.textSize = 70f
-                canvas.drawText("GARDEZ LE TÉLÉPHONE STABLE", w/2f, h * 0.32f, paint)
-            }
-            1 -> {
-                paint.color = Color.RED
+                paint.color = Color.parseColor("#00FFFF") // Cyan brillant
+                paint.textSize = 140f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("🎯 PRÉPAREZ-VOUS!", w/2f, h * 0.15f, paint)
+                
+                paint.color = Color.WHITE
                 paint.textSize = 100f
-                canvas.drawText("💥 IMPACT!", w/2f, h * 0.25f, paint)
+                canvas.drawText("GARDEZ LE TÉLÉPHONE", w/2f, h * 0.25f, paint)
+                canvas.drawText("PARFAITEMENT STABLE", w/2f, h * 0.35f, paint)
                 
                 paint.color = Color.YELLOW
                 paint.textSize = 80f
-                canvas.drawText("PENCHEZ VERS VOUS POUR AMORTIR!", w/2f, h * 0.32f, paint)
+                canvas.drawText("📱 NE BOUGEZ PAS! 📱", w/2f, h * 0.42f, paint)
+            }
+            1 -> {
+                // FOND semi-transparent pour lisibilité
+                paint.color = Color.parseColor("#80000000") // Noir transparent
+                canvas.drawRect(0f, h * 0.05f, w.toFloat(), h * 0.45f, paint)
+                
+                paint.color = Color.RED
+                paint.textSize = 150f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("💥 IMPACT! 💥", w/2f, h * 0.15f, paint)
+                
+                paint.color = Color.WHITE
+                paint.textSize = 110f
+                canvas.drawText("PENCHEZ VERS VOUS", w/2f, h * 0.27f, paint)
+                canvas.drawText("POUR AMORTIR!", w/2f, h * 0.37f, paint)
+                
+                paint.color = Color.YELLOW
+                paint.textSize = 90f
+                canvas.drawText("⬇️ TIREZ LE TÉLÉPHONE! ⬇️", w/2f, h * 0.44f, paint)
             }
             2 -> {
-                paint.color = Color.GREEN
-                paint.textSize = 90f
-                canvas.drawText("⚖️ STABILISEZ!", w/2f, h * 0.25f, paint)
+                // FOND semi-transparent pour lisibilité
+                paint.color = Color.parseColor("#80000000") // Noir transparent
+                canvas.drawRect(0f, h * 0.05f, w.toFloat(), h * 0.45f, paint)
                 
-                paint.color = Color.CYAN
-                paint.textSize = 70f
-                canvas.drawText("REMETTEZ TOUT STABLE", w/2f, h * 0.32f, paint)
+                paint.color = Color.GREEN
+                paint.textSize = 140f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("⚖️ STABILISEZ! ⚖️", w/2f, h * 0.15f, paint)
+                
+                paint.color = Color.WHITE
+                paint.textSize = 100f
+                canvas.drawText("REMETTEZ TOUT", w/2f, h * 0.27f, paint)
+                canvas.drawText("PARFAITEMENT STABLE!", w/2f, h * 0.37f, paint)
+                
+                paint.color = Color.YELLOW
+                paint.textSize = 80f
+                canvas.drawText("📱 PLUS AUCUN MOUVEMENT! 📱", w/2f, h * 0.44f, paint)
             }
         }
         
-        // Feedback de performance
-        paint.textSize = 50f
+        // Feedback de performance - PLUS VISIBLE
+        paint.textSize = 70f
         paint.color = when {
-            activity.getLandingStability() > 1.5f -> Color.GREEN
+            activity.getLandingStability() > 1.5f -> Color.parseColor("#00FF00") // Vert brillant
             activity.getLandingStability() > 1f -> Color.YELLOW
             else -> Color.RED
         }
-        canvas.drawText("Stabilité: ${(activity.getLandingStability() * 50).toInt()}%", w/2f, h * 0.4f, paint)
+        
+        // FOND pour le feedback
+        paint.color = Color.parseColor("#80000000")
+        canvas.drawRect(0f, h * 0.5f, w.toFloat(), h * 0.65f, paint)
+        
+        paint.color = when {
+            activity.getLandingStability() > 1.5f -> Color.parseColor("#00FF00")
+            activity.getLandingStability() > 1f -> Color.YELLOW
+            else -> Color.RED
+        }
+        paint.textSize = 80f
+        paint.textAlign = Paint.Align.CENTER
+        canvas.drawText("PERFORMANCE: ${(activity.getLandingStability() * 50).toInt()}%", w/2f, h * 0.55f, paint)
+        
+        val statusText = when {
+            activity.getLandingStability() > 1.5f -> "✅ EXCELLENT!"
+            activity.getLandingStability() > 1f -> "👍 BIEN!"
+            else -> "❌ RATEZ PAS!"
+        }
+        paint.textSize = 60f
+        canvas.drawText(statusText, w/2f, h * 0.62f, paint)
     }
     
     private fun drawResults(canvas: Canvas, w: Int, h: Int) {
