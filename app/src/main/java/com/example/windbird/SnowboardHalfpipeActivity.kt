@@ -43,12 +43,16 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
     private var verticalVelocity = 0f     // Vélocité verticale (gravity)
     private var direction = 1f            // Direction du mouvement (-1 = gauche, 1 = droite)
     
-    // État physique du rider
+    // État physique du rider avec animations
     private var isInAir = false
     private var airTime = 0f
     private var lastWallHit = 0L
     private var goingLeft = false         // Direction du mouvement
     private var energy = 100f             // Énergie totale (conservation)
+    private var currentSide = RiderSide.CENTER // Côté actuel du rider
+    private var lastSide = RiderSide.CENTER    // Dernier côté pour savoir d'où il vient
+    private var isLanding = false              // En phase d'atterrissage
+    private var landingTimer = 0f              // Timer pour l'animation de landing
     
     // Système de pumping réaliste
     private var pumpEnergy = 0f
@@ -297,6 +301,18 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             momentum += direction * 0.008f * speed / 15f
             riderPosition += momentum * 0.02f
             
+            // Mise à jour du côté actuel selon la position
+            val newSide = when {
+                riderPosition < 0.3f -> RiderSide.LEFT
+                riderPosition > 0.7f -> RiderSide.RIGHT
+                else -> RiderSide.CENTER
+            }
+            
+            if (newSide != currentSide) {
+                lastSide = currentSide
+                currentSide = newSide
+            }
+            
             // Rebond sur les bords avec changement de direction
             if (riderPosition <= 0.1f) {
                 riderPosition = 0.1f
@@ -314,6 +330,15 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             
             // Friction naturelle
             momentum *= 0.98f
+            
+            // Gestion du timer de landing
+            if (isLanding) {
+                landingTimer += 0.016f
+                if (landingTimer > 1f) { // Landing animation dure 1 seconde
+                    isLanding = false
+                    landingTimer = 0f
+                }
+            }
             
         } else {
             // En l'air : gravité pure
@@ -536,6 +561,10 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         isInAir = false
         airTime = 0f
         verticalVelocity = 0f
+        
+        // Déclencher l'animation de landing selon le côté
+        isLanding = true
+        landingTimer = 0f
         
         // Remettre à la bonne hauteur sur la rampe
         riderHeight = 0.8f - abs(riderPosition - 0.5f) * 0.6f
@@ -909,141 +938,105 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             canvas.drawRect(0f, 0f, w.toFloat(), h * 0.3f, paint)
             paint.shader = null
             
-            // Halfpipe avec VRAIES courbes concaves (creusées vers l'intérieur)
-            paint.color = Color.WHITE
+            // Halfpipe VU DE L'INTÉRIEUR - défilement vers l'avant
+            val scrollOffset = (pipeScroll * 4f) % 200f // Défilement rapide et visible
             
-            // Mur gauche - courbe CONCAVE (creusée vers la droite)
+            // Fond blanc du halfpipe (tout l'écran d'abord)
+            paint.color = Color.WHITE
+            canvas.drawRect(0f, h * 0.3f, w.toFloat(), h.toFloat(), paint)
+            
+            // Découper les CREUX du halfpipe (enlever la matière pour créer le U)
+            paint.color = Color.parseColor("#87CEEB") // Couleur du ciel pour "creuser"
+            
+            // CREUX GAUCHE - triangle qui mange le coin gauche
             reusablePath.reset()
             reusablePath.moveTo(0f, h * 0.3f)                    // Haut gauche
-            reusablePath.quadTo(w * 0.2f, h * 0.4f, w * 0.35f, h * 0.85f)  // Courbe creusée vers l'intérieur
-            reusablePath.lineTo(w * 0.35f, h.toFloat())           // Bas
+            reusablePath.lineTo(w * 0.4f, h * 0.3f)              // Vers le centre en haut
+            reusablePath.lineTo(w * 0.4f, h.toFloat())           // Descend au centre
             reusablePath.lineTo(0f, h.toFloat())                 // Coin bas gauche
             reusablePath.close()
             canvas.drawPath(reusablePath, paint)
             
-            // Mur droit - courbe CONCAVE (creusée vers la gauche)
+            // CREUX DROIT - triangle qui mange le coin droit  
             reusablePath.reset()
             reusablePath.moveTo(w.toFloat(), h * 0.3f)           // Haut droit
-            reusablePath.quadTo(w * 0.8f, h * 0.4f, w * 0.65f, h * 0.85f)  // Courbe creusée vers l'intérieur
-            reusablePath.lineTo(w * 0.65f, h.toFloat())           // Bas
+            reusablePath.lineTo(w * 0.6f, h * 0.3f)              // Vers le centre en haut
+            reusablePath.lineTo(w * 0.6f, h.toFloat())           // Descend au centre
             reusablePath.lineTo(w.toFloat(), h.toFloat())        // Coin bas droit
             reusablePath.close()
             canvas.drawPath(reusablePath, paint)
             
-            // Fond plat du halfpipe (milieu)
-            paint.color = Color.parseColor("#F8F8F8")
-            reusableRectF.set(w * 0.35f, h * 0.85f, w * 0.65f, h.toFloat())
-            canvas.drawRect(reusableRectF, paint)
+            // Maintenant on a un halfpipe en U !
+            // Le fond blanc reste entre 40% et 60% de l'écran
             
-            // DÉFILEMENT DU DÉCOR - Lignes qui descendent pour montrer l'avancement
+            // LIGNES DE PERSPECTIVE QUI AVANCENT
             paint.color = Color.parseColor("#DDDDDD")
-            paint.strokeWidth = 3f
+            paint.strokeWidth = 2f
             paint.style = Paint.Style.STROKE
             
-            val scrollOffset = (pipeScroll * 3f) % 120f // Plus rapide et visible
-            for (i in 0..15) {
-                val lineDistance = i * 80f - scrollOffset
-                val lineY = lineDistance
+            // Lignes qui viennent du fond (haut) vers nous (bas)
+            for (i in 0..20) {
+                val lineY = h * 0.3f + i * 30f - scrollOffset
                 
                 if (lineY >= h * 0.3f && lineY <= h.toFloat()) {
-                    // Ligne qui suit la forme concave du halfpipe
-                    reusablePath.reset()
-                    reusablePath.moveTo(w * 0.35f, lineY)  // Gauche du fond plat
+                    // Perspective : les lignes s'élargissent en s'approchant
+                    val perspective = (lineY - h * 0.3f) / (h * 0.7f)
+                    val leftX = w * (0.4f - perspective * 0.4f)    // S'élargit vers la gauche
+                    val rightX = w * (0.6f + perspective * 0.4f)   // S'élargit vers la droite
                     
-                    // Courbe qui suit les murs concaves
-                    reusablePath.quadTo(w * 0.25f, lineY - 20f, 0f, lineY - 50f)  // Vers mur gauche
+                    // Ligne du fond du halfpipe
+                    canvas.drawLine(leftX, lineY, rightX, lineY, paint)
                     
-                    // Ligne droite du fond
-                    reusablePath.moveTo(w * 0.35f, lineY)
-                    reusablePath.lineTo(w * 0.65f, lineY)
-                    
-                    // Vers mur droit
-                    reusablePath.moveTo(w * 0.65f, lineY)
-                    reusablePath.quadTo(w * 0.75f, lineY - 20f, w.toFloat(), lineY - 50f)
-                    
-                    canvas.drawPath(reusablePath, paint)
+                    // Lignes sur les rampes (si assez proche)
+                    if (perspective > 0.3f) {
+                        // Rampe gauche
+                        canvas.drawLine(leftX - perspective * 80f, lineY - perspective * 30f, leftX, lineY, paint)
+                        // Rampe droite
+                        canvas.drawLine(rightX, lineY, rightX + perspective * 80f, lineY - perspective * 30f, paint)
+                    }
                 }
             }
             
-            // LIGNES DE BORD qui descendent aussi
-            for (i in 0..10) {
-                val lineY = i * 100f - scrollOffset
-                if (lineY >= h * 0.3f && lineY <= h.toFloat()) {
-                    paint.strokeWidth = 2f
-                    paint.color = Color.parseColor("#BBBBBB")
-                    
-                    // Bord gauche qui descend
-                    canvas.drawLine(w * 0.35f, lineY, w * 0.3f, lineY + 20f, paint)
-                    // Bord droit qui descend  
-                    canvas.drawLine(w * 0.65f, lineY, w * 0.7f, lineY + 20f, paint)
-                }
-            }
+            // Bords du halfpipe
+            paint.color = Color.parseColor("#AAAAAA")
+            paint.strokeWidth = 4f
             
-            // Copings (bords) du halfpipe
-            paint.color = Color.parseColor("#CCCCCC")
-            paint.strokeWidth = 6f
+            // Bord gauche du U
+            canvas.drawLine(0f, h * 0.3f, w * 0.4f, h * 0.3f, paint)
+            canvas.drawLine(w * 0.4f, h * 0.3f, w * 0.4f, h.toFloat(), paint)
             
-            // Coping gauche - courbe concave
-            reusablePath.reset()
-            reusablePath.moveTo(0f, h * 0.3f)
-            reusablePath.quadTo(w * 0.2f, h * 0.4f, w * 0.35f, h * 0.85f)
-            canvas.drawPath(reusablePath, paint)
-            
-            // Coping droit - courbe concave
-            reusablePath.reset()
-            reusablePath.moveTo(w.toFloat(), h * 0.3f)
-            reusablePath.quadTo(w * 0.8f, h * 0.4f, w * 0.65f, h * 0.85f)
-            canvas.drawPath(reusablePath, paint)
+            // Bord droit du U
+            canvas.drawLine(w.toFloat(), h * 0.3f, w * 0.6f, h * 0.3f, paint)
+            canvas.drawLine(w * 0.6f, h * 0.3f, w * 0.6f, h.toFloat(), paint)
             
             paint.style = Paint.Style.FILL
         }
         
         private fun drawSnowboarderFromBehind(canvas: Canvas, w: Int, h: Int) {
             // Position du snowboarder qui suit la forme du halfpipe
-            val riderScreenX = w * riderPosition // Position horizontale selon riderPosition
-            val riderScreenY = h * riderHeight   // Position verticale selon riderHeight
+            val riderScreenX = w * riderPosition
+            val riderScreenY = h * riderHeight
             
             canvas.save()
             canvas.translate(riderScreenX, riderScreenY)
             
             // Rotation selon la position sur la rampe (inclinaison naturelle)
-            val slopeAngle = (riderPosition - 0.5f) * 30f // Plus on s'éloigne du centre, plus on s'incline
+            val slopeAngle = (riderPosition - 0.5f) * 30f
             canvas.rotate(slopeAngle)
             
-            // Rotations pour les tricks
-            when (currentTrick) {
-                TrickType.SPIN -> canvas.rotate(trickRotation * 0.8f)
-                TrickType.FLIP -> canvas.rotate(trickFlip * 0.6f)
-                TrickType.COMBO -> {
-                    canvas.rotate(trickRotation * 0.5f + trickFlip * 0.3f)
-                }
-                else -> {}
-            }
+            // Sélection de l'image et rotations selon l'état
+            val (snowboarderImage, additionalRotation) = getSnowboarderImageAndRotation()
+            
+            // Appliquer la rotation additionnelle pour les tricks
+            canvas.rotate(additionalRotation)
             
             // Échelle selon si en l'air ou pas
             val scale = if (isInAir) 1.1f else 1f
             canvas.scale(scale, scale)
             
-            // Utiliser l'image du snowboarder
-            val snowboarderImage = if (currentTrick != TrickType.NONE) {
-                snowTrickBitmap
-            } else {
-                snowFrontBitmap
-            }
-            
+            // Dessiner l'image du snowboarder
             snowboarderImage?.let { image ->
-                val imageScale = 0.6f
-                val imageWidth = image.width * imageScale
-                val imageHeight = image.height * imageScale
-                
-                reusableRectF.set(
-                    -imageWidth/2f,
-                    -imageHeight/2f,
-                    imageWidth/2f,
-                    imageHeight/2f
-                )
-                canvas.drawBitmap(image, null, reusableRectF, paint)
-                
+                drawSnowboarderFromSpriteSheet(canvas, image)
             } ?: run {
                 // Fallback si pas d'image
                 paint.color = Color.parseColor("#FF6600")
@@ -1067,6 +1060,105 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
                 }
                 paint.alpha = 255
             }
+        }
+        
+        private fun getSnowboarderImageAndRotation(): Pair<Bitmap?, Float> {
+            return when {
+                // Phase de landing
+                isLanding -> {
+                    val sideLanding = if (lastSide == RiderSide.LEFT) RiderSide.LEFT else RiderSide.RIGHT
+                    val image = if (sideLanding == RiderSide.LEFT) snowLeftLandingBitmap else snowRightLandingBitmap
+                    Pair(image, 0f)
+                }
+                
+                // Tricks en l'air
+                isInAir && currentTrick != TrickType.NONE -> {
+                    when (currentTrick) {
+                        TrickType.SPIN -> {
+                            val side = if (riderPosition < 0.5f) RiderSide.LEFT else RiderSide.RIGHT
+                            val image = if (side == RiderSide.LEFT) snowLeftRotationBitmap else snowRightRotationBitmap
+                            Pair(image, trickRotation * 0.8f) // Rotation selon progression
+                        }
+                        TrickType.FLIP -> {
+                            val side = if (riderPosition < 0.5f) RiderSide.LEFT else RiderSide.RIGHT
+                            val image = if (side == RiderSide.LEFT) snowLeftSpinBitmap else snowRightSpinBitmap
+                            Pair(image, trickFlip * 0.6f)
+                        }
+                        TrickType.GRAB -> {
+                            val side = if (riderPosition < 0.5f) RiderSide.LEFT else RiderSide.RIGHT
+                            val image = if (side == RiderSide.LEFT) snowLeftGrabBitmap else snowRightGrabBitmap
+                            Pair(image, 0f)
+                        }
+                        TrickType.COMBO -> {
+                            val side = if (riderPosition < 0.5f) RiderSide.LEFT else RiderSide.RIGHT
+                            val image = if (side == RiderSide.LEFT) snowLeftRotationBitmap else snowRightRotationBitmap
+                            Pair(image, (trickRotation + trickFlip) * 0.5f)
+                        }
+                        else -> {
+                            val side = if (riderPosition < 0.5f) RiderSide.LEFT else RiderSide.RIGHT
+                            val image = if (side == RiderSide.LEFT) snowLeftSpriteBitmap else snowRightSpriteBitmap
+                            Pair(image, 0f)
+                        }
+                    }
+                }
+                
+                // Montée/descente normale
+                else -> {
+                    when (currentSide) {
+                        RiderSide.LEFT -> Pair(snowLeftSpriteBitmap, 0f)
+                        RiderSide.RIGHT -> Pair(snowRightSpriteBitmap, 0f)
+                        RiderSide.CENTER -> {
+                            // Au centre, utiliser l'image selon d'où on vient
+                            when (lastSide) {
+                                RiderSide.LEFT -> Pair(snowLeftSpriteBitmap, 0f)
+                                RiderSide.RIGHT -> Pair(snowRightSpriteBitmap, 0f)
+                                else -> Pair(snowLeftSpriteBitmap, 0f) // Par défaut
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        private fun drawSnowboarderFromSpriteSheet(canvas: Canvas, spriteSheet: Bitmap) {
+            // Pour les sprite-sheets de 5 images, utiliser l'image du milieu (index 2) pour "tout droit"
+            // ou animer selon la phase de mouvement
+            
+            val frameWidth = spriteSheet.width / 5 // 5 images par sprite-sheet
+            val frameHeight = spriteSheet.height
+            
+            // Sélectionner la frame selon l'état
+            val frameIndex = when {
+                isLanding -> {
+                    // Animation de landing (0 à 4)
+                    (landingTimer * 8f).toInt().coerceIn(0, 4)
+                }
+                isInAir -> 2 // Frame du milieu en l'air
+                currentSide == RiderSide.CENTER -> 2 // Frame "tout droit"
+                else -> {
+                    // Animation de montée (0 à 4)
+                    val animSpeed = abs(momentum) * 10f
+                    ((System.currentTimeMillis() / 150L * animSpeed).toInt() % 5)
+                }
+            }
+            
+            // Source rect (frame dans le sprite-sheet)
+            val srcLeft = frameIndex * frameWidth
+            val srcRect = Rect(srcLeft, 0, srcLeft + frameWidth, frameHeight)
+            
+            // Destination rect (taille sur l'écran)
+            val imageScale = 0.6f
+            val imageWidth = frameWidth * imageScale
+            val imageHeight = frameHeight * imageScale
+            
+            reusableRectF.set(
+                -imageWidth/2f,
+                -imageHeight/2f,
+                imageWidth/2f,
+                imageHeight/2f
+            )
+            
+            canvas.drawBitmap(spriteSheet, srcRect, reusableRectF, paint)
         }
         
         private fun drawGameInterface(canvas: Canvas, w: Int, h: Int) {
@@ -1278,6 +1370,10 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
     
     enum class TrickPhase {
         NONE, TAKEOFF, SETUP, EXECUTION, LANDING
+    }
+    
+    enum class RiderSide {
+        LEFT, CENTER, RIGHT
     }
 
     enum class GameState {
