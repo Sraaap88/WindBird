@@ -32,7 +32,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     // Phases avec durées CORRIGÉES
     private val preparationDuration = 4f
     private val approachDuration = 15f
-    private val takeoffDuration = 4.2f  // 30% plus rapide (6f -> 4.2f)
+    private val takeoffDuration = 2.94f  // Encore 30% plus rapide (4.2f -> 2.94f)
     private val flightDuration = 12f
     private val landingDuration = 5.5f
     private val resultsDuration = 8f
