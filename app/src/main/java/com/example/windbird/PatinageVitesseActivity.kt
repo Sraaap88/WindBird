@@ -1,28 +1,4 @@
-// Nouvelle fonction pour la barre de progression séparée
-        private fun drawProgressBar(canvas: Canvas, x: Float, y: Float, width: Float, height: Float) {
-            paint.color = Color.parseColor("#333333")
-            reusableRectF.set(x, y, x + width, y + height)
-            canvas.drawRect(reusableRectF, paint)
-            
-            val progress = (playerDistance / totalDistance).coerceIn(0f, 1f)
-            paint.color = Color.parseColor("#00FF00")
-            reusableRectF.set(x, y, x + width * progress, y + height)
-            canvas.drawRect(reusableRectF, paint)
-            
-            paint.color = Color.WHITE
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 3f
-            reusableRectF.set(x, y, x + width, y + height)
-            canvas.drawRect(reusableRectF, paint)
-            paint.style = Paint.Style.FILL
-            
-            paint.color = Color.WHITE
-            paint.textSize = 16f
-            paint.typeface = Typeface.DEFAULT_BOLD
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("${playerDistance.toInt()}m / ${totalDistance.toInt()}m", 
-                           x + width/2f, y - 8f, paint)
-        }package com.example.windbird
+package com.example.windbird
 
 import android.app.Activity
 import android.content.Context
@@ -423,7 +399,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         if (practiceMode) {
             val intent = Intent(this, EventsMenuActivity::class.java).apply {
                 putExtra("practice_mode", true)
-                putExtra("tournament_data", tournamentData)
+                putExtra("tournament_data", tournamentData as java.io.Serializable)
                 putStringArrayListExtra("player_names", tournamentData.playerNames)
                 putStringArrayListExtra("player_countries", tournamentData.playerCountries)
                 putExtra("number_of_players", numberOfPlayers)
@@ -438,7 +414,7 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         if (nextPlayer != -1) {
             if (nextPlayer < numberOfPlayers) {
                 val intent = Intent(this, PlayerTransitionActivity::class.java).apply {
-                    putExtra("tournament_data", tournamentData)
+                    putExtra("tournament_data", tournamentData as java.io.Serializable)
                     putExtra("event_index", eventIndex)
                     putExtra("number_of_players", numberOfPlayers)
                     putExtra("next_player_index", nextPlayer)
@@ -453,14 +429,14 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         } else {
             if (tournamentData.isTournamentComplete()) {
                 val resultIntent = Intent(this, ScoreboardActivity::class.java).apply {
-                    putExtra("tournament_data", tournamentData)
+                    putExtra("tournament_data", tournamentData as java.io.Serializable)
                     putExtra("tournament_final", true)
                 }
                 startActivity(resultIntent)
                 finish()
             } else {
                 val resultIntent = Intent(this, ScoreboardActivity::class.java).apply {
-                    putExtra("tournament_data", tournamentData)
+                    putExtra("tournament_data", tournamentData as java.io.Serializable)
                     putExtra("event_completed", eventIndex)
                 }
                 startActivity(resultIntent)
@@ -657,19 +633,6 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             canvas.drawText("TESTEZ VOTRE RYTHME:", w.toFloat()/2f, h.toFloat() * 0.36f, paint)
         }
         
-        private fun drawCountdown(canvas: Canvas, w: Int, h: Int) {
-            drawRaceBackground(canvas, w, h)
-            
-            val count = (countdownDuration - phaseTimer).toInt() + 1
-            paint.textSize = 140f
-            paint.color = Color.RED
-            paint.textAlign = Paint.Align.CENTER
-            paint.typeface = Typeface.DEFAULT_BOLD
-            
-            val countText = if (count > 0) count.toString() else "GO!"
-            canvas.drawText(countText, w.toFloat()/2f, h.toFloat()/2f, paint)
-        }
-        
         private fun drawRace(canvas: Canvas, w: Int, h: Int) {
             drawRaceBackground(canvas, w, h)
             drawSkaterOnTrack(canvas, w, h)
@@ -686,6 +649,32 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             drawProgressBar(canvas, barsX, progressBarY, barsWidth, progressBarHeight)
             
             drawPerformanceBand(canvas, barsX, barsY, barsWidth, 50f)
+        }
+        
+        // Nouvelle fonction pour la barre de progression séparée
+        private fun drawProgressBar(canvas: Canvas, x: Float, y: Float, width: Float, height: Float) {
+            paint.color = Color.parseColor("#333333")
+            reusableRectF.set(x, y, x + width, y + height)
+            canvas.drawRect(reusableRectF, paint)
+            
+            val progress = (playerDistance / totalDistance).coerceIn(0f, 1f)
+            paint.color = Color.parseColor("#00FF00")
+            reusableRectF.set(x, y, x + width * progress, y + height)
+            canvas.drawRect(reusableRectF, paint)
+            
+            paint.color = Color.WHITE
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 3f
+            reusableRectF.set(x, y, x + width, y + height)
+            canvas.drawRect(reusableRectF, paint)
+            paint.style = Paint.Style.FILL
+            
+            paint.color = Color.WHITE
+            paint.textSize = 16f
+            paint.typeface = Typeface.DEFAULT_BOLD
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("${playerDistance.toInt()}m / ${totalDistance.toInt()}m", 
+                           x + width/2f, y - 8f, paint)
         }
         
         // OPTIMISATION : Barre de performance optimisée avec texte plus gros
