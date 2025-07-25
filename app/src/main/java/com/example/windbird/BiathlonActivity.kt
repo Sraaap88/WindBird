@@ -257,9 +257,9 @@ class BiathlonActivity : Activity(), SensorEventListener {
     }
 
     private fun handleScreenTransitions() {
-        // NOUVEAU - Gestion de l'écran de préparation
+        // NOUVEAU - Gestion de l'écran de préparation - 7 SECONDES
         if (currentScreen == 0 && preparationStarted) {
-            if (System.currentTimeMillis() - preparationTimer > 5000) {
+            if (System.currentTimeMillis() - preparationTimer > 7000) { // 7 secondes au lieu de 5
                 currentScreen = 1 // Passer au premier écran de ski
                 preparationStarted = false
                 gameState = GameState.SKIING
@@ -459,7 +459,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
 
     private fun updateStatus() {
         statusText.text = when {
-            currentScreen == 0 -> "🏁 ${tournamentData.playerNames[currentPlayerIndex]} | Préparation - ${5 - (System.currentTimeMillis() - preparationTimer) / 1000}s"
+            currentScreen == 0 -> "🏁 ${tournamentData.playerNames[currentPlayerIndex]} | Préparation - ${7 - (System.currentTimeMillis() - preparationTimer) / 1000}s" // 7 secondes
             gameState == GameState.SKIING -> "🎿 ${tournamentData.playerNames[currentPlayerIndex]} | ${getScreenName()} | Rythme: ${(rhythmBonus * 100).toInt()}%"
             gameState == GameState.SHOOTING -> "🎯 ${tournamentData.playerNames[currentPlayerIndex]} | Tir ${shotsFired}/5 | Score: ${totalScore} pts"
             gameState == GameState.FINAL_SKIING -> "🏁 ${tournamentData.playerNames[currentPlayerIndex]} | ${getScreenName()} | Sprint final!"
@@ -587,8 +587,8 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 canvas.drawRect(w * 0.2f, 0f, w * 0.8f, h.toFloat(), paint)
             }
             
-            // DRAPEAU DU PAYS en haut à gauche SUR LA ZONE BLANCHE
-            val flagSize = 120f
+            // DRAPEAU DU PAYS en haut à gauche SUR LA ZONE BLANCHE - 4 FOIS PLUS GROS
+            val flagSize = 480f  // 4 fois plus gros (était 120f)
             val flagX = 30f
             val flagY = 50f
             
@@ -596,16 +596,16 @@ class BiathlonActivity : Activity(), SensorEventListener {
             val playerCountry = tournamentData.playerCountries[currentPlayerIndex]
             drawCountryFlag(canvas, flagX, flagY, flagSize, playerCountry)
             
-            // TEXTE SUR LES CÔTÉS BLANCS - CÔTÉ GAUCHE
+            // TEXTE SUR LES CÔTÉS BLANCS - CÔTÉ GAUCHE (ajusté pour le gros drapeau)
             val leftTextX = w * 0.1f
             
-            // Temps restant en très gros
-            val timeLeft = 5 - (System.currentTimeMillis() - preparationTimer) / 1000
+            // Temps restant en très gros (plus bas à cause du gros drapeau)
+            val timeLeft = 7 - (System.currentTimeMillis() - preparationTimer) / 1000  // 7 secondes
             paint.color = Color.parseColor("#FF0000") // ROUGE
             paint.textSize = 120f
             paint.textAlign = Paint.Align.CENTER
             paint.isFakeBoldText = true
-            canvas.drawText("$timeLeft", leftTextX, h * 0.3f, paint)
+            canvas.drawText("$timeLeft", leftTextX, h * 0.45f, paint)  // Plus bas (était 0.3f)
             
             // TITRE PRINCIPAL SUR LE CÔTÉ DROIT
             val rightTextX = w * 0.9f
@@ -619,12 +619,12 @@ class BiathlonActivity : Activity(), SensorEventListener {
             paint.textSize = 40f
             paint.isFakeBoldText = true
             
-            // Instructions côté gauche
-            canvas.drawText("📱 TOURNEZ", leftTextX, h * 0.5f, paint)
-            canvas.drawText("LE TÉLÉPHONE", leftTextX, h * 0.55f, paint)
+            // Instructions côté gauche (ajustées pour le gros drapeau)
+            canvas.drawText("📱 TOURNEZ", leftTextX, h * 0.6f, paint)  // Plus bas
+            canvas.drawText("LE TÉLÉPHONE", leftTextX, h * 0.65f, paint)
             
-            canvas.drawText("🔄 ALTERNEZ", leftTextX, h * 0.65f, paint)
-            canvas.drawText("GAUCHE-DROITE", leftTextX, h * 0.7f, paint)
+            canvas.drawText("🔄 ALTERNEZ", leftTextX, h * 0.75f, paint)  // Plus bas
+            canvas.drawText("GAUCHE-DROITE", leftTextX, h * 0.8f, paint)
             
             // Instructions côté droit
             canvas.drawText("🎯 VISEZ LE", rightTextX, h * 0.5f, paint)
