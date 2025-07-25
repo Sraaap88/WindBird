@@ -113,6 +113,13 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
     private var snowLeftSpinBitmap: Bitmap? = null
     private var snowRightSpinBitmap: Bitmap? = null
     
+    // Sprite-sheet de la piste
+    private var snowTrackSpriteBitmap: Bitmap? = null
+    
+    // Cache pour les frames découpées intelligemment
+    private val snowboarderFrameCache = mutableMapOf<String, List<Rect>>()
+    private var trackFrames = mutableListOf<Rect>() // 12 frames de piste (3x4)
+    
     // Effets visuels
     private var pipeScroll = 0f           // Défilement de la piste
     private var wallBounceEffect = 0f     // Effet visuel des murs
@@ -154,6 +161,22 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             setBackgroundColor(Color.parseColor("#001144"))
             setPadding(25, 20, 25, 20)
         }
+        
+        private fun getCacheKey(bitmap: Bitmap): String {
+            return when (bitmap) {
+                this@SnowboardHalfpipeActivity.snowLeftSpriteBitmap -> "left_sprite"
+                this@SnowboardHalfpipeActivity.snowRightSpriteBitmap -> "right_sprite"
+                this@SnowboardHalfpipeActivity.snowLeftLandingBitmap -> "left_landing"
+                this@SnowboardHalfpipeActivity.snowRightLandingBitmap -> "right_landing"
+                this@SnowboardHalfpipeActivity.snowLeftRotationBitmap -> "left_rotation"
+                this@SnowboardHalfpipeActivity.snowRightRotationBitmap -> "right_rotation"
+                this@SnowboardHalfpipeActivity.snowLeftGrabBitmap -> "left_grab"
+                this@SnowboardHalfpipeActivity.snowRightGrabBitmap -> "right_grab"
+                this@SnowboardHalfpipeActivity.snowLeftSpinBitmap -> "left_spin"
+                this@SnowboardHalfpipeActivity.snowRightSpinBitmap -> "right_spin"
+                else -> "unknown"
+            }
+        }
 
         gameView = SnowboardHalfpipeView(this)
 
@@ -176,9 +199,108 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             snowRightGrabBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_right_grab)
             snowLeftSpinBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_left_spin)
             snowRightSpinBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_right_spin)
+            
+            // Charger le sprite-sheet de la piste
+            snowTrackSpriteBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_track_sprite)
+            
+            // Découper intelligemment les frames
+            analyzeAndCacheFrames()
+            
         } catch (e: Exception) {
             // Les bitmaps resteront null, le fallback sera utilisé
         }
+    }
+    
+    private fun analyzeAndCacheFrames() {
+        // Découpage intelligent des snowboarders (5 frames par sprite-sheet)
+        snowLeftSpriteBitmap?.let { 
+            snowboarderFrameCache["left_sprite"] = analyzeFrameBounds(it, 5, 1)
+        }
+        snowRightSpriteBitmap?.let { 
+            snowboarderFrameCache["right_sprite"] = analyzeFrameBounds(it, 5, 1)
+        }
+        snowLeftLandingBitmap?.let { 
+            snowboarderFrameCache["left_landing"] = analyzeFrameBounds(it, 5, 1)
+        }
+        snowRightLandingBitmap?.let { 
+            snowboarderFrameCache["right_landing"] = analyzeFrameBounds(it, 5, 1)
+        }
+        snowLeftRotationBitmap?.let { 
+            snowboarderFrameCache["left_rotation"] = analyzeFrameBounds(it, 5, 1)
+        }
+        snowRightRotationBitmap?.let { 
+            snowboarderFrameCache["right_rotation"] = analyzeFrameBounds(it, 5, 1)
+        }
+        snowLeftGrabBitmap?.let { 
+            snowboarderFrameCache["left_grab"] = analyzeFrameBounds(it, 5, 1)
+        }
+        snowRightGrabBitmap?.let { 
+            snowboarderFrameCache["right_grab"] = analyzeFrameBounds(it, 5, 1)
+        }
+        snowLeftSpinBitmap?.let { 
+            snowboarderFrameCache["left_spin"] = analyzeFrameBounds(it, 5, 1)
+        }
+        snowRightSpinBitmap?.let { 
+            snowboarderFrameCache["right_spin"] = analyzeFrameBounds(it, 5, 1)
+        }
+        
+        // Découpage de la piste (3x4 = 12 frames)
+        snowTrackSpriteBitmap?.let {
+            trackFrames = analyzeFrameBounds(it, 3, 4).toMutableList()
+        }
+    }
+    
+    private fun analyzeFrameBounds(bitmap: Bitmap, cols: Int, rows: Int): List<Rect> {
+        val frames = mutableListOf<Rect>()
+        val frameWidth = bitmap.width / cols
+        val frameHeight = bitmap.height / rows
+        
+        for (row in 0 until rows) {
+            for (col in 0 until cols) {
+                val left = col * frameWidth
+                val top = row * frameHeight
+                
+                // Analyser les pixels pour trouver les vraies limites
+                val bounds = findActualBounds(bitmap, left, top, frameWidth, frameHeight)
+                frames.add(bounds)
+            }
+        }
+        
+        return frames
+    }
+    
+    private fun findActualBounds(bitmap: Bitmap, startX: Int, startY: Int, maxWidth: Int, maxHeight: Int): Rect {
+        var left = startX + maxWidth
+        var top = startY + maxHeight
+        var right = startX
+        var bottom = startY
+        
+        // Scanner les pixels pour trouver les limites réelles (pixels non-transparents)
+        for (y in startY until (startY + maxHeight)) {
+            for (x in startX until (startX + maxWidth)) {
+                if (x < bitmap.width && y < bitmap.height) {
+                    val pixel = bitmap.getPixel(x, y)
+                    val alpha = (pixel shr 24) and 0xFF
+                    
+                    if (alpha > 10) { // Pixel non-transparent
+                        left = minOf(left, x)
+                        top = minOf(top, y)
+                        right = maxOf(right, x)
+                        bottom = maxOf(bottom, y)
+                    }
+                }
+            }
+        }
+        
+        // Si aucun pixel trouvé, utiliser la frame complète
+        if (left > right) {
+            left = startX
+            top = startY
+            right = startX + maxWidth
+            bottom = startY + maxHeight
+        }
+        
+        return Rect(left, top, right + 1, bottom + 1)
     }
     
     private fun initializeGame() {
@@ -803,6 +925,7 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         snowRightGrabBitmap?.recycle()
         snowLeftSpinBitmap?.recycle()
         snowRightSpinBitmap?.recycle()
+        snowTrackSpriteBitmap?.recycle()
     }
 
     private fun updateStatus() {
@@ -978,85 +1101,150 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         }
         
         private fun drawHalfpipeInterior(canvas: Canvas, w: Int, h: Int) {
-            // Fond ciel
-            val skyGradient = LinearGradient(0f, 0f, 0f, h * 0.3f,
-                Color.parseColor("#87CEEB"), Color.parseColor("#E0F6FF"), Shader.TileMode.CLAMP)
+            // Décor hivernal en arrière-plan
+            drawWinterBackground(canvas, w, h)
+            
+            // Piste animée avec le sprite-sheet
+            drawAnimatedTrack(canvas, w, h)
+        }
+        
+        private fun drawWinterBackground(canvas: Canvas, w: Int, h: Int) {
+            // Ciel hivernal dégradé
+            val skyGradient = LinearGradient(0f, 0f, 0f, h * 0.6f,
+                Color.parseColor("#E6F3FF"), Color.parseColor("#B8E0FF"), Shader.TileMode.CLAMP)
             paint.shader = skyGradient
-            canvas.drawRect(0f, 0f, w.toFloat(), h * 0.3f, paint)
+            canvas.drawRect(0f, 0f, w.toFloat(), h * 0.6f, paint)
             paint.shader = null
             
-            // Halfpipe VU DE L'INTÉRIEUR - défilement vers l'avant
-            val scrollOffset = (pipeScroll * 4f) % 200f // Défilement rapide et visible
+            // Montagnes enneigées en arrière-plan
+            paint.color = Color.parseColor("#F0F8FF")
+            val mountainPath = Path()
+            mountainPath.moveTo(0f, h * 0.3f)
+            mountainPath.lineTo(w * 0.15f, h * 0.1f)
+            mountainPath.lineTo(w * 0.3f, h * 0.25f)
+            mountainPath.lineTo(w * 0.5f, h * 0.05f)
+            mountainPath.lineTo(w * 0.7f, h * 0.2f)
+            mountainPath.lineTo(w * 0.85f, h * 0.08f)
+            mountainPath.lineTo(w.toFloat(), h * 0.25f)
+            mountainPath.lineTo(w.toFloat(), h * 0.6f)
+            mountainPath.lineTo(0f, h * 0.6f)
+            mountainPath.close()
+            canvas.drawPath(mountainPath, paint)
             
-            // Fond blanc du halfpipe (tout l'écran d'abord)
-            paint.color = Color.WHITE
-            canvas.drawRect(0f, h * 0.3f, w.toFloat(), h.toFloat(), paint)
+            // Sapins sur les côtés
+            drawWinterTrees(canvas, w, h)
             
-            // Découper les CREUX du halfpipe (enlever la matière pour créer le U)
-            paint.color = Color.parseColor("#87CEEB") // Couleur du ciel pour "creuser"
+            // Flocons de neige qui tombent
+            drawSnowflakes(canvas, w, h)
+        }
+        
+        private fun drawWinterTrees(canvas: Canvas, w: Int, h: Int) {
+            paint.color = Color.parseColor("#2D5016") // Vert sapin foncé
             
-            // CREUX GAUCHE - triangle qui mange le coin gauche
-            reusablePath.reset()
-            reusablePath.moveTo(0f, h * 0.3f)                    // Haut gauche
-            reusablePath.lineTo(w * 0.4f, h * 0.3f)              // Vers le centre en haut
-            reusablePath.lineTo(w * 0.4f, h.toFloat())           // Descend au centre
-            reusablePath.lineTo(0f, h.toFloat())                 // Coin bas gauche
-            reusablePath.close()
-            canvas.drawPath(reusablePath, paint)
-            
-            // CREUX DROIT - triangle qui mange le coin droit  
-            reusablePath.reset()
-            reusablePath.moveTo(w.toFloat(), h * 0.3f)           // Haut droit
-            reusablePath.lineTo(w * 0.6f, h * 0.3f)              // Vers le centre en haut
-            reusablePath.lineTo(w * 0.6f, h.toFloat())           // Descend au centre
-            reusablePath.lineTo(w.toFloat(), h.toFloat())        // Coin bas droit
-            reusablePath.close()
-            canvas.drawPath(reusablePath, paint)
-            
-            // Maintenant on a un halfpipe en U !
-            // Le fond blanc reste entre 40% et 60% de l'écran
-            
-            // LIGNES DE PERSPECTIVE QUI AVANCENT
-            paint.color = Color.parseColor("#DDDDDD")
-            paint.strokeWidth = 2f
-            paint.style = Paint.Style.STROKE
-            
-            // Lignes qui viennent du fond (haut) vers nous (bas)
-            for (i in 0..20) {
-                val lineY = h * 0.3f + i * 30f - scrollOffset
+            // Sapins à gauche
+            for (i in 0..3) {
+                val treeX = w * (0.05f + i * 0.08f)
+                val treeY = h * (0.35f + i * 0.1f)
+                val treeSize = 30f + i * 10f
                 
-                if (lineY >= h * 0.3f && lineY <= h.toFloat()) {
-                    // Perspective : les lignes s'élargissent en s'approchant
-                    val perspective = (lineY - h * 0.3f) / (h * 0.7f)
-                    val leftX = w * (0.4f - perspective * 0.4f)    // S'élargit vers la gauche
-                    val rightX = w * (0.6f + perspective * 0.4f)   // S'élargit vers la droite
-                    
-                    // Ligne du fond du halfpipe
-                    canvas.drawLine(leftX, lineY, rightX, lineY, paint)
-                    
-                    // Lignes sur les rampes (si assez proche)
-                    if (perspective > 0.3f) {
-                        // Rampe gauche
-                        canvas.drawLine(leftX - perspective * 80f, lineY - perspective * 30f, leftX, lineY, paint)
-                        // Rampe droite
-                        canvas.drawLine(rightX, lineY, rightX + perspective * 80f, lineY - perspective * 30f, paint)
-                    }
+                // Tronc
+                paint.color = Color.parseColor("#8B4513")
+                canvas.drawRect(treeX - 5f, treeY, treeX + 5f, treeY + treeSize * 0.3f, paint)
+                
+                // Branches (3 étages)
+                paint.color = Color.parseColor("#2D5016")
+                for (j in 0..2) {
+                    val branchY = treeY - j * treeSize * 0.2f
+                    val branchSize = treeSize * (1f - j * 0.2f)
+                    val trianglePath = Path()
+                    trianglePath.moveTo(treeX, branchY - branchSize * 0.4f)
+                    trianglePath.lineTo(treeX - branchSize * 0.5f, branchY)
+                    trianglePath.lineTo(treeX + branchSize * 0.5f, branchY)
+                    trianglePath.close()
+                    canvas.drawPath(trianglePath, paint)
                 }
             }
             
-            // Bords du halfpipe
-            paint.color = Color.parseColor("#AAAAAA")
-            paint.strokeWidth = 4f
+            // Sapins à droite (miroir)
+            for (i in 0..3) {
+                val treeX = w * (0.95f - i * 0.08f)
+                val treeY = h * (0.35f + i * 0.1f)
+                val treeSize = 30f + i * 10f
+                
+                // Tronc
+                paint.color = Color.parseColor("#8B4513")
+                canvas.drawRect(treeX - 5f, treeY, treeX + 5f, treeY + treeSize * 0.3f, paint)
+                
+                // Branches
+                paint.color = Color.parseColor("#2D5016")
+                for (j in 0..2) {
+                    val branchY = treeY - j * treeSize * 0.2f
+                    val branchSize = treeSize * (1f - j * 0.2f)
+                    val trianglePath = Path()
+                    trianglePath.moveTo(treeX, branchY - branchSize * 0.4f)
+                    trianglePath.lineTo(treeX - branchSize * 0.5f, branchY)
+                    trianglePath.lineTo(treeX + branchSize * 0.5f, branchY)
+                    trianglePath.close()
+                    canvas.drawPath(trianglePath, paint)
+                }
+            }
+        }
+        
+        private fun drawSnowflakes(canvas: Canvas, w: Int, h: Int) {
+            paint.color = Color.WHITE
+            val currentTime = System.currentTimeMillis()
             
-            // Bord gauche du U
-            canvas.drawLine(0f, h * 0.3f, w * 0.4f, h * 0.3f, paint)
-            canvas.drawLine(w * 0.4f, h * 0.3f, w * 0.4f, h.toFloat(), paint)
-            
-            // Bord droit du U
-            canvas.drawLine(w.toFloat(), h * 0.3f, w * 0.6f, h * 0.3f, paint)
-            canvas.drawLine(w * 0.6f, h * 0.3f, w * 0.6f, h.toFloat(), paint)
-            
-            paint.style = Paint.Style.FILL
+            // Flocons animés qui tombent
+            for (i in 0..15) {
+                val flakeX = (w * 0.1f + (i * 67f) % (w * 0.8f)) + 
+                            sin((currentTime + i * 1000L) / 2000.0) * 30f
+                val flakeY = ((currentTime / 50L + i * 100L) % (h * 1.2f)).toFloat() - h * 0.2f
+                
+                if (flakeY > 0 && flakeY < h) {
+                    val flakeSize = 2f + (i % 3) * 1f
+                    canvas.drawCircle(flakeX.toFloat(), flakeY, flakeSize, paint)
+                }
+            }
+        }
+        
+        private fun drawAnimatedTrack(canvas: Canvas, w: Int, h: Int) {
+            snowTrackSpriteBitmap?.let { trackBitmap ->
+                if (trackFrames.isEmpty()) return
+                
+                val scrollSpeed = speed * 0.8f
+                val scrollOffset = (pipeScroll * scrollSpeed) % (trackFrames.size * 100f)
+                
+                // Dessiner plusieurs segments de piste pour couvrir l'écran
+                val trackWidth = w * 0.5f // La piste prend 50% de la largeur
+                val trackX = w * 0.25f    // Centrée horizontalement
+                
+                for (i in -2..8) { // Segments qui couvrent tout l'écran
+                    val segmentY = i * 120f - scrollOffset
+                    
+                    if (segmentY < h + 120f && segmentY > -120f) {
+                        // Sélectionner la frame selon la position (cycle à travers les 12 frames)
+                        val frameIndex = ((scrollOffset / 100f + i).toInt() % trackFrames.size + trackFrames.size) % trackFrames.size
+                        val frame = trackFrames[frameIndex]
+                        
+                        // Perspective : plus proche = plus grand
+                        val perspective = (segmentY + 120f) / (h + 240f)
+                        val scale = 0.3f + perspective * 0.7f // De 30% à 100% de taille
+                        
+                        val scaledWidth = trackWidth * scale
+                        val scaledHeight = 120f * scale
+                        val scaledX = trackX + (trackWidth - scaledWidth) / 2f
+                        
+                        reusableRectF.set(
+                            scaledX,
+                            segmentY,
+                            scaledX + scaledWidth,
+                            segmentY + scaledHeight
+                        )
+                        
+                        canvas.drawBitmap(trackBitmap, frame, reusableRectF, paint)
+                    }
+                }
+            }
         }
         
         private fun drawSnowboarderFromBehind(canvas: Canvas, w: Int, h: Int) {
@@ -1081,17 +1269,17 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             val scale = if (isInAir) 1.1f else 1f
             canvas.scale(scale, scale)
             
-            // Dessiner l'image du snowboarder
+            // Dessiner l'image du snowboarder avec découpage intelligent
             snowboarderImage?.let { image ->
-                drawSnowboarderFromSpriteSheet(canvas, image)
+                drawSnowboarderFromSpriteSheet(canvas, image, getCacheKey(image))
             } ?: run {
                 // Fallback si pas d'image
                 paint.color = Color.parseColor("#FF6600")
-                canvas.drawCircle(0f, 0f, 20f, paint)
+                canvas.drawCircle(0f, 0f, 16f, paint) // Aussi réduit de 20%
                 
                 // Snowboard
                 paint.color = Color.parseColor("#4400FF")
-                canvas.drawRoundRect(-25f, 15f, 25f, 25f, 5f, 5f, paint)
+                canvas.drawRoundRect(-20f, 12f, 20f, 20f, 4f, 4f, paint) // Réduit de 20%
             }
             
             canvas.restore()
@@ -1167,34 +1355,53 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             }
         }
         
-        private fun drawSnowboarderFromSpriteSheet(canvas: Canvas, spriteSheet: Bitmap) {
-            // Pour les sprite-sheets de 5 images, utiliser l'image du milieu (index 2) pour "tout droit"
-            // ou animer selon la phase de mouvement
+        private fun drawSnowboarderFromSpriteSheet(canvas: Canvas, spriteSheet: Bitmap, cacheKey: String) {
+            val frames = snowboarderFrameCache[cacheKey]
+            if (frames == null || frames.isEmpty()) {
+                // Fallback : découpage simple si pas de cache
+                val frameWidth = spriteSheet.width / 5
+                val frameHeight = spriteSheet.height
+                val frameIndex = 2 // Frame du milieu par défaut
+                
+                val srcLeft = frameIndex * frameWidth
+                val srcRect = Rect(srcLeft, 0, srcLeft + frameWidth, frameHeight)
+                
+                val imageScale = 0.48f // Réduit de 20% (0.6f -> 0.48f)
+                val imageWidth = frameWidth * imageScale
+                val imageHeight = frameHeight * imageScale
+                
+                reusableRectF.set(
+                    -imageWidth/2f,
+                    -imageHeight/2f,
+                    imageWidth/2f,
+                    imageHeight/2f
+                )
+                
+                canvas.drawBitmap(spriteSheet, srcRect, reusableRectF, paint)
+                return
+            }
             
-            val frameWidth = spriteSheet.width / 5 // 5 images par sprite-sheet
-            val frameHeight = spriteSheet.height
-            
-            // Sélectionner la frame selon l'état
+            // Sélectionner la frame selon l'état avec découpage intelligent
             val frameIndex = when {
                 isLanding -> {
                     // Animation de landing (0 à 4)
-                    (landingTimer * 8f).toInt().coerceIn(0, 4)
+                    (landingTimer * 8f).toInt().coerceIn(0, frames.size - 1)
                 }
-                isInAir -> 2 // Frame du milieu en l'air
-                currentSide == RiderSide.CENTER -> 2 // Frame "tout droit"
+                isInAir -> (frames.size / 2).coerceAtMost(frames.size - 1) // Frame du milieu en l'air
+                currentSide == RiderSide.CENTER -> (frames.size / 2).coerceAtMost(frames.size - 1) // Frame "tout droit"
                 else -> {
-                    // Animation de montée (0 à 4)
-                    val animSpeed = abs(momentum) * 10f
-                    ((System.currentTimeMillis() / 150L * animSpeed).toInt() % 5)
+                    // Animation de montée selon momentum
+                    val animSpeed = abs(momentum) * 8f + 1f
+                    ((System.currentTimeMillis() / 200L * animSpeed).toInt() % frames.size)
                 }
             }
             
-            // Source rect (frame dans le sprite-sheet)
-            val srcLeft = frameIndex * frameWidth
-            val srcRect = Rect(srcLeft, 0, srcLeft + frameWidth, frameHeight)
+            val frame = frames[frameIndex]
             
-            // Destination rect (taille sur l'écran)
-            val imageScale = 0.6f
+            // Taille réduite de 20%
+            val imageScale = 0.48f // 0.6f * 0.8f = 0.48f
+            val frameWidth = frame.width()
+            val frameHeight = frame.height()
             val imageWidth = frameWidth * imageScale
             val imageHeight = frameHeight * imageScale
             
@@ -1205,7 +1412,7 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
                 imageHeight/2f
             )
             
-            canvas.drawBitmap(spriteSheet, srcRect, reusableRectF, paint)
+            canvas.drawBitmap(spriteSheet, frame, reusableRectF, paint)
         }
         
         private fun drawGameInterface(canvas: Canvas, w: Int, h: Int) {
