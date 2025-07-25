@@ -30,13 +30,14 @@ class SlalomActivity : Activity(), SensorEventListener {
     private var skierRightTurn: Bitmap? = null
     private var flagRed: Bitmap? = null
     private var flagBlue: Bitmap? = null
+    private var preparationImage: Bitmap? = null // NOUVEAU - Image de préparation
 
     // Variables de gameplay SLALOM
     private var gameState = GameState.PREPARATION
     private var phaseTimer = 0f
     
     // Phases avec durées réalistes
-    private val preparationDuration = 8f
+    private val preparationDuration = 7f // Changé de 8f à 7f
     private val raceDuration = 40f
     private val resultsDuration = 8f
     
@@ -135,6 +136,7 @@ class SlalomActivity : Activity(), SensorEventListener {
             skierRightTurn = BitmapFactory.decodeResource(resources, R.drawable.slalom_right_turn)
             flagRed = BitmapFactory.decodeResource(resources, R.drawable.slalom_flag_red)
             flagBlue = BitmapFactory.decodeResource(resources, R.drawable.slalom_flag_bleu)
+            preparationImage = BitmapFactory.decodeResource(resources, R.drawable.slalom_preparation) // NOUVEAU
         } catch (e: Exception) {
             e.printStackTrace()
         }
