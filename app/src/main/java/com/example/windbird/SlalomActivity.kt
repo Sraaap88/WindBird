@@ -773,11 +773,12 @@ class SlalomActivity : Activity(), SensorEventListener {
                 
                 // Drapeaux visibles BEAUCOUP PLUS TÔT (apparaissent de loin)
                 if (distanceToGate > 0f && distanceToGate < 1200f) { // Distance doublée (était 600f)
-                    // Logique perspective avec effet sommet de colline plus prononcé
+                    // LOGIQUE CORRIGÉE : quand distanceToGate diminue, les drapeaux s'approchent
                     val distanceRatio = distanceToGate / 1200f // 1.0 = très loin, 0.0 = très proche
                     
-                    // Courbe plus prononcée pour effet colline/cylindre
-                    val curveFactor = 1f - cos(distanceRatio * Math.PI / 2f).toFloat() // Courbe cosinus
+                    // CORRECTION : inverser pour que les drapeaux s'approchent vraiment
+                    val approachFactor = 1f - distanceRatio // 0.0 = loin, 1.0 = proche
+                    val curveFactor = 1f - cos(approachFactor * Math.PI / 2f).toFloat() // Courbe cosinus
                     val screenY = vanishingPointY + curveFactor * (h - vanishingPointY)
                     
                     if (screenY >= vanishingPointY && screenY <= h) {
