@@ -568,8 +568,8 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         val windEffect = activity.getWindDirection() * activity.getWindStrength() * activity.getWindTransition()
         canvas.rotate(windEffect * 8f)
         
-        // PERSPECTIVE - ENCORE 30% plus petit
-        val scale = 0.39f - flightProgress * 0.147f // De 0.39f à 0.243f (30% plus petit que 0.56f-0.35f)
+        // DIMENSION FIXE - pas de changement pendant le vol
+        val scale = 0.12f // Petite taille constante (comme à la fin de l'approche)
         
         skierFlightBitmap?.let { bmp ->
             val dstRect = RectF(
@@ -646,22 +646,18 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         val skierX: Float
         val skierY: Float
         val currentBitmap: Bitmap?
-        val scale: Float
-        
         when {
             landingProgress < 0.3f -> {
                 val descentProgress = landingProgress / 0.3f
                 skierX = w * (0.2f + descentProgress * 0.3f)
                 skierY = h * (0.3f + descentProgress * 0.45f)
                 currentBitmap = skierLand1Bitmap
-                scale = 1.05f - descentProgress * 0.63f // 30% plus petit (1.5f -> 1.05f)
             }
             landingProgress < 0.82f -> {
                 val impactProgress = (landingProgress - 0.3f) / 0.52f
                 skierX = w * (0.5f + impactProgress * 0.1f)
                 skierY = h * 0.75f
                 currentBitmap = skierLand2Bitmap
-                scale = 0.42f // 30% plus petit (0.6f -> 0.42f)
                 
                 // Explosion de neige
                 paint.color = Color.WHITE
@@ -679,7 +675,6 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
                 skierX = w * (0.6f + standingProgress * 0.1f)
                 skierY = h * 0.75f
                 currentBitmap = skierLand3Bitmap
-                scale = 0.455f // 30% plus petit (0.65f -> 0.455f)
             }
         }
         
