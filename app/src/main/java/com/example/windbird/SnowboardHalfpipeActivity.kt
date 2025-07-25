@@ -788,6 +788,8 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         }
     }
 
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+
     override fun onDestroy() {
         super.onDestroy()
         // Libérer les bitmaps
