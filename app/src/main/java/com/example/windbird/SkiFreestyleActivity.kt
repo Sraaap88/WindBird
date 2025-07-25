@@ -186,9 +186,7 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
 
     private fun loadSkierImage() {
         try {
-            val inputStream = assets.open("skifreestyle.png")
-            skierBitmap = BitmapFactory.decodeStream(inputStream)
-            inputStream.close()
+            skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skifreestyle)
         } catch (e: Exception) {
             // Garder null si l'image n'existe pas, on utilisera le dessin par défaut
             e.printStackTrace()
