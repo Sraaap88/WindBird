@@ -143,13 +143,13 @@ class BiathlonActivity : Activity(), SensorEventListener {
             val totalWidth = spriteSheet.width
             val totalHeight = spriteSheet.height
             
-            // CORRECTION : Éliminer complètement le cadre noir - encore 2 pixels supplémentaires
-            val frameWidth = (totalWidth - 39) / 2  // -39 = cadres + marges supplémentaires
+            // CORRECTION FINALE : Éliminer complètement le cadre noir - 4 pixels de chaque côté
+            val frameWidth = (totalWidth - 47) / 2  // -47 = cadres + marges supplémentaires DROITE/GAUCHE
             val frameHeight = totalHeight - 32      // -32 = cadres haut/bas + marges
             
-            // Extraire les frames en évitant les bordures noires - décalage encore augmenté
-            leftFrame = Bitmap.createBitmap(spriteSheet, 16, 16, frameWidth, frameHeight)
-            rightFrame = Bitmap.createBitmap(spriteSheet, 23 + frameWidth, 16, frameWidth, frameHeight)
+            // Extraire les frames en évitant les bordures noires - décalage maximal
+            leftFrame = Bitmap.createBitmap(spriteSheet, 20, 16, frameWidth, frameHeight)  // +4 pixels à gauche
+            rightFrame = Bitmap.createBitmap(spriteSheet, 27 + frameWidth, 16, frameWidth, frameHeight)  // +4 pixels entre les frames
             
             // Redimensionner
             val newWidth = frameWidth / 3
@@ -470,10 +470,21 @@ class BiathlonActivity : Activity(), SensorEventListener {
 
     private fun calculateScore(): Int {
         val shootingScore = totalScore
-        val distanceBonus = 100 // Bonus pour avoir terminé
-        val rhythmBonus = (averageRhythm * 100).toInt().coerceAtMost(50)
-        val penaltyForMissedShots = (5 - targetsHit) * 15
-        return maxOf(50, shootingScore + distanceBonus + rhythmBonus - penaltyForMissedShots)
+        val distanceBonus = 200 // AUGMENTÉ : Bonus pour avoir terminé (était 100)
+        val rhythmBonus = (averageRhythm * 150).toInt().coerceAtMost(100) // AUGMENTÉ : Plus de points pour le rythme
+        val pushBonus = (pushCount * 5).coerceAtMost(100) // NOUVEAU : Bonus pour chaque poussée
+        val speedBonus = if (pushCount > 0) {
+            val avgPushesPerScreen = pushCount / 5f // 5 écrans de ski
+            when {
+                avgPushesPerScreen >= 15f -> 100 // Très rapide
+                avgPushesPerScreen >= 12f -> 75  // Rapide
+                avgPushesPerScreen >= 10f -> 50  // Moyen
+                else -> 25 // Lent mais bonus quand même
+            }
+        } else 0
+        val penaltyForMissedShots = (5 - targetsHit) * 10 // RÉDUIT : Moins de pénalité (était 15)
+        
+        return maxOf(100, shootingScore + distanceBonus + rhythmBonus + pushBonus + speedBonus - penaltyForMissedShots)
     }
 
     private fun proceedToNextPlayerOrEvent() {
@@ -992,8 +1003,7 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 "🎯 Tirs réussis: $targetsHit/5",
                 "💥 Score tir: $totalScore pts",
                 "🏃 Poussées: $pushCount",
-                "⚡ Rythme moyen: ${(averageRhythm * 100).toInt()}%",
-                "🏆 SCORE FINAL: ${calculateScore()} pts"
+                "⚡ Rythme moyen: ${(averageRhythm * 100).toInt()}%"
             )
             
             var yPosition = 200f
@@ -1001,6 +1011,12 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 canvas.drawText(stat, w/2f, yPosition, paint)
                 yPosition += 70f
             }
+            
+            // SCORE FINAL EN DOUBLE GROSSEUR
+            paint.color = Color.parseColor("#8B0000")
+            paint.textSize = 90f  // DOUBLE (était 45f)
+            paint.isFakeBoldText = true
+            canvas.drawText("🏆 SCORE FINAL: ${calculateScore()} pts", w/2f, yPosition, paint)
             
             // Message de fin
             paint.color = Color.parseColor("#006400")
