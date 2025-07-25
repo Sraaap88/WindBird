@@ -180,12 +180,17 @@ class SlalomActivity : Activity(), SensorEventListener {
     }
     
     private fun generateSlalomCourse() {
-        // Générer des PAIRES de drapeaux pour vraie perspective
+        // Générer des PAIRES de drapeaux avec positions VARIÉES
         var currentPosition = 150f
         
         repeat(20) { i ->
-            val gateCenter = 0.3f + (i % 2) * 0.4f // Alternance gauche-droite
-            val gateWidth = 0.15f // Largeur entre les drapeaux
+            // Positions variées au lieu d'être toutes alignées
+            val baseX = 0.3f + (i % 2) * 0.4f // Base alternée gauche-droite
+            val randomOffset = (kotlin.random.Random.nextFloat() - 0.5f) * 0.15f // Variation aléatoire
+            val gateCenter = (baseX + randomOffset).coerceIn(0.25f, 0.75f)
+            
+            // Largeur variable des portes
+            val gateWidth = 0.12f + kotlin.random.Random.nextFloat() * 0.06f // Entre 0.12f et 0.18f
             
             // Paire de drapeaux (rouge à gauche, bleu à droite)
             gates.add(SlalomGate(
@@ -196,7 +201,8 @@ class SlalomActivity : Activity(), SensorEventListener {
                 passed = false
             ))
             
-            currentPosition += 90f + kotlin.random.Random.nextFloat() * 20f
+            // Espacement variable entre les portes
+            currentPosition += 75f + kotlin.random.Random.nextFloat() * 30f // Entre 75f et 105f
         }
     }
 
@@ -764,16 +770,16 @@ class SlalomActivity : Activity(), SensorEventListener {
                 
                 // Seulement dessiner les portes visibles devant nous
                 if (distanceToGate > 0f && distanceToGate < 600f) {
-                    // Calcul de la position Y selon la distance (même logique que les lignes)
-                    val distanceRatio = distanceToGate / 600f
-                    val screenY = h - (1f - distanceRatio) * (h - vanishingPointY)
+                    // LOGIQUE CORRIGÉE : plus la distance diminue, plus ils sont proches (plus gros)
+                    val distanceRatio = distanceToGate / 600f // 1.0 = loin, 0.0 = proche
+                    val screenY = vanishingPointY + (1f - distanceRatio) * (h - vanishingPointY)
                     
                     if (screenY >= vanishingPointY && screenY <= h) {
-                        // Facteur de perspective cohérent avec la piste
+                        // Facteur de perspective : plus proche = plus gros
                         val perspectiveFactor = (screenY - vanishingPointY) / (h - vanishingPointY)
                         
-                        // Taille des drapeaux selon la distance
-                        val flagScale = perspectiveFactor * 0.8f + 0.1f
+                        // Taille des drapeaux selon la distance - PLUS GROS
+                        val flagScale = perspectiveFactor * 1.2f + 0.15f // Augmenté de 0.8f à 1.2f
                         
                         // Positions X des drapeaux avec perspective correcte
                         val gateLeftRelative = gate.leftX - 0.5f // Position relative au centre
@@ -784,8 +790,8 @@ class SlalomActivity : Activity(), SensorEventListener {
                         
                         // Dessiner le drapeau ROUGE (gauche)
                         flagRed?.let { bitmap ->
-                            val scaledWidth = bitmap.width * flagScale * 0.12f
-                            val scaledHeight = bitmap.height * flagScale * 0.12f
+                            val scaledWidth = bitmap.width * flagScale * 0.18f // Augmenté de 0.12f à 0.18f
+                            val scaledHeight = bitmap.height * flagScale * 0.18f
                             
                             canvas.drawBitmap(
                                 bitmap,
@@ -802,8 +808,8 @@ class SlalomActivity : Activity(), SensorEventListener {
                         
                         // Dessiner le drapeau BLEU (droite)
                         flagBlue?.let { bitmap ->
-                            val scaledWidth = bitmap.width * flagScale * 0.12f
-                            val scaledHeight = bitmap.height * flagScale * 0.12f
+                            val scaledWidth = bitmap.width * flagScale * 0.18f // Augmenté de 0.12f à 0.18f
+                            val scaledHeight = bitmap.height * flagScale * 0.18f
                             
                             canvas.drawBitmap(
                                 bitmap,
@@ -851,10 +857,10 @@ class SlalomActivity : Activity(), SensorEventListener {
         private fun drawSkier(canvas: Canvas, w: Int, h: Int) {
             val skierScreenX = skierX * w
             
-            // NOUVEAU : Position Y variable selon la vitesse (repère visuel)
-            val baseY = h * 0.8f // Position plus haute
-            val speedOffset = (speed - 35f) * 0.8f // Décalage selon vitesse
-            val skierScreenY = baseY - speedOffset.coerceIn(-40f, 40f)
+            // Position Y variable selon la vitesse - PLAGE DE 1CM (environ 38 pixels)
+            val baseY = h * 0.8f // Position de base
+            val speedOffset = (speed - 35f) * 1.2f // Augmenté pour 1cm de plage (environ ±19px)
+            val skierScreenY = baseY - speedOffset.coerceIn(-19f, 19f) // Plage d'environ 1cm
             
             // Choisir l'image selon la direction
             val currentSkierImage = when {
@@ -863,9 +869,9 @@ class SlalomActivity : Activity(), SensorEventListener {
                 else -> skierNoTurn              // Tout droit
             }
             
-            // Dessiner l'image du skieur - TAILLE RÉDUITE
+            // Dessiner l'image du skieur - ENCORE PLUS PETIT
             currentSkierImage?.let { bitmap ->
-                val scaleFactor = 0.4f // Réduit de 0.6f à 0.4f
+                val scaleFactor = 0.3f // Réduit de 0.4f à 0.3f
                 val scaledWidth = bitmap.width * scaleFactor
                 val scaledHeight = bitmap.height * scaleFactor
                 
@@ -883,22 +889,22 @@ class SlalomActivity : Activity(), SensorEventListener {
             } ?: run {
                 // Fallback si les images ne sont pas chargées
                 paint.color = Color.parseColor("#FF6600")
-                canvas.drawCircle(skierScreenX, skierScreenY, 20f, paint) // Plus petit aussi
+                canvas.drawCircle(skierScreenX, skierScreenY, 15f, paint) // Plus petit aussi
             }
             
             // MEILLEUR EFFET DE VITESSE - Traces plus nombreuses et dynamiques
             if (speed > 25f) {
                 paint.color = Color.parseColor("#88FFFFFF")
-                val trailCount = ((speed - 25f) / 5f).toInt().coerceIn(1, 8) // Plus de traces = plus de vitesse
+                val trailCount = ((speed - 25f) / 5f).toInt().coerceIn(1, 8)
                 
                 for (i in 1..trailCount) {
                     val alpha = (255 * (1f - i.toFloat() / trailCount)).toInt()
                     paint.alpha = alpha
-                    val trailSize = (25f - i * 2f) * (speed / 50f) // Taille variable selon vitesse
+                    val trailSize = (20f - i * 2f) * (speed / 50f)
                     canvas.drawCircle(
-                        skierScreenX + (kotlin.random.Random.nextFloat() - 0.5f) * 10f, 
-                        skierScreenY + i * 12f, 
-                        trailSize.coerceAtLeast(3f), 
+                        skierScreenX + (kotlin.random.Random.nextFloat() - 0.5f) * 8f, 
+                        skierScreenY + i * 10f, 
+                        trailSize.coerceAtLeast(2f), 
                         paint
                     )
                 }
@@ -908,10 +914,10 @@ class SlalomActivity : Activity(), SensorEventListener {
                 if (speed > 40f) {
                     paint.color = Color.WHITE
                     repeat((speed / 10f).toInt()) {
-                        val particleX = skierScreenX + (kotlin.random.Random.nextFloat() - 0.5f) * 60f
-                        val particleY = skierScreenY + kotlin.random.Random.nextFloat() * 30f
-                        paint.alpha = kotlin.random.Random.nextInt(100, 200)
-                        canvas.drawCircle(particleX, particleY, kotlin.random.Random.nextFloat() * 4f + 1f, paint)
+                        val particleX = skierScreenX + (kotlin.random.Random.nextFloat() - 0.5f) * 50f
+                        val particleY = skierScreenY + kotlin.random.Random.nextFloat() * 25f
+                        paint.alpha = kotlin.random.Random.nextInt(80, 180)
+                        canvas.drawCircle(particleX, particleY, kotlin.random.Random.nextFloat() * 3f + 1f, paint)
                     }
                     paint.alpha = 255
                 }
