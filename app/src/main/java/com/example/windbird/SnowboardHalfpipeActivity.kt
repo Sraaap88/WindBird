@@ -207,15 +207,26 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             // Charger le sprite-sheet de la piste
             snowTrackSpriteBitmap = BitmapFactory.decodeResource(resources, R.drawable.snow_track_sprite)
             
-            // Charger l'image de préparation du halfpipe
-            halfpipePreparationBitmap = BitmapFactory.decodeResource(resources, R.drawable.halfpipe_preparation)
+            // Charger l'image de préparation du halfpipe avec gestion d'erreur
+            try {
+                halfpipePreparationBitmap = BitmapFactory.decodeResource(resources, R.drawable.halfpipe_preparation)
+            } catch (e: Exception) {
+                // L'image de préparation n'existe pas, utiliser le fallback
+                halfpipePreparationBitmap = null
+            }
             
-            // Charger le drapeau du pays du joueur
-            val playerCountry = getPlayerCountry()
-            val flagResourceName = "flag_${playerCountry.lowercase()}"
-            val flagResourceId = resources.getIdentifier(flagResourceName, "drawable", packageName)
-            if (flagResourceId != 0) {
-                countryFlagBitmap = BitmapFactory.decodeResource(resources, flagResourceId)
+            // Charger le drapeau du pays du joueur avec gestion d'erreur
+            try {
+                val playerCountry = getPlayerCountry()
+                val flagResourceName = "flag_${playerCountry.lowercase()}"
+                val flagResourceId = resources.getIdentifier(flagResourceName, "drawable", packageName)
+                if (flagResourceId != 0) {
+                    countryFlagBitmap = BitmapFactory.decodeResource(resources, flagResourceId)
+                } else {
+                    countryFlagBitmap = null
+                }
+            } catch (e: Exception) {
+                countryFlagBitmap = null
             }
             
             // Découper intelligemment les frames
@@ -223,6 +234,7 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
             
         } catch (e: Exception) {
             // Les bitmaps resteront null, le fallback sera utilisé
+            android.util.Log.e("SnowboardHalfpipe", "Erreur chargement images: ${e.message}")
         }
     }
     
@@ -255,42 +267,67 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
     }
     
     private fun analyzeAndCacheFrames() {
-        // Découpage intelligent des snowboarders (5 frames par sprite-sheet)
-        snowLeftSpriteBitmap?.let { 
-            snowboarderFrameCache["left_sprite"] = analyzeFrameBounds(it, 5, 1)
+        try {
+            // Découpage des snowboarders (5 frames par sprite-sheet horizontal)
+            snowLeftSpriteBitmap?.let { 
+                snowboarderFrameCache["left_sprite"] = divideSpritesheetProperly(it, 5, 1)
+            }
+            snowRightSpriteBitmap?.let { 
+                snowboarderFrameCache["right_sprite"] = divideSpritesheetProperly(it, 5, 1)
+            }
+            snowLeftLandingBitmap?.let { 
+                snowboarderFrameCache["left_landing"] = divideSpritesheetProperly(it, 5, 1)
+            }
+            snowRightLandingBitmap?.let { 
+                snowboarderFrameCache["right_landing"] = divideSpritesheetProperly(it, 5, 1)
+            }
+            snowLeftRotationBitmap?.let { 
+                snowboarderFrameCache["left_rotation"] = divideSpritesheetProperly(it, 5, 1)
+            }
+            snowRightRotationBitmap?.let { 
+                snowboarderFrameCache["right_rotation"] = divideSpritesheetProperly(it, 5, 1)
+            }
+            snowLeftGrabBitmap?.let { 
+                snowboarderFrameCache["left_grab"] = divideSpritesheetProperly(it, 5, 1)
+            }
+            snowRightGrabBitmap?.let { 
+                snowboarderFrameCache["right_grab"] = divideSpritesheetProperly(it, 5, 1)
+            }
+            snowLeftSpinBitmap?.let { 
+                snowboarderFrameCache["left_spin"] = divideSpritesheetProperly(it, 5, 1)
+            }
+            snowRightSpinBitmap?.let { 
+                snowboarderFrameCache["right_spin"] = divideSpritesheetProperly(it, 5, 1)
+            }
+            
+            // Découpage du sprite-sheet de la piste (3 colonnes x 4 rangées = 12 frames)
+            snowTrackSpriteBitmap?.let {
+                trackFrames = divideSpritesheetProperly(it, 3, 4).toMutableList()
+            }
+            
+        } catch (e: Exception) {
+            android.util.Log.e("SnowboardHalfpipe", "Erreur découpage frames: ${e.message}")
         }
-        snowRightSpriteBitmap?.let { 
-            snowboarderFrameCache["right_sprite"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowLeftLandingBitmap?.let { 
-            snowboarderFrameCache["left_landing"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowRightLandingBitmap?.let { 
-            snowboarderFrameCache["right_landing"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowLeftRotationBitmap?.let { 
-            snowboarderFrameCache["left_rotation"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowRightRotationBitmap?.let { 
-            snowboarderFrameCache["right_rotation"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowLeftGrabBitmap?.let { 
-            snowboarderFrameCache["left_grab"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowRightGrabBitmap?.let { 
-            snowboarderFrameCache["right_grab"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowLeftSpinBitmap?.let { 
-            snowboarderFrameCache["left_spin"] = analyzeFrameBounds(it, 5, 1)
-        }
-        snowRightSpinBitmap?.let { 
-            snowboarderFrameCache["right_spin"] = analyzeFrameBounds(it, 5, 1)
+    }
+    
+    private fun divideSpritesheetProperly(bitmap: Bitmap, cols: Int, rows: Int): List<Rect> {
+        val frames = mutableListOf<Rect>()
+        val frameWidth = bitmap.width / cols
+        val frameHeight = bitmap.height / rows
+        
+        // Découpage simple et propre - diviser l'image en grille régulière
+        for (row in 0 until rows) {
+            for (col in 0 until cols) {
+                val left = col * frameWidth
+                val top = row * frameHeight
+                val right = left + frameWidth
+                val bottom = top + frameHeight
+                
+                frames.add(Rect(left, top, right, bottom))
+            }
         }
         
-        // Découpage de la piste (3x4 = 12 frames)
-        snowTrackSpriteBitmap?.let {
-            trackFrames = analyzeFrameBounds(it, 3, 4).toMutableList()
-        }
+        return frames
     }
     
     private fun analyzeFrameBounds(bitmap: Bitmap, cols: Int, rows: Int): List<Rect> {
