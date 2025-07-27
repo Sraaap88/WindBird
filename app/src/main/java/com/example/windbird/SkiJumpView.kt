@@ -776,7 +776,7 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
             activity.getSpeed() > 40f -> Color.YELLOW
             else -> Color.RED
         }
-        val speedHeight = (activity.getSpeed() / activity.getMaxSpeed()) * (h - 280f)
+        val speedHeight = (activity.getSpeed() / activity.getMaxAchievableSpeed()) * (h - 280f) // Utilise la vitesse max actuelle
         canvas.drawRect(w - 105f, h - 140f - speedHeight, w - 35f, h - 140f, paint)
         
         paint.color = Color.WHITE
