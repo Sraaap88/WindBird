@@ -208,12 +208,33 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
     }
     
     private fun drawPreparation(canvas: Canvas, w: Int, h: Int) {
+        // CORRIGÉ - Image centrée sans étirement
         preparationBitmap?.let { prep ->
-            val dstRect = RectF(0f, 0f, w.toFloat(), h.toFloat())
+            // Calculer les dimensions pour centrer sans déformer
+            val imageRatio = prep.width.toFloat() / prep.height.toFloat()
+            val screenRatio = w.toFloat() / h.toFloat()
+            
+            val imageWidth: Float
+            val imageHeight: Float
+            
+            if (imageRatio > screenRatio) {
+                // Image plus large que l'écran
+                imageWidth = w.toFloat()
+                imageHeight = w.toFloat() / imageRatio
+            } else {
+                // Image plus haute que l'écran
+                imageHeight = h.toFloat()
+                imageWidth = h.toFloat() * imageRatio
+            }
+            
+            val imageX = (w - imageWidth) / 2f
+            val imageY = (h - imageHeight) / 2f
+            
+            val dstRect = RectF(imageX, imageY, imageX + imageWidth, imageY + imageHeight)
             canvas.drawBitmap(prep, null, dstRect, paint)
         }
         
-        // Rectangle et drapeau parfaitement centrés
+        // Rectangle et drapeau (identique)
         val flagRectWidth = w * 0.22f
         val flagRectHeight = h * 0.22f
         val flagRectX = w * 0.39f
@@ -231,24 +252,44 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
             canvas.drawBitmap(flag, null, flagDstRect, paint)
         }
         
+        // NOUVEAU - Instructions sur les côtés avec fond semi-transparent
+        
+        // CÔTÉ GAUCHE - Titre et préparation
+        paint.color = Color.parseColor("#88000000") // Fond semi-transparent
+        canvas.drawRect(0f, h * 0.25f, w * 0.35f, h * 0.75f, paint)
+        
         paint.color = Color.WHITE
-        paint.textSize = 112f
+        paint.textSize = 70f // Ajusté pour être visible mais pas énorme
         paint.textAlign = Paint.Align.CENTER
         paint.typeface = Typeface.DEFAULT_BOLD
-        canvas.drawText("🎿 SAUT À SKI 🎿", w/2f, h * 0.35f, paint)
+        canvas.drawText("🎿 SAUT", w * 0.175f, h * 0.35f, paint)
+        canvas.drawText("À SKI 🎿", w * 0.175f, h * 0.42f, paint)
         
-        paint.textSize = 80f
-        canvas.drawText("Préparez-vous...", w/2f, h * 0.47f, paint) // Plus espacé
+        paint.textSize = 50f
+        canvas.drawText("Préparez-vous...", w * 0.175f, h * 0.52f, paint)
         
-        paint.textSize = 72f
+        paint.textSize = 45f
         paint.color = Color.YELLOW
-        canvas.drawText("Dans ${(activity.getPreparationDuration() - activity.getPhaseTimer()).toInt() + 1} secondes", w/2f, h * 0.57f, paint) // Plus espacé
+        canvas.drawText("Dans", w * 0.175f, h * 0.60f, paint)
+        canvas.drawText("${(activity.getPreparationDuration() - activity.getPhaseTimer()).toInt() + 1} sec", w * 0.175f, h * 0.67f, paint)
         
-        paint.textSize = 80f
-        paint.color = Color.parseColor("#00FF00") // Vert brillant au lieu de turquoise
-        canvas.drawText("📱 2 TAPS sur l'écran pour démarrer", w/2f, h * 0.72f, paint) // Plus espacé
-        canvas.drawText("📱 SUIVEZ la zone verte qui descend", w/2f, h * 0.80f, paint) // Plus espacé
-        canvas.drawText("📱 COUP DE FOUET au moment du saut", w/2f, h * 0.88f, paint) // Plus espacé
+        // CÔTÉ DROIT - Instructions
+        paint.color = Color.parseColor("#88000000") // Fond semi-transparent
+        canvas.drawRect(w * 0.65f, h * 0.25f, w.toFloat(), h * 0.75f, paint)
+        
+        paint.textSize = 45f
+        paint.color = Color.parseColor("#00FF00") // Vert brillant
+        paint.typeface = Typeface.DEFAULT_BOLD
+        canvas.drawText("📱 2 TAPS", w * 0.825f, h * 0.35f, paint)
+        canvas.drawText("pour démarrer", w * 0.825f, h * 0.42f, paint)
+        
+        paint.textSize = 40f
+        canvas.drawText("📱 SUIVEZ", w * 0.825f, h * 0.52f, paint)
+        canvas.drawText("zone verte", w * 0.825f, h * 0.59f, paint)
+        
+        paint.textSize = 40f
+        canvas.drawText("📱 COUP DE", w * 0.825f, h * 0.69f, paint)
+        canvas.drawText("FOUET au saut", w * 0.825f, h * 0.76f, paint)
         
         paint.typeface = Typeface.DEFAULT
     }
