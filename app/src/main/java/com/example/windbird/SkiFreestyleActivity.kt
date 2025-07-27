@@ -162,8 +162,9 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
         accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
-        // Charger l'image du skieur
+        // Charger les images
         loadSkierImage()
+        loadPreparationImage()
 
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
@@ -189,6 +190,18 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skifreestyle)
         } catch (e: Exception) {
             // Garder null si l'image n'existe pas, on utilisera le dessin par défaut
+            e.printStackTrace()
+        }
+    }
+    
+    // Variable pour l'image de préparation
+    var preparationBitmap: Bitmap? = null
+        private set
+    
+    private fun loadPreparationImage() {
+        try {
+            preparationBitmap = BitmapFactory.decodeResource(resources, R.drawable.skifreestyle_preparation)
+        } catch (e: Exception) {
             e.printStackTrace()
         }
     }
@@ -484,14 +497,14 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
         
         // Calcul de la trajectoire selon vitesse et taille du kicker
         val kickerPower = when (kicker.size) {
-            KickerSize.SMALL -> 0.15f
-            KickerSize.MEDIUM -> 0.25f
-            KickerSize.LARGE -> 0.35f
+            KickerSize.SMALL -> 0.20f      // Augmenté de 0.15f
+            KickerSize.MEDIUM -> 0.35f     // Augmenté de 0.25f
+            KickerSize.LARGE -> 0.50f      // Augmenté de 0.35f
         }
         
         // Plus de vitesse = trajectoire plus haute et longue
         val speedFactor = (speed / 30f).coerceIn(0.5f, 1.5f)
-        verticalVelocity = -(kickerPower * speedFactor + pumpEnergy * 0.1f)
+        verticalVelocity = -(kickerPower * speedFactor + pumpEnergy * 0.15f) // Plus de power
         horizontalVelocity = (skierX - 0.5f) * 0.02f // Légère dérive horizontale
         trajectoryPeak = 0f
         
