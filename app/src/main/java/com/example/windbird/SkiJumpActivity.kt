@@ -45,8 +45,9 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var stability = 1f
     private var landingBonus = 0f
     
-    // NOUVEAU - Pour éviter que l'image rechage
-    private var hasUsedJumpImage = false
+    // NOUVEAU - Variables pour la vitesse progressive
+    private var maxAchievableSpeed = 60f  // Vitesse max que le joueur peut atteindre
+    private var performanceScore = 1f     // Score de performance cumulé (0 à 1)
     
     // CORRIGÉ - Variables pour l'approche avec taps
     private var tapCount = 0
@@ -71,7 +72,8 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     
     // Variables pour l'atterrissage
     private var landingPhase = 0
-    private var landingStability = 1f
+    // NOUVEAU - Pour éviter que l'image rechage
+    private var hasUsedJumpImage = false
     
     // Contrôles gyroscope bruts
     private var tiltX = 0f
@@ -158,6 +160,10 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         
         landingPhase = 0
         landingStability = 1f
+        
+        // NOUVEAU - Reset variables de vitesse progressive
+        maxAchievableSpeed = 60f
+        performanceScore = 1f
         
         // NOUVEAU - Reset image de saut
         hasUsedJumpImage = false
@@ -260,7 +266,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             speed -= speedLoss
         }
         
-        speed = speed.coerceIn(0f, maxSpeed)
+        speed = speed.coerceIn(0f, maxAchievableSpeed) // Limite selon la performance
         
         // Transition automatique
         if (approachProgress >= 1f) {
@@ -606,6 +612,8 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     fun getTakeoffDuration() = takeoffDuration
     fun getFlightDuration() = flightDuration
     fun getHasUsedJumpImage() = hasUsedJumpImage
+    fun getMaxAchievableSpeed() = maxAchievableSpeed
+    fun getPerformanceScore() = performanceScore
     fun getLandingDuration() = landingDuration
 
     data class SnowParticle(
