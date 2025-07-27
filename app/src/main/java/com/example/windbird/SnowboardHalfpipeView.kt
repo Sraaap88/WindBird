@@ -298,45 +298,33 @@ class SnowboardHalfpipeView(
             
             // Animation de défilement basée sur la vitesse et le temps
             val currentTime = System.currentTimeMillis()
-            val scrollSpeed = activity.getSpeed() * 3f
-            val timeBasedScroll = (currentTime / 50f) * (scrollSpeed / 10f)
-            val scrollOffset = (timeBasedScroll + activity.getPipeScroll() * scrollSpeed) % (h * 2f)
+            val scrollSpeed = activity.getSpeed() * 0.5f
+            val scrollOffset = ((currentTime / 100f) * scrollSpeed) % h.toFloat()
             
-            // Dessiner plusieurs segments animés pour créer l'effet de défilement
-            val segmentHeight = h.toFloat()
-            val numberOfSegments = 4 // Plus de segments pour une animation plus fluide
-            
-            for (i in -1..numberOfSegments) {
-                val segmentY = i * segmentHeight - scrollOffset
+            // Dessiner 3 images complètes qui se suivent verticalement pour créer un défilement fluide
+            for (i in -1..1) {
+                val segmentY = i * h.toFloat() - scrollOffset
                 
                 // Vérifier si le segment est visible
-                if (segmentY < h + segmentHeight && segmentY > -segmentHeight) {
-                    // Animation des frames : changer de frame selon le défilement
-                    val animationSpeed = scrollSpeed / 20f
-                    val frameIndex = ((timeBasedScroll / 100f + i * animationSpeed).toInt() % trackFrames.size + trackFrames.size) % trackFrames.size
+                if (segmentY < h + 50f && segmentY > -h - 50f) {
+                    // Choisir une frame du sprite-sheet (cycle à travers les 12 frames)
+                    val frameIndex = ((currentTime / 500f + i).toInt() % trackFrames.size + trackFrames.size) % trackFrames.size
                     val frame = trackFrames[frameIndex]
                     
-                    // Effet de perspective légère pour plus de réalisme
-                    val perspectiveOffset = (segmentY / h) * 20f
-                    
-                    // Dessiner le segment avec effet de mouvement
+                    // Dessiner l'image complète en plein écran
                     reusableRectF.set(
-                        -perspectiveOffset,
+                        0f,
                         segmentY,
-                        w.toFloat() + perspectiveOffset,
-                        segmentY + segmentHeight
+                        w.toFloat(),
+                        segmentY + h.toFloat()
                     )
                     
-                    // Effet de transparence pour les segments éloignés
-                    val alpha = if (i == 0) 255 else (255 * 0.8f).toInt()
-                    paint.alpha = alpha
                     canvas.drawBitmap(trackBitmap, frame, reusableRectF, paint)
-                    paint.alpha = 255
                 }
             }
             
             // Ajouter des lignes de vitesse pour accentuer l'effet de mouvement
-            drawSpeedLines(canvas, w, h, scrollSpeed)
+            drawSpeedLines(canvas, w, h, scrollSpeed * 2f)
         }
     }
     
@@ -503,24 +491,45 @@ class SnowboardHalfpipeView(
             return
         }
         
-        // Sélectionner la frame selon l'état avec découpage intelligent
+        // Sélectionner la frame selon l'état
         val frameIndex = when {
             activity.getIsLanding() -> {
-                // Animation de landing (0 à 4)
-                (activity.getLandingTimer() * 8f).toInt().coerceIn(0, frames.size - 1)
+                // Animation de landing fluide (0 à 4)
+                val landingFrame = (activity.getLandingTimer() * 6f).toInt().coerceIn(0, frames.size - 1)
+                landingFrame
             }
-            activity.getIsInAir() -> (frames.size / 2).coerceAtMost(frames.size - 1) // Frame du milieu en l'air
-            activity.getCurrentSide() == SnowboardHalfpipeActivity.RiderSide.CENTER -> (frames.size / 2).coerceAtMost(frames.size - 1) // Frame "tout droit"
+            activity.getIsInAir() -> {
+                // Frame spécifique pour les airs
+                when (activity.getCurrentTrick()) {
+                    SnowboardHalfpipeActivity.TrickType.SPIN -> {
+                        // Animation de rotation
+                        ((activity.getTrickRotation() / 90f).toInt() % frames.size)
+                    }
+                    SnowboardHalfpipeActivity.TrickType.GRAB -> {
+                        // Frame de grab (milieu du sprite-sheet)
+                        (frames.size / 2).coerceAtMost(frames.size - 1)
+                    }
+                    else -> {
+                        // Frame d'air normale
+                        1.coerceAtMost(frames.size - 1)
+                    }
+                }
+            }
+            activity.getCurrentSide() == SnowboardHalfpipeActivity.RiderSide.CENTER -> {
+                // Frame "tout droit" au centre
+                (frames.size / 2).coerceAtMost(frames.size - 1)
+            }
             else -> {
-                // Animation de montée selon momentum
-                val animSpeed = abs(activity.getMomentum()) * 8f + 1f
-                ((System.currentTimeMillis() / 200L * animSpeed).toInt() % frames.size)
+                // Animation de montée selon momentum et temps
+                val animSpeed = abs(activity.getMomentum()) * 10f + 1f
+                val timeAnimation = (System.currentTimeMillis() / 300L * animSpeed).toInt()
+                timeAnimation % frames.size
             }
         }
         
-        val frame = frames[frameIndex]
+        val frame = frames[frameIndex.coerceIn(0, frames.size - 1)]
         
-        // Taille réduite de 20%
+        // Taille ajustée
         val imageScale = 0.48f // 0.6f * 0.8f = 0.48f
         val frameWidth = frame.width()
         val frameHeight = frame.height()
