@@ -29,10 +29,10 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var gameState = GameState.PREPARATION
     private var phaseTimer = 0f
     
-    // Phases avec durées CORRIGÉES
-    private val preparationDuration = 6f  // 2 secondes de plus (4f -> 6f)
+    // Phases avec durées
+    private val preparationDuration = 6f
     private val approachDuration = 15f
-    private val takeoffDuration = 2.2f  // Plus rapide ! (2.94f -> 2.2f)
+    private val takeoffDuration = 2.2f
     private val flightDuration = 12f
     private val landingDuration = 5.5f
     private val resultsDuration = 8f
@@ -45,19 +45,19 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private var stability = 1f
     private var landingBonus = 0f
     
-    // NOUVEAU - Variables pour la vitesse progressive
-    private var maxAchievableSpeed = 60f  // Vitesse max que le joueur peut atteindre
-    private var performanceScore = 1f     // Score de performance cumulé (0 à 1)
+    // Variables pour la vitesse progressive
+    private var maxAchievableSpeed = 60f
+    private var performanceScore = 1f
     
-    // CORRIGÉ - Variables pour l'approche avec taps
+    // Variables pour l'approche avec taps
     private var tapCount = 0
     private var firstTapTime = 0f
     private var tapBonus = 0f
     
-    // CORRIGÉ - Angle intégré du gyroscope
-    private var integratedTiltY = 0f  // Angle absolu par rapport au départ
-    private var baselineTiltY = 0f    // Position de référence
-    private var hasBaseline = false   // Si on a établi la référence
+    // Angle intégré du gyroscope
+    private var integratedTiltY = 0f
+    private var baselineTiltY = 0f
+    private var hasBaseline = false
     
     private var targetZoneCenter = 0f
     private var targetZoneSize = 20f
@@ -72,7 +72,9 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     
     // Variables pour l'atterrissage
     private var landingPhase = 0
-    // NOUVEAU - Pour éviter que l'image rechage
+    private var landingStability = 1f
+    
+    // Pour éviter que l'image rechage
     private var hasUsedJumpImage = false
     
     // Contrôles gyroscope bruts
@@ -149,7 +151,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         firstTapTime = 0f
         tapBonus = 0f
         
-        // CORRIGÉ - Reset angle intégré
+        // Reset angle intégré
         integratedTiltY = 0f
         baselineTiltY = 0f
         hasBaseline = false
@@ -161,11 +163,11 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         landingPhase = 0
         landingStability = 1f
         
-        // NOUVEAU - Reset variables de vitesse progressive
+        // Reset variables de vitesse progressive
         maxAchievableSpeed = 60f
         performanceScore = 1f
         
-        // NOUVEAU - Reset image de saut
+        // Reset image de saut
         hasUsedJumpImage = false
         
         particles.clear()
@@ -189,25 +191,18 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         tiltY = event.values[1]
         tiltZ = event.values[2]
         
-        // CORRIGÉ - Calcul de l'angle intégré
+        // Calcul de l'angle intégré
         if (!hasBaseline && gameState == GameState.APPROACH && tapCount >= 2) {
-            // Établir la baseline SEULEMENT après les 2 taps
-            integratedTiltY = 0f // Reset l'angle à zéro
+            integratedTiltY = 0f
             hasBaseline = true
         }
         
         if (hasBaseline) {
-            // CORRIGÉ - Intégrer seulement la vitesse angulaire Y
             val deltaTime = 0.025f
-            val angularVelocity = tiltY // Vitesse angulaire brute
+            val angularVelocity = tiltY
             
-            // Intégrer pour obtenir l'angle (en degrés)
             integratedTiltY += angularVelocity * deltaTime * 57.3f
-            
-            // Appliquer un petit filtre pour éviter la dérive
             integratedTiltY *= 0.995f
-            
-            // Limiter l'angle
             integratedTiltY = integratedTiltY.coerceIn(-60f, 60f)
         }
 
@@ -237,38 +232,37 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     }
     
     private fun handleApproach() {
-        // CORRIGÉ - Le skieur ne bouge que si on a fait 2 taps
         if (tapCount < 2) {
-            // Skieur reste en bas, pas de progression
             speed = 0f
             return
         }
         
         val approachProgress = phaseTimer / approachDuration
         
-        // Calcul de la progression de la zone cible
         zoneProgress = approachProgress
         
-        // La zone verte descend 10% plus vite
-        targetZoneCenter = 5f + (zoneProgress * 38.5f)  // De 5° à 43.5° (au lieu de 40°)
+        targetZoneCenter = 5f + (zoneProgress * 38.5f)
         
-        // CORRIGÉ - Vérifier si on est dans la zone avec l'angle intégré
         val zoneMin = targetZoneCenter - targetZoneSize / 2f
         val zoneMax = targetZoneCenter + targetZoneSize / 2f
         inTargetZone = integratedTiltY >= zoneMin && integratedTiltY <= zoneMax
         
-        // Ajustement de vitesse selon la position dans la zone
+        // Système de vitesse progressive basé sur la performance cumulée
         if (inTargetZone) {
-            speed += 3f + tapBonus * 0.5f
+            performanceScore = (performanceScore + 0.008f).coerceAtMost(1f)
+            maxAchievableSpeed = 60f + (performanceScore * 60f)
+            
+            if (speed < maxAchievableSpeed) {
+                speed += 2.5f + tapBonus * 0.2f
+            }
         } else {
-            val distance = minOf(abs(integratedTiltY - zoneMin), abs(integratedTiltY - zoneMax))
-            val speedLoss = (distance / 10f).coerceAtMost(2f)
-            speed -= speedLoss
+            performanceScore = (performanceScore - 0.015f).coerceAtLeast(0.5f)
+            maxAchievableSpeed = 60f + (performanceScore * 60f)
+            speed -= 1.2f
         }
         
-        speed = speed.coerceIn(0f, maxAchievableSpeed) // Limite selon la performance
+        speed = speed.coerceIn(0f, maxAchievableSpeed)
         
-        // Transition automatique
         if (approachProgress >= 1f) {
             gameState = GameState.TAKEOFF
             phaseTimer = 0f
@@ -278,9 +272,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     
     private fun handleTakeoff() {
         val takeoffProgress = phaseTimer / takeoffDuration
-        
-        // CORRIGÉ - Zone critique plus tardive (juste avant la fin)
-        val criticalZone = takeoffProgress >= 0.85f  // 85% au lieu de 67%
+        val criticalZone = takeoffProgress >= 0.85f
         
         if (criticalZone) {
             val timeInCriticalZone = (takeoffProgress - 0.85f) / 0.15f
@@ -296,7 +288,7 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             if (tiltY < -0.15f) {
                 val powerGain = (tiltStrength * 200f) * (1f + timingBonus)
                 takeoffPower += powerGain
-                hasUsedJumpImage = true  // NOUVEAU - Marquer qu'on a utilisé l'image de saut
+                hasUsedJumpImage = true
             }
         }
         
@@ -348,12 +340,11 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     private fun handleLanding() {
         val landingProgress = phaseTimer / landingDuration
         
-        // SYSTÈME D'ATTERRISSAGE CLARIFIÉ
         when {
             landingProgress < 0.3f -> {
-                landingPhase = 0 // PRÉPARER - Garde le téléphone stable/droit
+                landingPhase = 0
                 val stability = abs(tiltY) + abs(tiltX) + abs(tiltZ)
-                if (stability < 0.3f) { // Téléphone stable
+                if (stability < 0.3f) {
                     landingStability += 0.5f
                     landingBonus += 0.3f
                 } else {
@@ -362,9 +353,9 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             }
             
             landingProgress < 0.82f -> {
-                landingPhase = 1 // IMPACT - Penche vers soi pour amortir
+                landingPhase = 1
                 if (tiltY < -0.2f && tiltY > -0.6f && abs(tiltX) < 0.3f && abs(tiltZ) < 0.3f) {
-                    landingBonus += 1.5f // Bon amortissement
+                    landingBonus += 1.5f
                     landingStability += 0.4f
                 } else {
                     landingBonus -= 0.4f
@@ -373,9 +364,9 @@ class SkiJumpActivity : Activity(), SensorEventListener {
             }
             
             else -> {
-                landingPhase = 2 // STABILISER - Remets tout stable
+                landingPhase = 2
                 val finalStability = abs(tiltX) + abs(tiltY) + abs(tiltZ)
-                if (finalStability < 0.2f) { // Très stable
+                if (finalStability < 0.2f) {
                     landingStability += 0.6f
                     landingBonus += 0.8f
                 } else {
@@ -408,7 +399,6 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         }
     }
     
-    // CORRIGÉ - Fonction pour gérer les taps
     fun handleScreenTap() {
         if (gameState == GameState.APPROACH && tapCount < 2) {
             val currentTime = phaseTimer
@@ -431,9 +421,8 @@ class SkiJumpActivity : Activity(), SensorEventListener {
                 speed += 15f + (tapBonus * 10f)
                 cameraShake = 0.5f
                 
-                // NOUVEAU - Reset l'angle intégré pour un nouveau départ
                 integratedTiltY = 0f
-                hasBaseline = false // Va se réinitialiser au prochain cycle
+                hasBaseline = false
             }
         }
     }
@@ -582,13 +571,15 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     fun getPhaseTimer() = phaseTimer
     fun getSpeed() = speed
     fun getMaxSpeed() = maxSpeed
+    fun getMaxAchievableSpeed() = maxAchievableSpeed
+    fun getPerformanceScore() = performanceScore
     fun getTakeoffPower() = takeoffPower
     fun getJumpDistance() = jumpDistance
     fun getStability() = stability
     fun getLandingBonus() = landingBonus
     fun getTapCount() = tapCount
     fun getTapBonus() = tapBonus
-    fun getIntegratedTiltY() = integratedTiltY // CORRIGÉ - Angle intégré
+    fun getIntegratedTiltY() = integratedTiltY
     fun getTargetZoneCenter() = targetZoneCenter
     fun getTargetZoneSize() = targetZoneSize
     fun getInTargetZone() = inTargetZone
@@ -611,10 +602,8 @@ class SkiJumpActivity : Activity(), SensorEventListener {
     fun getApproachDuration() = approachDuration
     fun getTakeoffDuration() = takeoffDuration
     fun getFlightDuration() = flightDuration
-    fun getHasUsedJumpImage() = hasUsedJumpImage
-    fun getMaxAchievableSpeed() = maxAchievableSpeed
-    fun getPerformanceScore() = performanceScore
     fun getLandingDuration() = landingDuration
+    fun getHasUsedJumpImage() = hasUsedJumpImage
 
     data class SnowParticle(
         var x: Float,
