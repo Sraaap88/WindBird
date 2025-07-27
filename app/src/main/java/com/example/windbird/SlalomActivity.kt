@@ -752,22 +752,23 @@ class SlalomActivity : Activity(), SensorEventListener {
             slopePath.close()
             canvas.drawPath(slopePath, paint)
             
-            // Lignes de perspective avec COURBE DE COLLINE - SENS CORRIGÉ
+            // Lignes de perspective avec COURBE DE COLLINE - SENS CORRIGÉ POUR DÉFILER VERS LE BAS
             paint.color = Color.parseColor("#EEEEEE")
             paint.strokeWidth = 2f
             paint.style = Paint.Style.STROKE
             
             val lineSpacing = 60f
-            val startPosition = courseProgress - (courseProgress % lineSpacing) // CORRIGÉ : partir de la progression actuelle
+            // CORRECTION : Les lignes doivent partir du haut et descendre vers nous
+            val startPosition = courseProgress - (courseProgress % lineSpacing)
             
-            for (i in -5..25) { // Inclure des lignes derrière et devant
+            for (i in 0..30) { // Plus de lignes pour couvrir toute la distance
                 val linePosition = startPosition + i * lineSpacing
                 val relativePosition = linePosition - courseProgress // Distance par rapport au joueur
                 
-                if (relativePosition > -200f && relativePosition < 1500f) {
-                    val distanceRatio = (relativePosition + 200f) / 1700f // Normaliser entre 0 et 1
+                if (relativePosition >= 0f && relativePosition <= 1500f) { // Seulement devant nous
+                    val distanceRatio = relativePosition / 1500f // 0 = proche, 1 = loin
                     
-                    // VRAIE COURBE de colline au lieu de cosinus linéaire
+                    // VRAIE COURBE de colline - SENS CORRIGÉ
                     val hillCurve = distanceRatio * distanceRatio * 0.4f + distanceRatio * 0.6f
                     val lineY = vanishingPointY + hillCurve * (h - vanishingPointY)
                     
@@ -806,26 +807,28 @@ class SlalomActivity : Activity(), SensorEventListener {
         }
         
         private fun drawScrollingDecor(canvas: Canvas, w: Int, h: Int, vanishingPointX: Float, vanishingPointY: Float) {
-            // Décor qui défile : sapins, rochers, etc.
+            // Décor qui défile : sapins, rochers, etc. - SENS CORRIGÉ
             val decorSpacing = 200f
             val startPosition = courseProgress - (courseProgress % decorSpacing)
             
-            for (i in -2..10) {
+            for (i in 0..12) { // Seulement devant nous
                 val decorPosition = startPosition + i * decorSpacing + kotlin.random.Random(i + 100).nextFloat() * 100f
                 val relativePosition = decorPosition - courseProgress
                 
-                if (relativePosition > -100f && relativePosition < 1200f) {
-                    val distanceRatio = (relativePosition + 100f) / 1300f
+                if (relativePosition >= 0f && relativePosition <= 1200f) { // Seulement devant
+                    val distanceRatio = relativePosition / 1200f // 0 = proche, 1 = loin
+                    
+                    // VRAIE COURBE de colline - SENS CORRIGÉ
                     val hillCurve = distanceRatio * distanceRatio * 0.4f + distanceRatio * 0.6f
                     val decorY = vanishingPointY + hillCurve * (h - vanishingPointY)
                     
                     if (decorY >= vanishingPointY && decorY <= h) {
                         val perspectiveFactor = (decorY - vanishingPointY) / (h - vanishingPointY)
-                        val decorSize = perspectiveFactor * 30f + 5f
+                        val decorSize = perspectiveFactor * 35f + 5f // Légèrement plus gros
                         
                         // Alterner les côtés et types de décor
                         val side = if (i % 2 == 0) -1f else 1f
-                        val decorX = vanishingPointX + side * (w * 0.3f + kotlin.random.Random(i + 200).nextFloat() * w * 0.2f) * perspectiveFactor
+                        val decorX = vanishingPointX + side * (w * 0.35f + kotlin.random.Random(i + 200).nextFloat() * w * 0.2f) * perspectiveFactor
                         
                         if (decorX > 0 && decorX < w) {
                             // Type de décor aléatoire
