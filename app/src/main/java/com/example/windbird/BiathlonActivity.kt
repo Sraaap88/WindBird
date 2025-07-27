@@ -56,14 +56,19 @@ class BiathlonActivity : Activity(), SensorEventListener {
     private var performanceHistory = mutableListOf<Float>()
     private var averageRhythm = 0f
     
-    // Sprite animation AMÉLIORÉE
+    // Sprite animation AMÉLIORÉE avec animation fluide
     private lateinit var spriteSheet: Bitmap
-    private lateinit var leftFrame: Bitmap
-    private lateinit var rightFrame: Bitmap
-    private var happyFrame: Bitmap? = null  // Image pour l'écran final
+    private lateinit var neutralFrame: Bitmap      // Position neutre
+    private lateinit var prepLeftFrame: Bitmap     // Préparation poussée gauche
+    private lateinit var pushLeftFrame: Bitmap     // Poussée gauche active
+    private lateinit var glideLeftFrame: Bitmap    // Glisse gauche
+    private lateinit var prepRightFrame: Bitmap    // Préparation poussée droite
+    private lateinit var pushRightFrame: Bitmap    // Poussée droite active
+    private lateinit var glideRightFrame: Bitmap   // Glisse droite
+    private var happyFrame: Bitmap? = null         // Image pour l'écran final
     private var currentFrame: Bitmap? = null
     private var animationTimer = 0L
-    private var useLeftFrame = true
+    private var animationState = AnimationState.NEUTRAL
 
     // Variables de tir AMÉLIORÉES
     private var gameState = GameState.SKIING
@@ -110,7 +115,67 @@ class BiathlonActivity : Activity(), SensorEventListener {
             textSize = 18f
             setBackgroundColor(Color.parseColor("#001122"))
             setPadding(20, 15, 20, 15)
+        // NOUVEAU - Système d'animation fluide
+    private fun updateAnimation() {
+        val currentTime = System.currentTimeMillis()
+        
+        when (animationState) {
+            AnimationState.NEUTRAL -> {
+                currentFrame = neutralFrame
+                if (currentSpeed > 0.001f) {
+                    // Commencer l'animation de glisse si on bouge
+                    animationState = if (pushDirection == -1) AnimationState.GLIDE_LEFT else AnimationState.GLIDE_RIGHT
+                    animationTimer = currentTime
+                }
+            }
+            
+            AnimationState.PREP_LEFT -> {
+                currentFrame = prepLeftFrame
+                if (currentTime - animationTimer > 100) { // 100ms de préparation
+                    animationState = AnimationState.PUSH_LEFT
+                    animationTimer = currentTime
+                }
+            }
+            
+            AnimationState.PUSH_LEFT -> {
+                currentFrame = pushLeftFrame
+                if (currentTime - animationTimer > 200) { // 200ms de poussée
+                    animationState = AnimationState.GLIDE_LEFT
+                    animationTimer = currentTime
+                }
+            }
+            
+            AnimationState.GLIDE_LEFT -> {
+                currentFrame = glideLeftFrame
+                if (currentSpeed < 0.001f) {
+                    animationState = AnimationState.NEUTRAL
+                }
+            }
+            
+            AnimationState.PREP_RIGHT -> {
+                currentFrame = prepRightFrame
+                if (currentTime - animationTimer > 100) {
+                    animationState = AnimationState.PUSH_RIGHT
+                    animationTimer = currentTime
+                }
+            }
+            
+            AnimationState.PUSH_RIGHT -> {
+                currentFrame = pushRightFrame
+                if (currentTime - animationTimer > 200) {
+                    animationState = AnimationState.GLIDE_RIGHT
+                    animationTimer = currentTime
+                }
+            }
+            
+            AnimationState.GLIDE_RIGHT -> {
+                currentFrame = glideRightFrame
+                if (currentSpeed < 0.001f) {
+                    animationState = AnimationState.NEUTRAL
+                }
+            }
         }
+    }
 
         gameView = BiathlonView(this)
 
@@ -143,41 +208,64 @@ class BiathlonActivity : Activity(), SensorEventListener {
             val totalWidth = spriteSheet.width
             val totalHeight = spriteSheet.height
             
-            // CORRECTION FINALE BRUTALE : COUPER VRAIMENT DANS LE VIF
-            val frameWidth = (totalWidth - 60) / 2  // COUPER ENCORE PLUS
-            val frameHeight = totalHeight - 40      // COUPER ENCORE PLUS
+            // Calculer les dimensions d'une cellule (10 colonnes x 14 rangées environ)
+            val cellWidth = totalWidth / 10
+            val cellHeight = totalHeight / 14
             
-            // VRAIMENT au centre des images pour éviter TOUT cadre
-            leftFrame = Bitmap.createBitmap(spriteSheet, 30, 20, frameWidth, frameHeight)  // CENTRE DE L'IMAGE GAUCHE
-            rightFrame = Bitmap.createBitmap(spriteSheet, 30 + frameWidth + 30, 20, frameWidth, frameHeight)  // CENTRE DE L'IMAGE DROITE
+            // Taille finale réduite pour l'échelle
+            val finalWidth = cellWidth / 2
+            val finalHeight = cellHeight / 2
             
-            // Redimensionner
-            val newWidth = frameWidth / 3
-            val newHeight = frameHeight / 3
+            // EXTRAIRE LES BONNES IMAGES DU SPRITE SHEET
+            // Position neutre - Rangée du bas, centre
+            val neutralBitmap = Bitmap.createBitmap(spriteSheet, cellWidth * 4, cellHeight * 13, cellWidth, cellHeight)
+            neutralFrame = Bitmap.createScaledBitmap(neutralBitmap, finalWidth, finalHeight, true)
             
-            leftFrame = Bitmap.createScaledBitmap(leftFrame, newWidth, newHeight, true)
-            rightFrame = Bitmap.createScaledBitmap(rightFrame, newWidth, newHeight, true)
+            // Préparation poussée gauche - Rangée 12
+            val prepLeftBitmap = Bitmap.createBitmap(spriteSheet, cellWidth * 2, cellHeight * 12, cellWidth, cellHeight)
+            prepLeftFrame = Bitmap.createScaledBitmap(prepLeftBitmap, finalWidth, finalHeight, true)
+            
+            // Poussée gauche active - Rangée 11  
+            val pushLeftBitmap = Bitmap.createBitmap(spriteSheet, cellWidth * 1, cellHeight * 11, cellWidth, cellHeight)
+            pushLeftFrame = Bitmap.createScaledBitmap(pushLeftBitmap, finalWidth, finalHeight, true)
+            
+            // Glisse gauche - Rangée 10
+            val glideLeftBitmap = Bitmap.createBitmap(spriteSheet, cellWidth * 0, cellHeight * 10, cellWidth, cellHeight)
+            glideLeftFrame = Bitmap.createScaledBitmap(glideLeftBitmap, finalWidth, finalHeight, true)
+            
+            // Préparation poussée droite - Rangée 12, côté droit
+            val prepRightBitmap = Bitmap.createBitmap(spriteSheet, cellWidth * 7, cellHeight * 12, cellWidth, cellHeight)
+            prepRightFrame = Bitmap.createScaledBitmap(prepRightBitmap, finalWidth, finalHeight, true)
+            
+            // Poussée droite active - Rangée 11, côté droit
+            val pushRightBitmap = Bitmap.createBitmap(spriteSheet, cellWidth * 8, cellHeight * 11, cellWidth, cellHeight)
+            pushRightFrame = Bitmap.createScaledBitmap(pushRightBitmap, finalWidth, finalHeight, true)
+            
+            // Glisse droite - Rangée 10, côté droit
+            val glideRightBitmap = Bitmap.createBitmap(spriteSheet, cellWidth * 9, cellHeight * 10, cellWidth, cellHeight)
+            glideRightFrame = Bitmap.createScaledBitmap(glideRightBitmap, finalWidth, finalHeight, true)
             
             // NOUVEAU - Charger l'image happy pour l'écran final (plus petite)
             try {
                 val happyBitmap = BitmapFactory.decodeResource(resources, R.drawable.skidefond_happy)
-                val happyWidth = happyBitmap.width / 4  // Plus petit que les autres (÷4 au lieu de ÷3)
+                val happyWidth = happyBitmap.width / 4
                 val happyHeight = happyBitmap.height / 4
                 happyFrame = Bitmap.createScaledBitmap(happyBitmap, happyWidth, happyHeight, true)
             } catch (e: Exception) {
-                // Si l'image happy n'existe pas, utiliser leftFrame mais plus petit
-                val smallWidth = leftFrame.width * 3 / 4  // 75% de la taille normale
-                val smallHeight = leftFrame.height * 3 / 4
-                happyFrame = Bitmap.createScaledBitmap(leftFrame, smallWidth, smallHeight, true)
+                val smallWidth = neutralFrame.width * 3 / 4
+                val smallHeight = neutralFrame.height * 3 / 4
+                happyFrame = Bitmap.createScaledBitmap(neutralFrame, smallWidth, smallHeight, true)
             }
             
-            currentFrame = leftFrame
+            currentFrame = neutralFrame
+            animationState = AnimationState.NEUTRAL
+            
         } catch (e: Exception) {
             val fallback = BitmapFactory.decodeResource(resources, R.drawable.skieur_pixel)
             val scaledWidth = fallback.width / 3
             val scaledHeight = fallback.height / 3
             currentFrame = Bitmap.createScaledBitmap(fallback, scaledWidth, scaledHeight, true)
-            happyFrame = currentFrame  // Assigner la même image de fallback
+            happyFrame = currentFrame
         }
     }
 
@@ -230,6 +318,9 @@ class BiathlonActivity : Activity(), SensorEventListener {
         
         // NOUVEAU - Mise à jour de la glisse fluide
         updateGliding()
+        
+        // NOUVEAU - Mise à jour de l'animation fluide
+        updateAnimation()
         
         updateStatus()
         gameView.invalidate()
@@ -394,7 +485,14 @@ class BiathlonActivity : Activity(), SensorEventListener {
                 performanceHistory.removeAt(0)
             }
             
-            currentFrame = if (newDirection == -1) leftFrame else rightFrame
+            // NOUVEAU - Animation selon la direction avec timing
+            if (newDirection == -1) {
+                animationState = AnimationState.PREP_LEFT
+                animationTimer = currentTime
+            } else {
+                animationState = AnimationState.PREP_RIGHT
+                animationTimer = currentTime
+            }
         }
         
         pushDirection = newDirection
@@ -1265,5 +1363,9 @@ class BiathlonActivity : Activity(), SensorEventListener {
 
     enum class GameState {
         SKIING, SHOOTING, FINAL_SKIING, FINISHED
+    }
+    
+    enum class AnimationState {
+        NEUTRAL, PREP_LEFT, PUSH_LEFT, GLIDE_LEFT, PREP_RIGHT, PUSH_RIGHT, GLIDE_RIGHT
     }
 }
