@@ -950,15 +950,17 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             val finalX = w.toFloat() * 0.75f  // 3/4 de l'écran au lieu de 1/2
             val centerY = h.toFloat() * 0.56f  // 20% plus haut (0.7 -> 0.56)
             
+            // MÊME ÉCHELLE pour les deux images
+            val uniformScale = 0.72f  // Échelle uniforme pour les deux images
+            
             when {
                 victoryAnimationProgress < 0.6f -> {
                     val progress1 = victoryAnimationProgress / 0.6f
                     val skaterX = -100f + progress1 * (w.toFloat() * 0.25f + 100f)
                     
                     speedskateHappy1Bitmap?.let { image ->
-                        val scale = 0.72f  // 20% plus petit (0.9 -> 0.72)
-                        val imageWidth = image.width * scale
-                        val imageHeight = image.height * scale
+                        val imageWidth = image.width * uniformScale
+                        val imageHeight = image.height * uniformScale
                         
                         reusableRectF.set(
                             skaterX - imageWidth/2f,
@@ -975,9 +977,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
                     val skaterX = startX + progress2 * (finalX - startX)  // S'arrête aux 3/4
                     
                     speedskateHappy2Bitmap?.let { image ->
-                        val scale = 0.72f  // 20% plus petit (0.9 -> 0.72)
-                        val imageWidth = image.width * scale
-                        val imageHeight = image.height * scale
+                        val imageWidth = image.width * uniformScale  // MÊME ÉCHELLE
+                        val imageHeight = image.height * uniformScale  // MÊME ÉCHELLE
                         
                         reusableRectF.set(
                             skaterX - imageWidth/2f,
