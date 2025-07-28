@@ -254,34 +254,6 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
                         canvas.drawBitmap(bitmap, srcRect, dstRect, paint)
                         
                         paint.colorFilter = null // Reset filter
-                    } else {
-                        // Fallback si pas d'image kicker - forme simple
-                        paint.color = if (kicker.hit) {
-                            Color.parseColor("#00FF00")
-                        } else if (kickerScreenDistance < 50f && kickerScreenDistance > 0f) {
-                            Color.parseColor("#FF0000")
-                        } else if (kickerScreenDistance < 120f && kickerScreenDistance > 0f) {
-                            Color.parseColor("#FFFF00")
-                        } else {
-                            Color.parseColor("#888888")
-                        }
-                        
-                        // Forme de kicker simple
-                        reusablePath.reset()
-                        reusablePath.moveTo(screenX - kickerSize, screenY + kickerSize/2f)
-                        reusablePath.lineTo(screenX - kickerSize/2f, screenY)
-                        reusablePath.lineTo(screenX, screenY - kickerSize/3f)
-                        reusablePath.lineTo(screenX + kickerSize/2f, screenY)
-                        reusablePath.lineTo(screenX + kickerSize, screenY + kickerSize/2f)
-                        reusablePath.close()
-                        canvas.drawPath(reusablePath, paint)
-                        
-                        // Contour
-                        paint.color = Color.BLACK
-                        paint.strokeWidth = 2f
-                        paint.style = Paint.Style.STROKE
-                        canvas.drawPath(reusablePath, paint)
-                        paint.style = Paint.Style.FILL
                     }
                     
                     // Indicateurs de distance
@@ -318,13 +290,13 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
         // CHOISIR LA BONNE IMAGE selon l'état du skieur
         val currentBitmap = when {
             activity.currentTrick != SkiFreestyleActivity.FreestyleTrick.NONE -> {
-                activity.skierEagleBitmap ?: activity.skierBitmap // Fallback si pas d'image eagle
+                activity.skierEagleBitmap
             }
             activity.isInAir -> {
-                activity.skierJumpBitmap ?: activity.skierBitmap // Fallback si pas d'image jump
+                activity.skierJumpBitmap
             }
             else -> {
-                activity.skierFrontBitmap ?: activity.skierBitmap // Fallback si pas d'image front
+                activity.skierFrontBitmap // IMAGE PRINCIPALE = skifreestyle_front.png
             }
         }
         
@@ -416,21 +388,14 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
             canvas.scale(scaleX, scaleY)
         }
         
-        // DESSINER L'IMAGE APPROPRIÉE DU SKIEUR
+        // DESSINER L'IMAGE DU SKIEUR
         if (currentBitmap != null) {
             val bitmapSize = if (activity.isInAir) 350f else 280f // Plus gros en l'air
             val srcRect = Rect(0, 0, currentBitmap.width, currentBitmap.height)
             val dstRect = RectF(-bitmapSize/2f, -bitmapSize/2f, bitmapSize/2f, bitmapSize/2f)
             
-            paint.alpha = 255 // Pas transparent
-            canvas.drawBitmap(currentBitmap, srcRect, dstRect, paint)
-        } else {
-            // Fallback si pas d'images
-            paint.color = Color.parseColor("#FF6600")
             paint.alpha = 255
-            canvas.drawRect(-40f, -75f, 40f, 50f, paint)
-            paint.color = Color.parseColor("#FFFFFF")
-            canvas.drawCircle(0f, -90f, 30f, paint)
+            canvas.drawBitmap(currentBitmap, srcRect, dstRect, paint)
         }
         
         canvas.restore()
