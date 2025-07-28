@@ -180,7 +180,7 @@ class LugeGameEngine {
     }
     
     fun startRacing() {
-        speed = 20f
+        speed = 45f
     }
     
     fun updateInputs(tX: Float, tY: Float, tZ: Float, aX: Float, aY: Float, aZ: Float) {
@@ -199,6 +199,7 @@ class LugeGameEngine {
         updateBasicPhysics(deltaTime)
         updateBasicRaceProgress(deltaTime)
         updateBasicEffects(deltaTime)
+        updateTrackElements(deltaTime)
     }
     
     private fun generateBasicLugeTrack() {
@@ -212,6 +213,18 @@ class LugeGameEngine {
                 direction = if (Random.nextBoolean()) -1f else 1f,
                 length = 150f,
                 banking = 0f
+            ))
+        }
+        
+        // Génération d'éléments de décor pour effet de vitesse
+        for (i in 0..199) {
+            trackElements.add(TrackElement(
+                distance = i * 20f,
+                sideOffset = if (Random.nextBoolean()) -1f else 1f,
+                offsetDistance = Random.nextFloat() * 50f + 30f,
+                type = TrackElement.ElementType.TREE,
+                scale = Random.nextFloat() * 0.3f + 0.5f,
+                height = Random.nextFloat() * 40f + 60f
             ))
         }
         
@@ -246,9 +259,9 @@ class LugeGameEngine {
         lugerX += steeringInput * deltaTime
         lugerX = lugerX.coerceIn(0.1f, 0.9f)
         
-        // Physique de base
-        acceleration.z = 2f
-        if (tiltY < -0.5f) acceleration.z += 1f
+        // Physique de base - accélération plus rapide
+        acceleration.z = 4f
+        if (tiltY < -0.5f) acceleration.z += 3f
         
         velocity.z += acceleration.z * deltaTime
         velocity.z = velocity.z.coerceIn(0f, maxSpeed)
@@ -387,6 +400,20 @@ class LugeGameEngine {
         cameraShake = maxOf(0f, cameraShake - deltaTime)
     }
     
+    private fun updateTrackElements(deltaTime: Float) {
+        // Mise à jour des éléments de décor pour effet de vitesse
+        for (element in trackElements) {
+            element.distance -= speed * deltaTime * 2f
+            
+            // Recycler les éléments qui sont passés
+            if (element.distance < -100f) {
+                element.distance = trackElements.maxByOrNull { it.distance }?.distance?.plus(Random.nextFloat() * 30f + 20f) ?: 0f
+                element.sideOffset = if (Random.nextBoolean()) -1f else 1f
+                element.offsetDistance = Random.nextFloat() * 50f + 30f
+            }
+        }
+    }
+    
     fun calculateFinalScore() {
         if (!scoreCalculated) {
             performanceMetrics.finalTime = raceTime
@@ -399,16 +426,16 @@ class LugeGameEngine {
             performanceMetrics.brakingUsed = brakingUsed
             performanceMetrics.stamina = stamina
             
-            val timeBonus = maxOf(0, (150 - raceTime).toInt()) * 2
-            val speedBonus = (performanceMetrics.averageSpeed / maxSpeed * 50).toInt()
-            val precisionBonus = ((precision - 100f) * 1f).toInt()
-            val perfectCurveBonus = perfectCurves * 20
-            val checkpointBonus = checkpoints.count { it.passed && it.actualTime < it.targetTime } * 15
+            val timeBonus = maxOf(0, (150 - raceTime).toInt()) / 5
+            val speedBonus = (performanceMetrics.averageSpeed / maxSpeed * 10).toInt()
+            val precisionBonus = ((precision - 100f) * 0.2f).toInt()
+            val perfectCurveBonus = perfectCurves * 3
+            val checkpointBonus = checkpoints.count { it.passed && it.actualTime < it.targetTime } * 2
             
-            val wallPenalty = wallHits * 10
-            val brakingPenalty = if (brakingUsed) 10 else 0
+            val wallPenalty = wallHits * 2
+            val brakingPenalty = if (brakingUsed) 2 else 0
             
-            finalScore = maxOf(50, timeBonus + speedBonus + precisionBonus + perfectCurveBonus + checkpointBonus - wallPenalty - brakingPenalty)
+            finalScore = maxOf(10, timeBonus + speedBonus + precisionBonus + perfectCurveBonus + checkpointBonus - wallPenalty - brakingPenalty)
             
             scoreCalculated = true
         }
