@@ -156,11 +156,12 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type != Sensor.TYPE_GYROSCOPE) return
 
-        // OPTIMISATION : Contrôle de framerate
+        // CORRECTION : Timer basé sur le temps réel, pas sur le gyroscope
         val currentTime = System.currentTimeMillis()
-        if (currentTime - lastFrameTime < TARGET_FRAME_INTERVAL) {
-            return
+        if (lastFrameTime == 0L) {
+            lastFrameTime = currentTime
         }
+        val deltaTime = (currentTime - lastFrameTime) / 1000f  // Convertir en secondes
         lastFrameTime = currentTime
 
         // AMÉLIORATION DÉTECTION : Filtrage du bruit gyroscope
@@ -180,9 +181,10 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             needsRedraw = true
         }
 
-        phaseTimer += 0.025f
+        // CORRECTION : Timer précis basé sur deltaTime réel
+        phaseTimer += deltaTime
         if (gameState == GameState.RACE) {
-            raceTime += 0.025f
+            raceTime += deltaTime
         }
 
         when (gameState) {
@@ -377,7 +379,9 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
     // OPTIMISATION : Animation de victoire avec contrôle de framerate
     private fun updateVictoryAnimation() {
         if (victoryAnimationStarted && victoryAnimationProgress < 1f) {
-            victoryAnimationProgress += 0.015f
+            val currentTime = System.currentTimeMillis()
+            val deltaTime = (currentTime - lastFrameTime) / 1000f
+            victoryAnimationProgress += deltaTime * 0.6f  // Animation en ~1.67 secondes
             victoryAnimationProgress = victoryAnimationProgress.coerceAtMost(1f)
             needsRedraw = true
         }
