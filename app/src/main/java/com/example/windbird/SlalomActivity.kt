@@ -702,7 +702,7 @@ class SlalomActivity : Activity(), SensorEventListener {
             paint.color = Color.WHITE
             
             val vanishingPointX = w / 2f
-            val vanishingPointY = h * 0.15f // Encore plus haut pour effet colline prononcé
+            val vanishingPointY = h * 0.35f // 30% MOINS HAUT qu'avant (était 0.15f, maintenant 0.35f)
             
             // Créer une VRAIE COURBE de colline au lieu d'un triangle
             val slopePath = Path()
@@ -715,12 +715,13 @@ class SlalomActivity : Activity(), SensorEventListener {
                 val progress = i / 10f
                 // Fonction de courbe exponentielle pour effet colline naturel
                 val curveY = vanishingPointY + (h - vanishingPointY) * (progress * progress * 0.3f + progress * 0.7f)
-                val curveWidth = w * 0.4f * (progress * progress * 0.6f + progress * 0.4f)
+                // PISTE 20% MOINS LARGE qu'avant
+                val curveWidth = w * 0.32f * (progress * progress * 0.6f + progress * 0.4f) // Réduit de 0.4f à 0.32f
                 
                 if (i == 10) {
-                    // Derniers points (en bas)
-                    slopePath.lineTo(w * 0.9f, h.toFloat())
-                    slopePath.lineTo(w * 0.1f, h.toFloat())
+                    // Derniers points (en bas) - 20% moins large
+                    slopePath.lineTo(w * 0.72f, h.toFloat()) // Réduit de 0.9f à 0.72f
+                    slopePath.lineTo(w * 0.28f, h.toFloat()) // Réduit de 0.1f à 0.28f
                 } else {
                     // Points intermédiaires pour courbe douce
                     controlPoints.add(PointF(vanishingPointX + curveWidth, curveY))
@@ -778,7 +779,8 @@ class SlalomActivity : Activity(), SensorEventListener {
                     
                     if (lineY >= vanishingPointY && lineY <= h) {
                         val perspectiveFactor = (lineY - vanishingPointY) / (h - vanishingPointY)
-                        val lineWidth = w * 0.4f * (perspectiveFactor * perspectiveFactor * 0.6f + perspectiveFactor * 0.4f)
+                        // PISTE 20% MOINS LARGE pour les lignes aussi
+                        val lineWidth = w * 0.32f * (perspectiveFactor * perspectiveFactor * 0.6f + perspectiveFactor * 0.4f)
                         val lineLeft = vanishingPointX - lineWidth
                         val lineRight = vanishingPointX + lineWidth
                         
@@ -869,9 +871,9 @@ class SlalomActivity : Activity(), SensorEventListener {
         }
         
         private fun drawSlalomGates(canvas: Canvas, w: Int, h: Int) {
-            // Point de fuite au centre pour cohérence avec la piste
+            // Point de fuite au centre pour cohérence avec la nouvelle piste
             val vanishingPointX = w / 2f
-            val vanishingPointY = h * 0.15f // Cohérent avec la nouvelle piste
+            val vanishingPointY = h * 0.35f // Cohérent avec la nouvelle piste (30% moins haut)
             
             // Dessiner les DRAPEAUX FIXES plantés sur le parcours
             for (gate in gates) {
@@ -894,12 +896,12 @@ class SlalomActivity : Activity(), SensorEventListener {
                         // Taille des drapeaux avec progression plus douce
                         val flagScale = perspectiveFactor * 1.5f + 0.1f
                         
-                        // Positions X des drapeaux avec perspective correcte
+                        // Positions X des drapeaux avec perspective correcte ET piste 20% moins large
                         val gateLeftRelative = gate.leftX - 0.5f
                         val gateRightRelative = gate.rightX - 0.5f
                         
-                        // Perspective plus large pour effet cylindre
-                        val perspectiveWidth = 0.4f * (perspectiveFactor * perspectiveFactor * 0.6f + perspectiveFactor * 0.4f)
+                        // Perspective adaptée à la piste 20% moins large
+                        val perspectiveWidth = 0.32f * (perspectiveFactor * perspectiveFactor * 0.6f + perspectiveFactor * 0.4f)
                         val leftScreenX = vanishingPointX + (gateLeftRelative * w * perspectiveWidth)
                         val rightScreenX = vanishingPointX + (gateRightRelative * w * perspectiveWidth)
                         
