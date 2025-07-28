@@ -8,7 +8,7 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val gradientCache = mutableMapOf<String, LinearGradient>()
     private val effectsRenderer = LugeEffectsRenderer(engine)
-    private var playerCountry: String = "CA" // Par défaut Canada, à récupérer depuis tournamentData
+    private var playerCountry: String = "FR" // Par défaut France
 
     fun drawPreparation(canvas: Canvas, w: Int, h: Int) {
         canvas.save()
@@ -275,14 +275,11 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
         
         // Dessiner le drapeau selon le pays
         when (playerCountry) {
+            "FR" -> drawFrenchFlag(canvas, flagX, flagY, flagSize)
             "CA" -> drawCanadianFlag(canvas, flagX, flagY, flagSize)
             "US" -> drawAmericanFlag(canvas, flagX, flagY, flagSize)
-            "FR" -> drawFrenchFlag(canvas, flagX, flagY, flagSize)
-            "DE" -> drawGermanFlag(canvas, flagX, flagY, flagSize)
-            "IT" -> drawItalianFlag(canvas, flagX, flagY, flagSize)
-            "CH" -> drawSwissFlag(canvas, flagX, flagY, flagSize)
             "NO" -> drawNorwegianFlag(canvas, flagX, flagY, flagSize)
-            "AT" -> drawAustrianFlag(canvas, flagX, flagY, flagSize)
+            "JP" -> drawJapaneseFlag(canvas, flagX, flagY, flagSize)
             else -> drawGenericFlag(canvas, flagX, flagY, flagSize)
         }
         
@@ -363,60 +360,6 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
         canvas.drawRect(x + 2 * stripeWidth, y, x + size, y + flagHeight, paint)
     }
     
-    private fun drawGermanFlag(canvas: Canvas, x: Float, y: Float, size: Float) {
-        val flagHeight = size * 0.6f
-        val stripeHeight = flagHeight / 3f
-        
-        // Noir
-        paint.color = Color.BLACK
-        canvas.drawRect(x, y, x + size, y + stripeHeight, paint)
-        
-        // Rouge
-        paint.color = Color.parseColor("#DD0000")
-        canvas.drawRect(x, y + stripeHeight, x + size, y + 2 * stripeHeight, paint)
-        
-        // Or/Jaune
-        paint.color = Color.parseColor("#FFCE00")
-        canvas.drawRect(x, y + 2 * stripeHeight, x + size, y + flagHeight, paint)
-    }
-    
-    private fun drawItalianFlag(canvas: Canvas, x: Float, y: Float, size: Float) {
-        val flagHeight = size * 0.6f
-        val stripeWidth = size / 3f
-        
-        // Vert
-        paint.color = Color.parseColor("#009246")
-        canvas.drawRect(x, y, x + stripeWidth, y + flagHeight, paint)
-        
-        // Blanc
-        paint.color = Color.WHITE
-        canvas.drawRect(x + stripeWidth, y, x + 2 * stripeWidth, y + flagHeight, paint)
-        
-        // Rouge
-        paint.color = Color.parseColor("#CE2B37")
-        canvas.drawRect(x + 2 * stripeWidth, y, x + size, y + flagHeight, paint)
-    }
-    
-    private fun drawSwissFlag(canvas: Canvas, x: Float, y: Float, size: Float) {
-        val flagHeight = size * 0.6f
-        
-        // Fond rouge
-        paint.color = Color.parseColor("#FF0000")
-        canvas.drawRect(x, y, x + size, y + flagHeight, paint)
-        
-        // Croix blanche
-        paint.color = Color.WHITE
-        val crossWidth = size * 0.2f
-        val crossHeight = flagHeight * 0.33f
-        val centerX = x + size * 0.5f
-        val centerY = y + flagHeight * 0.5f
-        
-        // Barre horizontale
-        canvas.drawRect(centerX - crossWidth, centerY - crossHeight/6f, centerX + crossWidth, centerY + crossHeight/6f, paint)
-        // Barre verticale
-        canvas.drawRect(centerX - crossHeight/6f, centerY - crossHeight, centerX + crossHeight/6f, centerY + crossHeight, paint)
-    }
-    
     private fun drawNorwegianFlag(canvas: Canvas, x: Float, y: Float, size: Float) {
         val flagHeight = size * 0.6f
         
@@ -438,18 +381,19 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
         canvas.drawRect(x + size * 0.33f, y, x + size * 0.47f, y + flagHeight, paint)
     }
     
-    private fun drawAustrianFlag(canvas: Canvas, x: Float, y: Float, size: Float) {
+    private fun drawJapaneseFlag(canvas: Canvas, x: Float, y: Float, size: Float) {
         val flagHeight = size * 0.6f
-        val stripeHeight = flagHeight / 3f
         
-        // Rouge
-        paint.color = Color.parseColor("#ED2939")
-        canvas.drawRect(x, y, x + size, y + stripeHeight, paint)
-        canvas.drawRect(x, y + 2 * stripeHeight, x + size, y + flagHeight, paint)
-        
-        // Blanc
+        // Fond blanc
         paint.color = Color.WHITE
-        canvas.drawRect(x, y + stripeHeight, x + size, y + 2 * stripeHeight, paint)
+        canvas.drawRect(x, y, x + size, y + flagHeight, paint)
+        
+        // Cercle rouge (soleil levant)
+        paint.color = Color.parseColor("#BC002D")
+        val centerX = x + size * 0.5f
+        val centerY = y + flagHeight * 0.5f
+        val circleRadius = size * 0.2f
+        canvas.drawCircle(centerX, centerY, circleRadius, paint)
     }
     
     private fun drawGenericFlag(canvas: Canvas, x: Float, y: Float, size: Float) {
