@@ -262,7 +262,7 @@ class LugeGameEngine {
         }
         
         // Génération des virages
-        repeat(curveCount) { i ->
+        for (i in 0 until curveCount) {
             val curveDistance = startDistance + (i + 1) * (length / (curveCount + 1))
             val curveType = getCurveTypeForSector(sectorType, i)
             
@@ -277,7 +277,7 @@ class LugeGameEngine {
         
         // Génération des éléments de décor
         val elementCount = (length / 80f).toInt()
-        repeat(elementCount) { i ->
+        for (i in 0 until elementCount) {
             val elementDistance = startDistance + i * 80f + Random.nextFloat() * 40f
             val elementType = getElementTypeForSector(sectorType, i)
             
@@ -353,7 +353,7 @@ class LugeGameEngine {
     }
     
     private fun initializeParticleSystems() {
-        repeat(300) {
+        for (i in 0..299) {
             snowParticles3D.add(SnowParticle3D(
                 x = Random.nextFloat() * 2000f - 1000f,
                 y = Random.nextFloat() * 1000f,
@@ -816,15 +816,15 @@ class LugeGameEngine {
         aeroTrails.removeAll(aeroToRemove)
         
         // Mise à jour des indicateurs de virage
-        val indicatorsToRemove = mutableListOf<CurveIndicator>()
-        for (indicator in curveIndicators) {
+        val indicatorsIterator = curveIndicators.iterator()
+        while (indicatorsIterator.hasNext()) {
+            val indicator = indicatorsIterator.next()
             indicator.life -= deltaTime
             indicator.urgency = minOf(1f, indicator.urgency + deltaTime * 0.5f)
             if (indicator.life <= 0f) {
-                indicatorsToRemove.add(indicator)
+                indicatorsIterator.remove()
             }
         }
-        curveIndicators.removeAll(indicatorsToRemove)
     }
     
     private fun updateCameraEffects(deltaTime: Float) {
@@ -909,14 +909,23 @@ class LugeGameEngine {
     }
     
     private fun limitParticleCount() {
-        if (snowParticles3D.size > 300) snowParticles3D.removeFirst()
-        if (iceChips.size > 50) iceChips.removeFirst()
-        if (aeroTrails.size > 30) aeroTrails.removeFirst()
-        if (windTrails.size > 20) windTrails.removeFirst()
+        // Limitation du nombre de particules avec suppression des plus anciens
+        while (snowParticles3D.size > 300) {
+            snowParticles3D.removeFirstOrNull()
+        }
+        while (iceChips.size > 50) {
+            iceChips.removeFirstOrNull()
+        }
+        while (aeroTrails.size > 30) {
+            aeroTrails.removeFirstOrNull()
+        }
+        while (windTrails.size > 20) {
+            windTrails.removeFirstOrNull()
+        }
     }
     
     private fun generateAdvancedWallSparks(wallSide: Float) {
-        repeat(12) {
+        for (i in 0..11) {
             wallSparks.add(WallSpark(
                 x = if (wallSide < 0) 100f else 700f,
                 y = Random.nextFloat() * 200f + 400f,
@@ -932,7 +941,7 @@ class LugeGameEngine {
     }
     
     private fun generatePerfectCurveEffect() {
-        repeat(15) {
+        for (i in 0..14) {
             sparkles.add(IceSparkle(
                 x = Random.nextFloat() * 200f + 350f,
                 y = Random.nextFloat() * 150f + 375f,
@@ -948,7 +957,7 @@ class LugeGameEngine {
     }
     
     private fun generateGoodCurveEffect() {
-        repeat(8) {
+        for (i in 0..7) {
             sparkles.add(IceSparkle(
                 x = Random.nextFloat() * 150f + 375f,
                 y = Random.nextFloat() * 100f + 400f,
@@ -964,7 +973,7 @@ class LugeGameEngine {
     }
     
     private fun generateAdvancedBrakingEffect() {
-        repeat(8) {
+        for (i in 0..7) {
             groundImpacts.add(GroundImpact(
                 x = Random.nextFloat() * 100f + 450f,
                 y = Random.nextFloat() * 60f + 530f,
@@ -979,7 +988,7 @@ class LugeGameEngine {
     }
     
     private fun generateCheckpointEffect(checkpoint: Checkpoint) {
-        repeat(20) {
+        for (i in 0..19) {
             sparkles.add(IceSparkle(
                 x = Random.nextFloat() * 300f + 350f,
                 y = Random.nextFloat() * 200f + 300f,
@@ -1008,7 +1017,7 @@ class LugeGameEngine {
         ))
         
         if (curveIndicators.size > 3) {
-            curveIndicators.removeFirst()
+            curveIndicators.removeFirstOrNull()
         }
     }
     
@@ -1048,3 +1057,59 @@ class LugeGameEngine {
         }
     }
 }
+
+// Classes de données pour les particules et effets avec propriétés mutables
+data class SnowParticle3D(
+    var x: Float, var y: Float, var z: Float,
+    var vx: Float, var vy: Float, var vz: Float,
+    var size: Float, var life: Float
+)
+
+data class IceChip(
+    var x: Float, var y: Float, var z: Float,
+    var vx: Float, var vy: Float, var vz: Float,
+    var life: Float, val sparkle: Boolean = false
+)
+
+data class SpeedStreak(
+    var x: Float, var y: Float, var vx: Float, var vy: Float, var life: Float
+)
+
+data class WallSpark(
+    var x: Float, var y: Float, var z: Float,
+    var vx: Float, var vy: Float, var vz: Float,
+    var life: Float, val color: Int, val intensity: Float
+)
+
+data class WindTrail(
+    var x: Float, var y: Float, var z: Float,
+    var vx: Float, var vy: Float, var vz: Float,
+    var life: Float, val intensity: Float
+)
+
+data class GroundImpact(
+    var x: Float, var y: Float, var z: Float,
+    var vx: Float, var vy: Float, var vz: Float,
+    var life: Float, val size: Float
+)
+
+data class IceSparkle(
+    var x: Float, var y: Float, var z: Float,
+    var vx: Float, var vy: Float, var vz: Float,
+    var life: Float, val color: Int, val sparkleRate: Float
+)
+
+data class AeroTrail(
+    val x: Float, val y: Float, val z: Float,
+    val length: Float, val intensity: Float, var life: Float
+)
+
+data class CurveIndicator(
+    val direction: Float,
+    val intensity: Float,
+    val type: TrackCurve.Type,
+    val distance: Float,
+    var urgency: Float,
+    var life: Float,
+    val banking: Float
+)
