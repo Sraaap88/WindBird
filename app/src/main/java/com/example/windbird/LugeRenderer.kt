@@ -8,20 +8,16 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val gradientCache = mutableMapOf<String, LinearGradient>()
     private val effectsRenderer = LugeEffectsRenderer(engine)
-    private var playerCountry: String = "CA" // Par défaut Canada
+    private var playerCountry: String = "CA"
 
     fun drawPreparation(canvas: Canvas, w: Int, h: Int) {
         canvas.save()
-        applyBasicVisualEffects(canvas, w, h)
         
-        // Image de fond de la piste de luge
+        // Image de fond depuis drawable
         drawLugeBackgroundImage(canvas, w, h)
         
         // Drapeau du pays du joueur
         drawCountryFlag(canvas, w, h)
-        
-        // Piste de base (optionnelle, car l'image de fond la montre déjà)
-        // drawBasicTrack(canvas, w, h, true)
         
         // Instructions améliorées
         drawEnhancedPreparationText(canvas, w, h)
@@ -38,17 +34,17 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
         // Fond dynamique
         drawDynamicBackground(canvas, w, h)
         
-        // Piste 3D
-        drawBasicTrack(canvas, w, h, false)
+        // Piste étroite
+        drawNarrowTrack(canvas, w, h)
+        
+        // Éléments de décor
+        drawTrackElements(canvas, w, h)
         
         // Lugeur
         drawBasicLuger(canvas, w, h)
         
         // Interface principale
         drawBasicInterface(canvas, w, h)
-        
-        // Déléguer les effets complexes
-        effectsRenderer.drawAllEffects(canvas, w, h)
         
         canvas.restore()
     }
@@ -137,56 +133,126 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
         paint.shader = null
     }
     
-    private fun drawBasicTrack(canvas: Canvas, w: Int, h: Int, isPreparation: Boolean) {
-        val trackWidth = w * 0.7f
-        val curveOffset = if (isPreparation) 0f else engine.currentCurveStrength * engine.curveDirection * 120f
+    private fun drawNarrowTrack(canvas: Canvas, w: Int, h: Int) {
+        // Piste 3x plus étroite
+        val trackWidth = w * 0.25f
+        val curveOffset = engine.currentCurveStrength * engine.curveDirection * 80f
         
         // Piste principale
         paint.color = Color.WHITE
         val trackPath = Path()
         trackPath.moveTo((w - trackWidth) / 2f + curveOffset * 0.2f, 0f)
         trackPath.lineTo((w + trackWidth) / 2f + curveOffset * 0.2f, 0f)
-        trackPath.lineTo(w * 0.9f + curveOffset, h.toFloat())
-        trackPath.lineTo(w * 0.1f + curveOffset, h.toFloat())
+        trackPath.lineTo(w * 0.7f + curveOffset, h.toFloat())
+        trackPath.lineTo(w * 0.3f + curveOffset, h.toFloat())
         trackPath.close()
         canvas.drawPath(trackPath, paint)
         
         // Murs
         paint.color = Color.parseColor("#CCCCCC")
-        paint.strokeWidth = 12f
+        paint.strokeWidth = 8f
         paint.style = Paint.Style.STROKE
-        canvas.drawLine(w * 0.1f + curveOffset, 0f, w * 0.1f + curveOffset, h.toFloat(), paint)
-        canvas.drawLine(w * 0.9f + curveOffset, 0f, w * 0.9f + curveOffset, h.toFloat(), paint)
+        canvas.drawLine(w * 0.3f + curveOffset, 0f, w * 0.3f + curveOffset, h.toFloat(), paint)
+        canvas.drawLine(w * 0.7f + curveOffset, 0f, w * 0.7f + curveOffset, h.toFloat(), paint)
         paint.style = Paint.Style.FILL
         
         // Lignes de glace
-        if (!isPreparation) {
-            drawIceLines(canvas, w, h, curveOffset)
-        }
+        drawIceLines(canvas, w, h, curveOffset)
     }
     
     private fun drawIceLines(canvas: Canvas, w: Int, h: Int, curveOffset: Float) {
         paint.color = Color.parseColor("#EEEEFF")
-        paint.strokeWidth = 3f
+        paint.strokeWidth = 2f
         paint.style = Paint.Style.STROKE
         
-        val lineSpeed = engine.speed / 20f
-        for (i in 1..12) {
-            val lineY = (i * h / 13f + (engine.distance * lineSpeed) % (h / 13f))
-            val lineLeft = w * 0.15f + curveOffset * 0.8f
-            val lineRight = w * 0.85f + curveOffset * 0.8f
+        val lineSpeed = engine.speed / 15f
+        for (i in 1..8) {
+            val lineY = (i * h / 9f + (engine.distance * lineSpeed) % (h / 9f))
+            val lineLeft = w * 0.35f + curveOffset * 0.8f
+            val lineRight = w * 0.65f + curveOffset * 0.8f
             canvas.drawLine(lineLeft, lineY, lineRight, lineY, paint)
         }
         
         paint.style = Paint.Style.FILL
     }
     
+    private fun drawTrackElements(canvas: Canvas, w: Int, h: Int) {
+        for (element in engine.trackElements) {
+            if (element.distance > -50f && element.distance < 800f) {
+                val depth = (element.distance + 50f) / 850f
+                val scale = (1f - depth * 0.9f).coerceIn(0.05f, 1f)
+                
+                val baseX = w/2f + element.sideOffset * element.offsetDistance * scale
+                val baseY = h * (0.2f + depth * 0.7f)
+                
+                if (scale > 0.1f) {
+                    drawSimpleElement(canvas, baseX, baseY, scale, element.height)
+                }
+            }
+        }
+    }
+    
+    private fun drawSimpleElement(canvas: Canvas, x: Float, y: Float, scale: Float, height: Float) {
+        canvas.save()
+        canvas.translate(x, y)
+        canvas.scale(scale, scale)
+        
+        paint.alpha = (scale * 255).toInt()
+        
+        // Arbre simple
+        paint.color = Color.parseColor("#8B4513")
+        canvas.drawRect(-4f, 10f, 4f, 20f, paint)
+        
+        paint.color = Color.parseColor("#228B22")
+        val path = Path()
+        path.moveTo(0f, -height * 0.3f)
+        path.lineTo(-height * 0.2f, 10f)
+        path.lineTo(height * 0.2f, 10f)
+        path.close()
+        canvas.drawPath(path, paint)
+        
+        paint.alpha = 255
+        canvas.restore()
+    }
+    
+    private fun drawLugeBackgroundImage(canvas: Canvas, w: Int, h: Int) {
+        try {
+            val resourceId = context.resources.getIdentifier("luge_preparation", "drawable", context.packageName)
+            if (resourceId != 0) {
+                val backgroundBitmap = BitmapFactory.decodeResource(context.resources, resourceId)
+                val scaledBitmap = Bitmap.createScaledBitmap(backgroundBitmap, w, h, true)
+                canvas.drawBitmap(scaledBitmap, 0f, 0f, paint)
+                
+                // Overlay léger pour lisibilité
+                paint.color = Color.parseColor("#30000000")
+                canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            } else {
+                // Fond par défaut si image pas trouvée
+                drawDefaultBackground(canvas, w, h)
+            }
+        } catch (e: Exception) {
+            drawDefaultBackground(canvas, w, h)
+        }
+    }
+    
+    private fun drawDefaultBackground(canvas: Canvas, w: Int, h: Int) {
+        val skyGradient = getOrCreateGradient("sky", 
+            intArrayOf(Color.parseColor("#87CEEB"), Color.parseColor("#E0F6FF")),
+            0f, 0f, 0f, h.toFloat())
+        paint.shader = skyGradient
+        canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+        paint.shader = null
+        
+        drawNarrowTrack(canvas, w, h)
+        drawStartEnvironment(canvas, w, h)
+    }
+    
     private fun drawStartEnvironment(canvas: Canvas, w: Int, h: Int) {
         // Arbres simples
         paint.color = Color.parseColor("#228B22")
-        for (i in 0..8) {
-            val treeX = i * w / 9f + Random.nextFloat() * 50f
-            val treeY = h * 0.3f + Random.nextFloat() * 200f
+        for (i in 0..6) {
+            val treeX = i * w / 7f + Random.nextFloat() * 30f
+            val treeY = h * 0.4f + Random.nextFloat() * 150f
             drawSimpleTree(canvas, treeX, treeY)
         }
         
@@ -200,14 +266,14 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
         
         // Tronc
         paint.color = Color.parseColor("#8B4513")
-        canvas.drawRect(-8f, 20f, 8f, 40f, paint)
+        canvas.drawRect(-6f, 15f, 6f, 30f, paint)
         
         // Feuillage
         paint.color = Color.parseColor("#228B22")
         val path = Path()
-        path.moveTo(0f, -20f)
-        path.lineTo(-15f, 20f)
-        path.lineTo(15f, 20f)
+        path.moveTo(0f, -15f)
+        path.lineTo(-12f, 15f)
+        path.lineTo(12f, 15f)
         path.close()
         canvas.drawPath(path, paint)
         
@@ -216,78 +282,46 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
     
     private fun drawStartGate(canvas: Canvas, w: Int, h: Int) {
         paint.color = Color.parseColor("#FF0000")
-        paint.strokeWidth = 8f
+        paint.strokeWidth = 6f
         paint.style = Paint.Style.STROKE
         
         // Poteaux
-        canvas.drawLine(w * 0.1f, h * 0.6f, w * 0.1f, h * 0.4f, paint)
-        canvas.drawLine(w * 0.9f, h * 0.6f, w * 0.9f, h * 0.4f, paint)
+        canvas.drawLine(w * 0.3f, h * 0.6f, w * 0.3f, h * 0.4f, paint)
+        canvas.drawLine(w * 0.7f, h * 0.6f, w * 0.7f, h * 0.4f, paint)
         
         // Barre
-        canvas.drawLine(w * 0.1f, h * 0.4f, w * 0.9f, h * 0.4f, paint)
+        canvas.drawLine(w * 0.3f, h * 0.4f, w * 0.7f, h * 0.4f, paint)
         
         paint.style = Paint.Style.FILL
         paint.color = Color.parseColor("#FF4444")
-        canvas.drawRect(w * 0.4f, h * 0.35f, w * 0.6f, h * 0.45f, paint)
+        canvas.drawRect(w * 0.45f, h * 0.35f, w * 0.55f, h * 0.45f, paint)
         
         paint.color = Color.WHITE
-        paint.textSize = 24f
+        paint.textSize = 20f
         paint.textAlign = Paint.Align.CENTER
         canvas.drawText("START", w/2f, h * 0.42f, paint)
     }
     
-    private fun drawLugeBackgroundImage(canvas: Canvas, w: Int, h: Int) {
-        // Tentative de chargement de l'image de fond
-        try {
-            val inputStream = context.assets.open("luge_preparation.png")
-            val backgroundBitmap = BitmapFactory.decodeStream(inputStream)
-            
-            // Redimensionner l'image pour qu'elle couvre tout l'écran
-            val scaledBitmap = Bitmap.createScaledBitmap(backgroundBitmap, w, h, true)
-            canvas.drawBitmap(scaledBitmap, 0f, 0f, paint)
-            
-            // Ajouter un overlay léger pour améliorer la lisibilité du texte
-            paint.color = Color.parseColor("#20000000")
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
-            
-        } catch (e: Exception) {
-            // Si l'image n'est pas trouvée, utiliser le fond par défaut
-            val skyGradient = getOrCreateGradient("sky", 
-                intArrayOf(Color.parseColor("#87CEEB"), Color.parseColor("#E0F6FF")),
-                0f, 0f, 0f, h.toFloat())
-            paint.shader = skyGradient
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
-            paint.shader = null
-            
-            drawBasicTrack(canvas, w, h, true)
-            drawStartEnvironment(canvas, w, h)
-        }
-    }
-    
     private fun drawCountryFlag(canvas: Canvas, w: Int, h: Int) {
-        val flagSize = 80f
-        val flagX = 30f
-        val flagY = 30f
+        val flagSize = 60f
+        val flagX = 20f
+        val flagY = 20f
         
-        // Fond du drapeau (bordure)
+        // Fond du drapeau
         paint.color = Color.WHITE
-        canvas.drawRoundRect(flagX - 5f, flagY - 5f, flagX + flagSize + 5f, flagY + flagSize * 0.6f + 5f, 8f, 8f, paint)
+        canvas.drawRoundRect(flagX - 3f, flagY - 3f, flagX + flagSize + 3f, flagY + flagSize * 0.6f + 3f, 5f, 5f, paint)
         
-        // Dessiner le drapeau selon le pays
+        // Drapeau canadien simple
         when (playerCountry) {
             "CA" -> drawCanadianFlag(canvas, flagX, flagY, flagSize)
-            "FR" -> drawFrenchFlag(canvas, flagX, flagY, flagSize)
-            "US" -> drawAmericanFlag(canvas, flagX, flagY, flagSize)
-            "NO" -> drawNorwegianFlag(canvas, flagX, flagY, flagSize)
-            "JP" -> drawJapaneseFlag(canvas, flagX, flagY, flagSize)
             else -> drawGenericFlag(canvas, flagX, flagY, flagSize)
         }
         
-        // Bordure du drapeau
+        // Bordure
         paint.color = Color.parseColor("#333333")
-        paint.strokeWidth = 2f
+        paint.strokeWidth = 1f
         paint.style = Paint.Style.STROKE
-        canvas.drawRoundRect(flagX, flagY, flagX + flagSize, flagY + flagSize * 0.6f, 5f, 5f, paint)
+        canvas.drawRoundRect(flagX, flagY, flagX + flagSize, flagY + flagSize * 0.6f, 3f, 3f, paint)
         paint.style = Paint.Style.FILL
     }
     
@@ -299,113 +333,23 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
         canvas.drawRect(x, y, x + size * 0.25f, y + flagHeight, paint)
         canvas.drawRect(x + size * 0.75f, y, x + size, y + flagHeight, paint)
         
-        // Bande blanche centrale
+        // Bande blanche
         paint.color = Color.WHITE
         canvas.drawRect(x + size * 0.25f, y, x + size * 0.75f, y + flagHeight, paint)
         
-        // Feuille d'érable simplifiée
+        // Feuille d'érable
         paint.color = Color.parseColor("#FF0000")
         val centerX = x + size * 0.5f
         val centerY = y + flagHeight * 0.5f
-        val leafSize = size * 0.15f
+        val leafSize = size * 0.1f
         
-        val leafPath = Path()
-        leafPath.moveTo(centerX, centerY - leafSize)
-        leafPath.lineTo(centerX + leafSize * 0.7f, centerY)
-        leafPath.lineTo(centerX, centerY + leafSize)
-        leafPath.lineTo(centerX - leafSize * 0.7f, centerY)
-        leafPath.close()
-        canvas.drawPath(leafPath, paint)
-    }
-    
-    private fun drawAmericanFlag(canvas: Canvas, x: Float, y: Float, size: Float) {
-        val flagHeight = size * 0.6f
-        val stripeHeight = flagHeight / 13f
-        
-        // Bandes rouges et blanches
-        for (i in 0..12) {
-            paint.color = if (i % 2 == 0) Color.parseColor("#B22234") else Color.WHITE
-            canvas.drawRect(x, y + i * stripeHeight, x + size, y + (i + 1) * stripeHeight, paint)
-        }
-        
-        // Canton bleu
-        paint.color = Color.parseColor("#3C3B6E")
-        canvas.drawRect(x, y, x + size * 0.4f, y + flagHeight * 7f/13f, paint)
-        
-        // Étoiles simplifiées (points blancs)
-        paint.color = Color.WHITE
-        for (i in 0..4) {
-            for (j in 0..5) {
-                val starX = x + size * 0.05f + j * size * 0.06f
-                val starY = y + flagHeight * 0.05f + i * flagHeight * 0.08f
-                canvas.drawCircle(starX, starY, 2f, paint)
-            }
-        }
-    }
-    
-    private fun drawFrenchFlag(canvas: Canvas, x: Float, y: Float, size: Float) {
-        val flagHeight = size * 0.6f
-        val stripeWidth = size / 3f
-        
-        // Bleu
-        paint.color = Color.parseColor("#0055A4")
-        canvas.drawRect(x, y, x + stripeWidth, y + flagHeight, paint)
-        
-        // Blanc
-        paint.color = Color.WHITE
-        canvas.drawRect(x + stripeWidth, y, x + 2 * stripeWidth, y + flagHeight, paint)
-        
-        // Rouge
-        paint.color = Color.parseColor("#EF4135")
-        canvas.drawRect(x + 2 * stripeWidth, y, x + size, y + flagHeight, paint)
-    }
-    
-    private fun drawNorwegianFlag(canvas: Canvas, x: Float, y: Float, size: Float) {
-        val flagHeight = size * 0.6f
-        
-        // Fond rouge
-        paint.color = Color.parseColor("#EF2B2D")
-        canvas.drawRect(x, y, x + size, y + flagHeight, paint)
-        
-        // Croix bleue avec bordure blanche
-        paint.color = Color.WHITE
-        // Barre horizontale blanche
-        canvas.drawRect(x, y + flagHeight * 0.4f, x + size, y + flagHeight * 0.6f, paint)
-        // Barre verticale blanche
-        canvas.drawRect(x + size * 0.3f, y, x + size * 0.5f, y + flagHeight, paint)
-        
-        paint.color = Color.parseColor("#002868")
-        // Barre horizontale bleue
-        canvas.drawRect(x, y + flagHeight * 0.43f, x + size, y + flagHeight * 0.57f, paint)
-        // Barre verticale bleue
-        canvas.drawRect(x + size * 0.33f, y, x + size * 0.47f, y + flagHeight, paint)
-    }
-    
-    private fun drawJapaneseFlag(canvas: Canvas, x: Float, y: Float, size: Float) {
-        val flagHeight = size * 0.6f
-        
-        // Fond blanc
-        paint.color = Color.WHITE
-        canvas.drawRect(x, y, x + size, y + flagHeight, paint)
-        
-        // Cercle rouge (soleil levant)
-        paint.color = Color.parseColor("#BC002D")
-        val centerX = x + size * 0.5f
-        val centerY = y + flagHeight * 0.5f
-        val circleRadius = size * 0.2f
-        canvas.drawCircle(centerX, centerY, circleRadius, paint)
+        canvas.drawCircle(centerX, centerY, leafSize, paint)
     }
     
     private fun drawGenericFlag(canvas: Canvas, x: Float, y: Float, size: Float) {
         val flagHeight = size * 0.6f
-        
-        // Drapeau générique avec couleurs olympiques
         paint.color = Color.BLUE
         canvas.drawRect(x, y, x + size, y + flagHeight, paint)
-        
-        // Anneaux olympiques simplifiés
-        paint.color = Color.WHITE
-        canvas.drawCircle(x + size * 0.5f, y + flagHeight * 0.5f, size * 0.15f, paint)
     }
     
     fun setPlayerCountry(country: String) {
@@ -413,41 +357,36 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
     }
     
     private fun drawEnhancedPreparationText(canvas: Canvas, w: Int, h: Int) {
-        // Titre principal avec ombre
+        // Titre principal
         paint.color = Color.parseColor("#FFFFFF")
-        paint.textSize = 64f
+        paint.textSize = 48f
         paint.textAlign = Paint.Align.CENTER
-        paint.setShadowLayer(5f, 3f, 3f, Color.parseColor("#80000000"))
+        paint.setShadowLayer(4f, 2f, 2f, Color.parseColor("#80000000"))
         canvas.drawText("🛷 LUGE EXTRÊME 🛷", w/2f, h * 0.15f, paint)
         
         // Sous-titre
-        paint.textSize = 42f
+        paint.textSize = 32f
         paint.color = Color.parseColor("#FFD700")
         canvas.drawText("Préparation...", w/2f, h * 0.22f, paint)
         
-        // Instructions à gauche et à droite en gros caractères
+        // Instructions
         paint.clearShadowLayer()
-        paint.setShadowLayer(3f, 2f, 2f, Color.parseColor("#80000000"))
+        paint.setShadowLayer(2f, 1f, 1f, Color.parseColor("#80000000"))
         
-        // Instructions de gauche
-        paint.textSize = 32f
+        paint.textSize = 24f
         paint.color = Color.parseColor("#FFFFFF")
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("📱 INCLINEZ", 40f, h * 0.75f, paint)
-        canvas.drawText("   DOUCEMENT", 40f, h * 0.80f, paint)
-        canvas.drawText("   pour diriger", 40f, h * 0.85f, paint)
+        canvas.drawText("📱 INCLINEZ", 30f, h * 0.75f, paint)
+        canvas.drawText("   pour diriger", 30f, h * 0.80f, paint)
         
-        // Instructions de droite
         paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("SECOUEZ 📱", w - 40f, h * 0.75f, paint)
-        canvas.drawText("FORT pour   ", w - 40f, h * 0.80f, paint)
-        canvas.drawText("freiner   ", w - 40f, h * 0.85f, paint)
+        canvas.drawText("SECOUEZ 📱", w - 30f, h * 0.75f, paint)
+        canvas.drawText("pour freiner", w - 30f, h * 0.80f, paint)
         
-        // Instruction centrale en bas
         paint.textAlign = Paint.Align.CENTER
-        paint.textSize = 28f
+        paint.textSize = 20f
         paint.color = Color.parseColor("#FFD700")
-        canvas.drawText("⚡ Position aérodynamique = VITESSE MAX ⚡", w/2f, h * 0.93f, paint)
+        canvas.drawText("⚡ Position aérodynamique = VITESSE MAX ⚡", w/2f, h * 0.9f, paint)
         
         paint.clearShadowLayer()
     }
@@ -458,62 +397,62 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
         
         canvas.save()
         canvas.translate(lugerScreenX, lugerScreenY)
-        canvas.rotate(engine.gForce * 12f + engine.lugerRotation)
+        canvas.rotate(engine.gForce * 8f + engine.lugerRotation)
         
         // Ombre
-        paint.alpha = 150
+        paint.alpha = 120
         paint.color = Color.parseColor("#000000")
-        canvas.drawOval(-30f, 5f, 30f, 15f, paint)
+        canvas.drawOval(-25f, 3f, 25f, 10f, paint)
         paint.alpha = 255
         
         // Luge
         paint.color = Color.parseColor("#444444")
-        canvas.drawRoundRect(-50f, 0f, 50f, 60f, 15f, 15f, paint)
+        canvas.drawRoundRect(-40f, 0f, 40f, 50f, 12f, 12f, paint)
         
         // Lugeur
         paint.color = Color.parseColor("#FF6600")
-        canvas.drawOval(-45f, -30f, 45f, 30f, paint)
+        canvas.drawOval(-35f, -25f, 35f, 25f, paint)
         
         // Casque
         paint.color = Color.parseColor("#0066CC")
-        canvas.drawCircle(0f, -35f, 18f, paint)
+        canvas.drawCircle(0f, -30f, 15f, paint)
         
         // Patins
         paint.color = Color.parseColor("#AAAAAA")
-        paint.strokeWidth = 8f
+        paint.strokeWidth = 6f
         paint.style = Paint.Style.STROKE
-        canvas.drawLine(-30f, 55f, -30f, 70f, paint)
-        canvas.drawLine(30f, 55f, 30f, 70f, paint)
+        canvas.drawLine(-25f, 45f, -25f, 55f, paint)
+        canvas.drawLine(25f, 45f, 25f, 55f, paint)
         paint.style = Paint.Style.FILL
         
         canvas.restore()
         
         // Traînée de vitesse
-        if (engine.speed > 40f) {
+        if (engine.speed > 30f) {
             drawSpeedTrail(canvas, lugerScreenX, lugerScreenY)
         }
     }
     
     private fun drawSpeedTrail(canvas: Canvas, lugerX: Float, lugerY: Float) {
-        val trailIntensity = (engine.speed - 40f) / (engine.maxSpeed - 40f)
-        val trailLength = 3 + (trailIntensity * 3).toInt()
+        val trailIntensity = (engine.speed - 30f) / (engine.maxSpeed - 30f)
+        val trailLength = 2 + (trailIntensity * 3).toInt()
         
         for (i in 1..trailLength) {
-            val trailAlpha = ((trailLength - i) * 255 / trailLength * trailIntensity).toInt()
+            val trailAlpha = ((trailLength - i) * 200 / trailLength * trailIntensity).toInt()
             paint.alpha = trailAlpha
             
-            val trailScale = 1f - i * 0.15f
-            val trailY = lugerY + i * 30f
+            val trailScale = 1f - i * 0.2f
+            val trailY = lugerY + i * 25f
             
             paint.color = when {
-                engine.speed > 120f -> Color.parseColor("#FF0000")
-                engine.speed > 100f -> Color.parseColor("#FF6600")
+                engine.speed > 100f -> Color.parseColor("#FF0000")
+                engine.speed > 70f -> Color.parseColor("#FF6600")
                 else -> Color.parseColor("#FFFFFF")
             }
             
             canvas.drawOval(
-                lugerX - 40f * trailScale, trailY,
-                lugerX + 40f * trailScale, trailY + 20f * trailScale,
+                lugerX - 30f * trailScale, trailY,
+                lugerX + 30f * trailScale, trailY + 15f * trailScale,
                 paint
             )
         }
@@ -521,65 +460,65 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
     }
     
     private fun drawBasicInterface(canvas: Canvas, w: Int, h: Int) {
-        val baseY = h - 200f
+        val baseY = h - 150f
         
         // Compteur de vitesse
-        drawBasicSpeedometer(canvas, w - 150f, 120f)
+        drawBasicSpeedometer(canvas, w - 120f, 100f)
         
         // Métriques de base
         paint.color = Color.parseColor("#001133")
-        paint.textSize = 20f
+        paint.textSize = 16f
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("Parfaits: ${engine.perfectCurves}", 20f, baseY, paint)
-        canvas.drawText("Murs: ${engine.wallHits}", 20f, baseY + 30f, paint)
-        canvas.drawText("Temps: ${engine.raceTime.toInt()}s", 20f, baseY + 60f, paint)
-        canvas.drawText("Vitesse: ${engine.speed.toInt()} km/h", 20f, baseY + 90f, paint)
+        canvas.drawText("Parfaits: ${engine.perfectCurves}", 15f, baseY, paint)
+        canvas.drawText("Murs: ${engine.wallHits}", 15f, baseY + 25f, paint)
+        canvas.drawText("Temps: ${engine.raceTime.toInt()}s", 15f, baseY + 50f, paint)
+        canvas.drawText("Vitesse: ${engine.speed.toInt()} km/h", 15f, baseY + 75f, paint)
         
         // Barres de performance
-        drawBasicMeter(canvas, 200f, baseY, 180f, engine.precision / 140f, "PRÉCISION", Color.GREEN)
-        drawBasicMeter(canvas, 200f, baseY + 30f, 180f, engine.aerodynamics / 140f, "AÉRO", Color.BLUE)
-        drawBasicMeter(canvas, 200f, baseY + 60f, 180f, engine.stamina / 100f, "STAMINA", Color.MAGENTA)
+        drawBasicMeter(canvas, 150f, baseY, 140f, engine.precision / 130f, "PRÉCISION", Color.GREEN)
+        drawBasicMeter(canvas, 150f, baseY + 25f, 140f, engine.aerodynamics / 130f, "AÉRO", Color.BLUE)
+        drawBasicMeter(canvas, 150f, baseY + 50f, 140f, engine.stamina / 100f, "STAMINA", Color.MAGENTA)
         
-        // Avertissements
-        if (engine.speed > 120f) {
+        // Avertissement vitesse
+        if (engine.speed > 100f) {
             paint.color = Color.RED
-            paint.textSize = 28f
+            paint.textSize = 24f
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("⚠️ VITESSE EXTRÊME ⚠️", w/2f, h - 40f, paint)
+            canvas.drawText("⚠️ VITESSE EXTRÊME ⚠️", w/2f, h - 20f, paint)
         }
     }
     
     private fun drawBasicSpeedometer(canvas: Canvas, centerX: Float, centerY: Float) {
         // Cadran
         paint.color = Color.parseColor("#333333")
-        canvas.drawCircle(centerX, centerY, 60f, paint)
+        canvas.drawCircle(centerX, centerY, 50f, paint)
         
         paint.color = Color.WHITE
-        canvas.drawCircle(centerX, centerY, 55f, paint)
+        canvas.drawCircle(centerX, centerY, 45f, paint)
         
         // Aiguille
         val speedAngle = (engine.speed / engine.maxSpeed) * 270f - 135f
         paint.color = Color.RED
-        paint.strokeWidth = 6f
+        paint.strokeWidth = 4f
         paint.style = Paint.Style.STROKE
         
-        val needleX = centerX + cos(Math.toRadians(speedAngle.toDouble())).toFloat() * 45f
-        val needleY = centerY + sin(Math.toRadians(speedAngle.toDouble())).toFloat() * 45f
+        val needleX = centerX + cos(Math.toRadians(speedAngle.toDouble())).toFloat() * 35f
+        val needleY = centerY + sin(Math.toRadians(speedAngle.toDouble())).toFloat() * 35f
         canvas.drawLine(centerX, centerY, needleX, needleY, paint)
         
         paint.style = Paint.Style.FILL
         
         // Valeur numérique
         paint.color = Color.BLACK
-        paint.textSize = 16f
+        paint.textSize = 14f
         paint.textAlign = Paint.Align.CENTER
-        canvas.drawText("${engine.speed.toInt()}", centerX, centerY + 70f, paint)
-        canvas.drawText("km/h", centerX, centerY + 90f, paint)
+        canvas.drawText("${engine.speed.toInt()}", centerX, centerY + 55f, paint)
+        canvas.drawText("km/h", centerX, centerY + 70f, paint)
     }
     
     private fun drawBasicMeter(canvas: Canvas, x: Float, y: Float, width: Float, 
                               value: Float, label: String, color: Int) {
-        val barHeight = 18f
+        val barHeight = 15f
         val clampedValue = value.coerceIn(0f, 1f)
         
         // Fond
@@ -593,14 +532,14 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
         
         // Label
         paint.color = Color.WHITE
-        paint.textSize = 14f
+        paint.textSize = 12f
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("$label: ${(clampedValue * 100).toInt()}%", x, y - 5f, paint)
+        canvas.drawText("$label: ${(clampedValue * 100).toInt()}%", x, y - 3f, paint)
     }
     
     private fun drawResultsMetrics(canvas: Canvas, w: Int, h: Int) {
         paint.color = Color.parseColor("#333333")
-        paint.textSize = 22f
+        paint.textSize = 20f
         paint.textAlign = Paint.Align.CENTER
         
         val metrics = arrayOf(
@@ -608,22 +547,16 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
             "⚡ Vitesse max: ${engine.topSpeed.toInt()} km/h",
             "🎯 Virages parfaits: ${engine.perfectCurves}",
             "💨 Aérodynamisme: ${engine.aerodynamics.toInt()}%",
-            "🎪 Précision: ${engine.precision.toInt()}%",
-            "💪 Stamina: ${engine.stamina.toInt()}%"
+            "🎪 Précision: ${engine.precision.toInt()}%"
         )
         
         for ((index, metric) in metrics.withIndex()) {
-            canvas.drawText(metric, w/2f, h * (0.5f + index * 0.06f), paint)
+            canvas.drawText(metric, w/2f, h * (0.5f + index * 0.08f), paint)
         }
         
         if (engine.wallHits > 0) {
             paint.color = Color.RED
-            canvas.drawText("💥 Contacts murs: ${engine.wallHits}", w/2f, h * 0.86f, paint)
-        }
-        
-        if (engine.brakingUsed) {
-            paint.color = Color.parseColor("#666666")
-            canvas.drawText("🦶 Freinage utilisé", w/2f, h * 0.92f, paint)
+            canvas.drawText("💥 Contacts murs: ${engine.wallHits}", w/2f, h * 0.9f, paint)
         }
     }
     
