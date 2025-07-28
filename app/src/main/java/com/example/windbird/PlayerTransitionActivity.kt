@@ -16,14 +16,14 @@ class PlayerTransitionActivity : Activity() {
     private var numberOfPlayers: Int = 1
     private var nextPlayerIndex: Int = 0
 
-    // AJOUTÉ : Informations sur les épreuves - TOUTES LES 9 ÉPREUVES
+    // MODIFIÉ : Informations sur les épreuves - TOUTES LES 8 ÉPREUVES (retiré Curling)
     private val eventNames = arrayOf(
         "Biathlon", "Saut à Ski", "Bobsleigh", "Patinage Vitesse", 
-        "Slalom", "Snowboard Halfpipe", "Ski Freestyle", "Luge", "Curling"
+        "Slalom", "Snowboard Halfpipe", "Ski Freestyle", "Luge"
     )
     
     private val eventIcons = arrayOf(
-        "🎯", "🎿", "🛷", "⛸️", "⛷️", "🏂", "🎿", "🛷", "🥌"
+        "🎯", "🎿", "🛷", "⛸️", "⛷️", "🏂", "🎿", "🛷"
     )
     
     private val eventInstructions = arrayOf(
@@ -34,8 +34,7 @@ class PlayerTransitionActivity : Activity() {
         "• Inclinez gauche/droite pour zigzaguer\n• Secouez pour maintenir la vitesse",
         "• Inclinez pour les figures aériennes\n• Secouez pour les rotations",
         "• Inclinez pour les acrobaties\n• Secouez pour les figures en vol",
-        "• Inclinez pour contrôler la trajectoire\n• Secouez pour la vitesse de descente",
-        "• Inclinez pour viser la pierre\n• Secouez pour ajuster la force"
+        "• Inclinez pour contrôler la trajectoire\n• Secouez pour la vitesse de descente"
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -140,7 +139,7 @@ class PlayerTransitionActivity : Activity() {
         setContentView(layout)
     }
     
-    // CORRIGÉ : Méthode pour démarrer la bonne activité selon l'épreuve - TOUTES LES 9 ÉPREUVES
+    // CORRIGÉ : Méthode pour démarrer la bonne activité selon l'épreuve - TOUTES LES 8 ÉPREUVES
     private fun startEventActivity() {
         val intent = when (eventIndex) {
             0 -> {
@@ -174,10 +173,6 @@ class PlayerTransitionActivity : Activity() {
             7 -> {
                 // Luge
                 Intent(this, LugeActivity::class.java)
-            }
-            8 -> {
-                // Curling
-                Intent(this, CurlingActivity::class.java)
             }
             else -> {
                 // Fallback - retourner au Biathlon par défaut
