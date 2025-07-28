@@ -462,19 +462,8 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             "FRANCE" -> "🇫🇷"
             "CANADA" -> "🇨🇦"
             "USA", "ÉTATS-UNIS", "ETATS-UNIS" -> "🇺🇸"
-            "ALLEMAGNE", "GERMANY" -> "🇩🇪"
-            "ITALIE", "ITALY" -> "🇮🇹"
-            "SUISSE", "SWITZERLAND" -> "🇨🇭"
-            "AUTRICHE", "AUSTRIA" -> "🇦🇹"
             "NORVÈGE", "NORWAY" -> "🇳🇴"
-            "SUÈDE", "SWEDEN" -> "🇸🇪"
-            "FINLANDE", "FINLAND" -> "🇫🇮"
             "JAPON", "JAPAN" -> "🇯🇵"
-            "CORÉE", "KOREA" -> "🇰🇷"
-            "RUSSIE", "RUSSIA" -> "🇷🇺"
-            "POLOGNE", "POLAND" -> "🇵🇱"
-            "SLOVÉNIE", "SLOVENIA" -> "🇸🇮"
-            "RÉPUBLIQUE TCHÈQUE", "CZECH REPUBLIC" -> "🇨🇿"
             else -> "🏴"
         }
     }
@@ -548,12 +537,12 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
             
             val playerCountry = tournamentData.playerCountries[currentPlayerIndex]
             return when (playerCountry.uppercase()) {
+                "FRANCE" -> flagFranceBitmap
                 "CANADA" -> flagCanadaBitmap
                 "USA", "ÉTATS-UNIS", "ETATS-UNIS" -> flagUsaBitmap
-                "FRANCE" -> flagFranceBitmap
                 "NORVÈGE", "NORWAY" -> flagNorvegeBitmap
                 "JAPON", "JAPAN" -> flagJapanBitmap
-                else -> flagCanadaBitmap
+                else -> flagCanadaBitmap  // Défaut sur Canada
             }
         }
 
@@ -863,21 +852,33 @@ class PatinageVitesseActivity : Activity(), SensorEventListener {
         }
         
         private fun drawHUD(canvas: Canvas, w: Int, h: Int) {
+            // REPOSITIONNEMENT : Déplacer le HUD en haut à gauche pour éviter le patineur
+            val hudX = 20f
+            val hudY = 80f  // Juste sous la barre de statut
+            val hudWidth = w.toFloat() * 0.45f
+            val hudHeight = 120f
+            
+            // Fond semi-transparent noir
+            paint.color = Color.parseColor("#80000000")
+            paint.style = Paint.Style.FILL
+            reusableRectF.set(hudX, hudY, hudX + hudWidth, hudY + hudHeight)
+            canvas.drawRect(reusableRectF, paint)
+            
             paint.color = Color.WHITE
             paint.style = Paint.Style.FILL
-            paint.textSize = 34f
+            paint.textSize = 28f  // Légèrement plus petit pour s'adapter en haut
             paint.typeface = Typeface.DEFAULT_BOLD
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("${(totalDistance - playerDistance).toInt()}m restants", 40f, h.toFloat() - 320f, paint)
-            
-            paint.textSize = 28f
-            paint.typeface = Typeface.DEFAULT_BOLD
-            canvas.drawText("Temps: ${raceTime.toInt()}s", 40f, h.toFloat() - 285f, paint)
+            canvas.drawText("${(totalDistance - playerDistance).toInt()}m restants", hudX + 10f, hudY + 25f, paint)
             
             paint.textSize = 24f
             paint.typeface = Typeface.DEFAULT_BOLD
-            canvas.drawText("Parfaits: $perfectStrokes", 40f, h.toFloat() - 250f, paint)
-            canvas.drawText("Total coups: $strokeCount", 40f, h.toFloat() - 225f, paint)
+            canvas.drawText("Temps: ${raceTime.toInt()}s", hudX + 10f, hudY + 50f, paint)
+            
+            paint.textSize = 20f
+            paint.typeface = Typeface.DEFAULT_BOLD
+            canvas.drawText("Parfaits: $perfectStrokes", hudX + 10f, hudY + 75f, paint)
+            canvas.drawText("Total: $strokeCount", hudX + 10f, hudY + 95f, paint)
         }
         
         private fun drawResults(canvas: Canvas, w: Int, h: Int) {
