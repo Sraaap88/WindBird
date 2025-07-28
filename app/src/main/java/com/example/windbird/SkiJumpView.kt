@@ -234,17 +234,19 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
             canvas.drawBitmap(prep, null, dstRect, paint)
         }
         
-        // Rectangle et drapeau (identique)
-        val flagRectWidth = w * 0.22f
-        val flagRectHeight = h * 0.22f
-        val flagRectX = w * 0.39f
-        val flagRectY = h * 0.08f
+        // CORRIGÉ - Rectangle et drapeau plus petit et bien centré
+        val flagRectWidth = w * 0.15f   // Plus petit (0.22f -> 0.15f)
+        val flagRectHeight = h * 0.12f  // Plus petit (0.22f -> 0.12f)
+        val flagRectX = w * 0.425f      // Mieux centré (0.39f -> 0.425f)
+        val flagRectY = h * 0.12f       // Légèrement plus bas (0.08f -> 0.12f)
         
         val flagBitmap = getPlayerFlagBitmap()
         flagBitmap?.let { flag ->
-            val flagWidth = flagRectWidth * 0.9f
-            val flagHeight = flagRectHeight * 0.8f
+            // Drapeau plus petit et parfaitement centré
+            val flagWidth = flagRectWidth * 0.8f   // Plus petit dans le rectangle
+            val flagHeight = flagRectHeight * 0.7f // Proportion correcte
             
+            // Centrage parfait dans le rectangle
             val flagX = flagRectX + (flagRectWidth - flagWidth) / 2f
             val flagY = flagRectY + (flagRectHeight - flagHeight) / 2f
             
