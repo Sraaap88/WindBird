@@ -200,6 +200,7 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     
     private fun loadPreparationImage() {
         try {
+            // Tu as pas montré skifreestyle_preparation.png mais je suppose qu'elle existe
             preparationBitmap = BitmapFactory.decodeResource(resources, R.drawable.skifreestyle_preparation)
         } catch (e: Exception) {
             e.printStackTrace()
