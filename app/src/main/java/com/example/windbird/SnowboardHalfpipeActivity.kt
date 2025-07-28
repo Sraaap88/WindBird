@@ -315,53 +315,15 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         val frameWidth = bitmap.width / cols
         val frameHeight = bitmap.height / rows
         
-        // Pour chaque frame, trouver les vraies limites du contenu
+        // SIMPLE : découper en grille 3x4 = 12 rectangles
         for (row in 0 until rows) {
             for (col in 0 until cols) {
-                val startX = col * frameWidth
-                val startY = row * frameHeight
-                val endX = startX + frameWidth
-                val endY = startY + frameHeight
+                val left = col * frameWidth
+                val top = row * frameHeight
+                val right = left + frameWidth
+                val bottom = top + frameHeight
                 
-                // Analyser les pixels pour trouver les vraies limites du sprite
-                var minX = endX
-                var minY = endY
-                var maxX = startX
-                var maxY = startY
-                var hasContent = false
-                
-                // Scanner tous les pixels de cette frame
-                for (y in startY until endY) {
-                    for (x in startX until endX) {
-                        if (x < bitmap.width && y < bitmap.height) {
-                            val pixel = bitmap.getPixel(x, y)
-                            val alpha = (pixel shr 24) and 0xFF
-                            
-                            // Si le pixel n'est pas transparent
-                            if (alpha > 30) {
-                                hasContent = true
-                                minX = minOf(minX, x)
-                                minY = minOf(minY, y)
-                                maxX = maxOf(maxX, x)
-                                maxY = maxOf(maxY, y)
-                            }
-                        }
-                    }
-                }
-                
-                // Si on a trouvé du contenu, utiliser les vraies limites avec un peu de marge
-                if (hasContent) {
-                    val margin = 5 // Petite marge autour du sprite
-                    minX = maxOf(startX, minX - margin)
-                    minY = maxOf(startY, minY - margin)
-                    maxX = minOf(endX, maxX + margin)
-                    maxY = minOf(endY, maxY + margin)
-                    
-                    frames.add(Rect(minX, minY, maxX, maxY))
-                } else {
-                    // Si pas de contenu, utiliser la frame complète
-                    frames.add(Rect(startX, startY, endX, endY))
-                }
+                frames.add(Rect(left, top, right, bottom))
             }
         }
         
