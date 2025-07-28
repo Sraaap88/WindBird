@@ -255,7 +255,7 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
                         
                         paint.colorFilter = null // Reset filter
                     } else {
-                        // Fallback si pas d'image
+                        // Fallback si pas d'image kicker - forme simple
                         paint.color = if (kicker.hit) {
                             Color.parseColor("#00FF00")
                         } else if (kickerScreenDistance < 50f && kickerScreenDistance > 0f) {
@@ -266,13 +266,22 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
                             Color.parseColor("#888888")
                         }
                         
-                        reusableRectF.set(
-                            screenX - kickerSize, 
-                            screenY - kickerSize/2f, 
-                            screenX + kickerSize, 
-                            screenY + kickerSize/2f
-                        )
-                        canvas.drawOval(reusableRectF, paint)
+                        // Forme de kicker simple
+                        reusablePath.reset()
+                        reusablePath.moveTo(screenX - kickerSize, screenY + kickerSize/2f)
+                        reusablePath.lineTo(screenX - kickerSize/2f, screenY)
+                        reusablePath.lineTo(screenX, screenY - kickerSize/3f)
+                        reusablePath.lineTo(screenX + kickerSize/2f, screenY)
+                        reusablePath.lineTo(screenX + kickerSize, screenY + kickerSize/2f)
+                        reusablePath.close()
+                        canvas.drawPath(reusablePath, paint)
+                        
+                        // Contour
+                        paint.color = Color.BLACK
+                        paint.strokeWidth = 2f
+                        paint.style = Paint.Style.STROKE
+                        canvas.drawPath(reusablePath, paint)
+                        paint.style = Paint.Style.FILL
                     }
                     
                     // Indicateurs de distance
@@ -309,13 +318,13 @@ class SkiFreestyleView(context: Context, private val activity: SkiFreestyleActiv
         // CHOISIR LA BONNE IMAGE selon l'état du skieur
         val currentBitmap = when {
             activity.currentTrick != SkiFreestyleActivity.FreestyleTrick.NONE -> {
-                activity.skierEagleBitmap // Image tricks
+                activity.skierEagleBitmap ?: activity.skierBitmap // Fallback si pas d'image eagle
             }
             activity.isInAir -> {
-                activity.skierJumpBitmap // Image saut
+                activity.skierJumpBitmap ?: activity.skierBitmap // Fallback si pas d'image jump
             }
             else -> {
-                activity.skierFrontBitmap // Image normale
+                activity.skierFrontBitmap ?: activity.skierBitmap // Fallback si pas d'image front
             }
         }
         
