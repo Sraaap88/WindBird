@@ -911,16 +911,32 @@ class LugeGameEngine {
     private fun limitParticleCount() {
         // Limitation du nombre de particules avec suppression des plus anciens
         while (snowParticles3D.size > 300) {
-            snowParticles3D.removeFirstOrNull()
+            val iterator = snowParticles3D.iterator()
+            if (iterator.hasNext()) {
+                iterator.next()
+                iterator.remove()
+            }
         }
         while (iceChips.size > 50) {
-            iceChips.removeFirstOrNull()
+            val iterator = iceChips.iterator()
+            if (iterator.hasNext()) {
+                iterator.next()
+                iterator.remove()
+            }
         }
         while (aeroTrails.size > 30) {
-            aeroTrails.removeFirstOrNull()
+            val iterator = aeroTrails.iterator()
+            if (iterator.hasNext()) {
+                iterator.next()
+                iterator.remove()
+            }
         }
         while (windTrails.size > 20) {
-            windTrails.removeFirstOrNull()
+            val iterator = windTrails.iterator()
+            if (iterator.hasNext()) {
+                iterator.next()
+                iterator.remove()
+            }
         }
     }
     
@@ -1017,7 +1033,11 @@ class LugeGameEngine {
         ))
         
         while (curveIndicators.size > 3) {
-            curveIndicators.removeFirstOrNull()
+            val iterator = curveIndicators.iterator()
+            if (iterator.hasNext()) {
+                iterator.next()
+                iterator.remove()
+            }
         }
     }
     
