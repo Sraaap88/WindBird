@@ -15,7 +15,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.view.ViewGroup
 import kotlin.math.*
- 
+
 class LugeActivity : Activity(), SensorEventListener {
 
     private lateinit var gameView: LugeView
@@ -261,7 +261,7 @@ class LugeActivity : Activity(), SensorEventListener {
             // Définir le pays du joueur selon les données du tournoi
             val playerCountry = if (currentPlayerIndex < tournamentData.playerCountries.size) {
                 tournamentData.playerCountries[currentPlayerIndex]
-            } else "FR" // Par défaut France
+            } else "CA" // Par défaut Canada
             renderer.setPlayerCountry(playerCountry)
             
             when (gameState) {
