@@ -707,7 +707,7 @@ class LugeGameEngine {
     
     private fun updateParticles(deltaTime: Float) {
         // Particules de neige 3D
-        snowParticles3D.removeAll { particle ->
+        for (particle in snowParticles3D) {
             particle.x += particle.vx * deltaTime
             particle.y += particle.vy * deltaTime
             particle.z += particle.vz * deltaTime
@@ -719,9 +719,6 @@ class LugeGameEngine {
                 particle.y = Random.nextFloat() * 500f + 200f
                 particle.z = Random.nextFloat() * 200f + 1000f
                 particle.life = Random.nextFloat() * 5f + 3f
-                false
-            } else {
-                false
             }
         }
         
