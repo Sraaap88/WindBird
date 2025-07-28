@@ -21,7 +21,7 @@ class EventsMenuActivity : Activity() {
     private lateinit var eventsLayout: LinearLayout
     private lateinit var statusText: TextView
     
-    // MODIFIÉ : 9 épreuves au lieu de 10 (retiré Hockey sur Glace) - TOUTES IMPLÉMENTÉES
+    // MODIFIÉ : 8 épreuves au lieu de 9 (retiré Curling) - TOUTES IMPLÉMENTÉES
     private val events = arrayOf(
         Event("Biathlon", "🎯", "Ski de fond + tir de précision", true),
         Event("Saut à Ski", "🎿", "Envol et atterrissage parfait", true),
@@ -30,9 +30,8 @@ class EventsMenuActivity : Activity() {
         Event("Slalom", "⛷️", "Zigzag entre les portes", true),
         Event("Snowboard Halfpipe", "🏂", "Figures aériennes", true),
         Event("Ski Freestyle", "🎿", "Acrobaties en vol", true),
-        Event("Luge", "🛷", "Contrôle de trajectoire", true),
-        Event("Curling", "🥌", "Précision et stratégie", true)
-        // RETIRÉ : Hockey sur Glace
+        Event("Luge", "🛷", "Contrôle de trajectoire", true)
+        // RETIRÉ : Curling
     )
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -159,7 +158,7 @@ class EventsMenuActivity : Activity() {
     }
     
     private fun createEventsList() {
-        // MODIFIÉ : Boucle jusqu'à 8 (9 épreuves : 0 à 8)
+        // MODIFIÉ : Boucle jusqu'à 7 (8 épreuves : 0 à 7)
         for (i in events.indices) {
             val event = events[i]
             val eventStatus = tournamentData.getEventStatus(i, practiceMode)
@@ -378,19 +377,6 @@ class EventsMenuActivity : Activity() {
                 // Luge - COPIE EXACTE du code Biathlon
                 if (events[7].implemented) {
                     val intent = Intent(this, LugeActivity::class.java).apply {
-                        putExtra("tournament_data", tournamentData)
-                        putExtra("event_index", eventIndex)
-                        putExtra("number_of_players", numberOfPlayers)
-                        putExtra("practice_mode", practiceMode)
-                        putExtra("current_player_index", if (practiceMode) 0 else tournamentData.getNextPlayer(eventIndex))
-                    }
-                    startActivityForResult(intent, 100)
-                }
-            }
-            8 -> {
-                // Curling - COPIE EXACTE du code Biathlon
-                if (events[8].implemented) {
-                    val intent = Intent(this, CurlingActivity::class.java).apply {
                         putExtra("tournament_data", tournamentData)
                         putExtra("event_index", eventIndex)
                         putExtra("number_of_players", numberOfPlayers)
