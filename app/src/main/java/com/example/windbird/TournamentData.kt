@@ -7,19 +7,19 @@ class TournamentData(
     val playerCountries: ArrayList<String>
 ) : Serializable {
     
-    // MODIFIÉ : 9 épreuves (indices 0 à 8) au lieu de 10
-    private val eventScores = Array(4) { Array(9) { -1 } }
-    private val attempts = Array(4) { Array(9) { 0 } }
+    // MODIFIÉ : 8 épreuves (indices 0 à 7) au lieu de 9
+    private val eventScores = Array(4) { Array(8) { -1 } }
+    private val attempts = Array(4) { Array(8) { 0 } }
     
     fun addScore(playerIndex: Int, eventIndex: Int, score: Int) {
-        if (playerIndex in 0..3 && eventIndex in 0..8) { // MODIFIÉ : 0..8 au lieu de 0..9
+        if (playerIndex in 0..3 && eventIndex in 0..7) { // MODIFIÉ : 0..7 au lieu de 0..8
             eventScores[playerIndex][eventIndex] = score
             attempts[playerIndex][eventIndex]++
         }
     }
     
     fun getScore(playerIndex: Int, eventIndex: Int): Int {
-        return if (playerIndex in 0..3 && eventIndex in 0..8) { // MODIFIÉ : 0..8 au lieu de 0..9
+        return if (playerIndex in 0..3 && eventIndex in 0..7) { // MODIFIÉ : 0..7 au lieu de 0..8
             eventScores[playerIndex][eventIndex]
         } else -1
     }
@@ -31,7 +31,7 @@ class TournamentData(
     }
     
     fun getAttempts(playerIndex: Int, eventIndex: Int): Int {
-        return if (playerIndex in 0..3 && eventIndex in 0..8) { // MODIFIÉ : 0..8 au lieu de 0..9
+        return if (playerIndex in 0..3 && eventIndex in 0..7) { // MODIFIÉ : 0..7 au lieu de 0..8
             attempts[playerIndex][eventIndex]
         } else 0
     }
@@ -84,7 +84,7 @@ class TournamentData(
     // Méthodes de compatibilité
     fun getNumberOfPlayers(): Int = 4
     
-    fun getNumberOfEvents(): Int = 9 // MODIFIÉ : 9 au lieu de 10
+    fun getNumberOfEvents(): Int = 8 // MODIFIÉ : 8 au lieu de 9
     
     fun getPlayerName(index: Int): String = playerNames.getOrElse(index) { "Joueur ${index + 1}" }
     
@@ -92,8 +92,8 @@ class TournamentData(
     
     // MODIFIÉ : Vérifier si toutes les épreuves implémentées sont terminées
     fun isTournamentComplete(): Boolean {
-        // Maintenant : TOUTES les 9 épreuves sont implémentées (0 à 8)
-        val implementedEvents = (0..8).toList()
+        // Maintenant : TOUTES les 8 épreuves sont implémentées (0 à 7)
+        val implementedEvents = (0..7).toList()
         
         return implementedEvents.all { eventIndex ->
             (0..3).all { playerIndex ->
@@ -129,8 +129,8 @@ class TournamentData(
     private fun calculateTournamentMedals(playerIndex: Int): IntArray {
         val medals = intArrayOf(0, 0, 0)
         
-        // MODIFIÉ : Boucle sur 9 épreuves (0 à 8)
-        for (eventIndex in 0..8) {
+        // MODIFIÉ : Boucle sur 8 épreuves (0 à 7)
+        for (eventIndex in 0..7) {
             val scores = mutableListOf<Pair<Int, Int>>()
             
             for (i in 0..3) {
@@ -157,8 +157,8 @@ class TournamentData(
     
     private fun countCompletedEvents(playerIndex: Int): Int {
         var count = 0
-        // MODIFIÉ : Boucle sur 9 épreuves (0 à 8)
-        for (eventIndex in 0..8) {
+        // MODIFIÉ : Boucle sur 8 épreuves (0 à 7)
+        for (eventIndex in 0..7) {
             if (getScore(playerIndex, eventIndex) > 0) {
                 count++
             }
