@@ -25,9 +25,9 @@ class LugeGameEngine {
     var groundFriction = 0f
     
     // Système de piste
-    val trackCurves = mutableListOf<TrackCurve>()
-    val trackElements = mutableListOf<TrackElement>()
-    val trackSectors = mutableListOf<TrackSector>()
+    var trackCurves = mutableListOf<TrackCurve>()
+    var trackElements = mutableListOf<TrackElement>()
+    var trackSectors = mutableListOf<TrackSector>()
     var nextCurveIndex = 0
     var currentCurveStrength = 0f
     var curveDirection = 0f
@@ -72,17 +72,17 @@ class LugeGameEngine {
     var bloom = 0f
     
     // Systèmes de particules SIMPLES
-    val snowParticles3D = mutableListOf<SnowParticle3D>()
-    val iceChips = mutableListOf<IceChip>()
-    val speedStreaks = mutableListOf<SpeedStreak>()
-    val wallSparks = mutableListOf<WallSpark>()
-    val windTrails = mutableListOf<WindTrail>()
-    val groundImpacts = mutableListOf<GroundImpact>()
-    val sparkles = mutableListOf<IceSparkle>()
-    val aeroTrails = mutableListOf<AeroTrail>()
-    val curveIndicators = mutableListOf<CurveIndicator>()
-    val speedZones = mutableListOf<SpeedZone>()
-    val checkpoints = mutableListOf<Checkpoint>()
+    var snowParticles3D = mutableListOf<SnowParticle3D>()
+    var iceChips = mutableListOf<IceChip>()
+    var speedStreaks = mutableListOf<SpeedStreak>()
+    var wallSparks = mutableListOf<WallSpark>()
+    var windTrails = mutableListOf<WindTrail>()
+    var groundImpacts = mutableListOf<GroundImpact>()
+    var sparkles = mutableListOf<IceSparkle>()
+    var aeroTrails = mutableListOf<AeroTrail>()
+    var curveIndicators = mutableListOf<CurveIndicator>()
+    var speedZones = mutableListOf<SpeedZone>()
+    var checkpoints = mutableListOf<Checkpoint>()
     
     // Score
     var finalScore = 0
@@ -207,7 +207,7 @@ class LugeGameEngine {
     private fun generateAdvancedLugeTrack() {
         var currentDistance = 0f
         
-        val sectorTypes = listOf(
+        var sectorTypes = listOf(
             TrackSector.SectorType.GENTLE_START,
             TrackSector.SectorType.SPEED_ZONE,
             TrackSector.SectorType.TECHNICAL_CURVES,
@@ -218,7 +218,7 @@ class LugeGameEngine {
         )
         
         for ((index, sectorType) in sectorTypes.withIndex()) {
-            val sectorLength = when (sectorType) {
+            var sectorLength = when (sectorType) {
                 TrackSector.SectorType.GENTLE_START -> 400f
                 TrackSector.SectorType.SPEED_ZONE -> 800f
                 TrackSector.SectorType.TECHNICAL_CURVES -> 600f
@@ -251,7 +251,7 @@ class LugeGameEngine {
     }
     
     private fun generateSectorElements(startDistance: Float, length: Float, sectorType: TrackSector.SectorType) {
-        val curveCount = when (sectorType) {
+        var curveCount = when (sectorType) {
             TrackSector.SectorType.GENTLE_START -> 3
             TrackSector.SectorType.SPEED_ZONE -> 2
             TrackSector.SectorType.TECHNICAL_CURVES -> 8
@@ -263,8 +263,8 @@ class LugeGameEngine {
         
         // Génération des virages
         for (i in 0 until curveCount) {
-            val curveDistance = startDistance + (i + 1) * (length / (curveCount + 1))
-            val curveType = getCurveTypeForSector(sectorType, i)
+            var curveDistance = startDistance + (i + 1) * (length / (curveCount + 1))
+            var curveType = getCurveTypeForSector(sectorType, i)
             
             trackCurves.add(TrackCurve(
                 distance = curveDistance,
@@ -276,10 +276,10 @@ class LugeGameEngine {
         }
         
         // Génération des éléments de décor
-        val elementCount = (length / 80f).toInt()
+        var elementCount = (length / 80f).toInt()
         for (i in 0 until elementCount) {
-            val elementDistance = startDistance + i * 80f + Random.nextFloat() * 40f
-            val elementType = getElementTypeForSector(sectorType, i)
+            var elementDistance = startDistance + i * 80f + Random.nextFloat() * 40f
+            var elementType = getElementTypeForSector(sectorType, i)
             
             trackElements.add(TrackElement(
                 distance = elementDistance,
@@ -369,9 +369,9 @@ class LugeGameEngine {
     
     private fun handleAdvancedLugeMovement(deltaTime: Float) {
         // Contrôle de direction avec physique réaliste
-        val steeringInput = tiltX * 0.6f
-        val curveEffect = currentCurveStrength * curveDirection * 0.3f
-        val totalSteering = steeringInput + curveEffect
+        var steeringInput = tiltX * 0.6f
+        var curveEffect = currentCurveStrength * curveDirection * 0.3f
+        var totalSteering = steeringInput + curveEffect
         
         // Inertie du lugeur
         lugerMomentum.x = lugerMomentum.x * 0.95f + totalSteering * 0.05f
@@ -407,7 +407,7 @@ class LugeGameEngine {
     }
     
     private fun handleAerodynamics() {
-        val aeroPosition = tiltY.coerceIn(-1.5f, 1.5f)
+        var aeroPosition = tiltY.coerceIn(-1.5f, 1.5f)
         
         when {
             aeroPosition < -0.8f -> {
@@ -438,7 +438,7 @@ class LugeGameEngine {
     
     private fun handleSpeedPhysics(deltaTime: Float) {
         // Effet de la gravité selon l'altitude
-        val gravityEffect = 2f * (1f + (1000f - altitude) / 1000f)
+        var gravityEffect = 2f * (1f + (1000f - altitude) / 1000f)
         acceleration.z += gravityEffect
         
         // Friction du sol
@@ -463,7 +463,7 @@ class LugeGameEngine {
         adrenaline = (speed / maxSpeed * 0.7f + gForce * 0.3f).coerceIn(0f, 1f)
         
         // Stamina selon l'effort
-        val steeringInput = tiltX * 0.6f
+        var steeringInput = tiltX * 0.6f
         stamina -= (gForce * 0.1f + abs(steeringInput) * 0.05f) * 0.01f
         stamina = stamina.coerceIn(0f, 100f)
         
@@ -486,10 +486,10 @@ class LugeGameEngine {
     private fun handleAdvancedWallContact() {
         wallHits++
         
-        val wallSide = if (lugerX <= 0.1f) -1f else 1f
+        var wallSide = if (lugerX <= 0.1f) -1f else 1f
         lugerMomentum.x = -lugerMomentum.x * 0.6f
         
-        val impactForce = abs(lugerMomentum.x) + speed * 0.01f
+        var impactForce = abs(lugerMomentum.x) + speed * 0.01f
         speed *= (1f - impactForce * 0.15f).coerceIn(0.7f, 1f)
         
         precision -= 8f * impactForce
@@ -505,8 +505,8 @@ class LugeGameEngine {
     
     private fun handleAdvancedTrackCurves() {
         while (nextCurveIndex < trackCurves.size) {
-            val curve = trackCurves[nextCurveIndex]
-            val curveDistance = curve.distance - distance
+            var curve = trackCurves[nextCurveIndex]
+            var curveDistance = curve.distance - distance
             
             if (curveDistance < -curve.length) {
                 nextCurveIndex++
@@ -516,7 +516,7 @@ class LugeGameEngine {
             }
             
             if (curveDistance <= 200f && curveDistance >= -curve.length) {
-                val curveProgress = when {
+                var curveProgress = when {
                     curveDistance > 0 -> 0f
                     curveDistance >= -curve.length -> (-curveDistance) / curve.length
                     else -> 1f
@@ -526,7 +526,7 @@ class LugeGameEngine {
                     currentCurveStrength = sin(curveProgress * PI).toFloat() * curve.intensity
                     curveDirection = curve.direction
                     
-                    val bankingEffect = curve.banking * sin(curveProgress * PI).toFloat()
+                    var bankingEffect = curve.banking * sin(curveProgress * PI).toFloat()
                     lugerY += bankingEffect * 0.001f
                 }
                 
@@ -546,11 +546,11 @@ class LugeGameEngine {
     }
     
     private fun evaluateAdvancedCurvePerformance(curve: TrackCurve, progress: Float) {
-        val idealPosition = 0.5f + curve.direction * curve.intensity * 0.3f
-        val positionError = abs(lugerX - idealPosition)
+        var idealPosition = 0.5f + curve.direction * curve.intensity * 0.3f
+        var positionError = abs(lugerX - idealPosition)
         
-        val idealSpeed = maxSpeed * (1f - curve.intensity * 0.4f)
-        val speedError = abs(speed - idealSpeed) / idealSpeed
+        var idealSpeed = maxSpeed * (1f - curve.intensity * 0.4f)
+        var speedError = abs(speed - idealSpeed) / idealSpeed
         
         when {
             positionError < 0.15f && speedError < 0.2f -> {
@@ -559,7 +559,7 @@ class LugeGameEngine {
                 aerodynamics += 2f
                 generatePerfectCurveEffect()
                 
-                val difficultyBonus = curve.intensity * 2f
+                var difficultyBonus = curve.intensity * 2f
                 precision += difficultyBonus
             }
             positionError < 0.25f && speedError < 0.35f -> {
@@ -579,15 +579,15 @@ class LugeGameEngine {
     }
     
     private fun handleAdvancedFootBraking() {
-        val currentTime = System.currentTimeMillis()
+        var currentTime = System.currentTimeMillis()
         
-        val brakeThreshold = 2.5f - (stamina / 100f) * 0.5f
-        val brakeInput = abs(tiltZ) > brakeThreshold || 
+        var brakeThreshold = 2.5f - (stamina / 100f) * 0.5f
+        var brakeInput = abs(tiltZ) > brakeThreshold || 
                         sqrt(accelX*accelX + accelY*accelY + accelZ*accelZ) > 18f
         
         if (brakeInput && currentTime - lastBrakeTime > 400) {
-            val brakeEfficiency = stamina / 100f * steeringPrecision / 100f
-            val brakeForce = 15f * brakeEfficiency
+            var brakeEfficiency = stamina / 100f * steeringPrecision / 100f
+            var brakeForce = 15f * brakeEfficiency
             
             brakingPower += brakeForce
             speed *= (1f - brakeForce * 0.008f).coerceIn(0.85f, 1f)
@@ -605,8 +605,8 @@ class LugeGameEngine {
     }
     
     private fun updateAdvancedPhysics(deltaTime: Float) {
-        val windResistance = 0.015f * (speed / maxSpeed)
-        val fatigueEffect = (100f - stamina) / 1000f
+        var windResistance = 0.015f * (speed / maxSpeed)
+        var fatigueEffect = (100f - stamina) / 1000f
         
         aerodynamics -= windResistance + fatigueEffect
         precision -= 0.025f + fatigueEffect * 2f
@@ -621,7 +621,7 @@ class LugeGameEngine {
             stamina += 0.1f * deltaTime
         }
         
-        val altitudeEffect = altitude / 1000f
+        var altitudeEffect = altitude / 1000f
         aerodynamics *= (1f + altitudeEffect * 0.02f)
         
         aerodynamics = aerodynamics.coerceIn(60f, 140f)
@@ -631,7 +631,7 @@ class LugeGameEngine {
     }
     
     private fun updateSectorProgression() {
-        val currentSectorIndex = trackSectors.indexOfFirst { 
+        var currentSectorIndex = trackSectors.indexOfFirst { 
             distance >= it.startDistance && distance < it.startDistance + it.length 
         }
         
@@ -641,7 +641,7 @@ class LugeGameEngine {
             }
             currentSector = currentSectorIndex
             
-            val sector = trackSectors[currentSector]
+            var sector = trackSectors[currentSector]
             when (sector.type) {
                 TrackSector.SectorType.SPEED_ZONE -> maxSpeed += 10f
                 TrackSector.SectorType.TUNNEL_SECTION -> {
@@ -660,7 +660,7 @@ class LugeGameEngine {
                 checkpoint.passed = true
                 checkpoint.actualTime = raceTime
                 
-                val timeDifference = checkpoint.actualTime - checkpoint.targetTime
+                var timeDifference = checkpoint.actualTime - checkpoint.targetTime
                 if (timeDifference < 0) {
                     precision += 10f
                     aerodynamics += 5f
@@ -674,7 +674,7 @@ class LugeGameEngine {
     }
     
     private fun updateAdvancedRaceProgress(deltaTime: Float) {
-        val progressMultiplier = speed / 60f
+        var progressMultiplier = speed / 60f
         distance += speed * progressMultiplier * deltaTime * 2f
         altitude = maxOf(0f, 1000f - (distance / totalDistance) * 1000f)
     }
@@ -771,22 +771,22 @@ class LugeGameEngine {
     }
     
     private fun updateCameraSystem(deltaTime: Float) {
-        val targetCameraRotation = lugerMomentum.x * 5f
+        var targetCameraRotation = lugerMomentum.x * 5f
         cameraRotation = cameraRotation * 0.9f + targetCameraRotation * 0.1f
         
-        val targetCameraTilt = -gForce * 3f
+        var targetCameraTilt = -gForce * 3f
         cameraTilt = cameraTilt * 0.95f + targetCameraTilt * 0.05f
         
-        val targetDistance = 150f + speed * 0.5f
+        var targetDistance = 150f + speed * 0.5f
         cameraDistance = cameraDistance * 0.98f + targetDistance * 0.02f
         
-        val targetHeight = 100f + abs(currentCurveStrength) * 30f
+        var targetHeight = 100f + abs(currentCurveStrength) * 30f
         cameraHeight = cameraHeight * 0.95f + targetHeight * 0.05f
     }
     
     // Génération d'effets SIMPLES
     private fun generateAdvancedSpeedEffects() {
-        val effectIntensity = speed / maxSpeed
+        var effectIntensity = speed / maxSpeed
         
         if (Random.nextFloat() < effectIntensity * 0.8f && snowParticles3D.size < 300) {
             snowParticles3D.add(SnowParticle3D(
@@ -905,7 +905,7 @@ class LugeGameEngine {
     }
     
     private fun addAdvancedCurveIndicator(curve: TrackCurve, distance: Float) {
-        val urgency = (120f - distance) / 120f
+        var urgency = (120f - distance) / 120f
         
         if (curveIndicators.size < 3) {
             curveIndicators.add(CurveIndicator(
@@ -932,19 +932,19 @@ class LugeGameEngine {
             performanceMetrics.brakingUsed = brakingUsed
             performanceMetrics.stamina = stamina
             
-            val timeBonus = maxOf(0, (180 - raceTime).toInt()) * 3
-            val speedBonus = (performanceMetrics.averageSpeed / maxSpeed * 100).toInt()
-            val topSpeedBonus = (topSpeed / maxSpeed * 80).toInt()
-            val precisionBonus = ((precision - 100f) * 2f).toInt()
-            val aerodynamicsBonus = ((aerodynamics - 100f) * 1.8f).toInt()
-            val perfectCurveBonus = perfectCurves * 35
-            val sectorBonus = sectorTimes.size * 15
-            val checkpointBonus = checkpoints.count { it.passed && it.actualTime < it.targetTime } * 25
-            val staminaBonus = (stamina * 0.5f).toInt()
+            var timeBonus = maxOf(0, (180 - raceTime).toInt()) * 3
+            var speedBonus = (performanceMetrics.averageSpeed / maxSpeed * 100).toInt()
+            var topSpeedBonus = (topSpeed / maxSpeed * 80).toInt()
+            var precisionBonus = ((precision - 100f) * 2f).toInt()
+            var aerodynamicsBonus = ((aerodynamics - 100f) * 1.8f).toInt()
+            var perfectCurveBonus = perfectCurves * 35
+            var sectorBonus = sectorTimes.size * 15
+            var checkpointBonus = checkpoints.count { it.passed && it.actualTime < it.targetTime } * 25
+            var staminaBonus = (stamina * 0.5f).toInt()
             
-            val wallPenalty = wallHits * 20
-            val brakingPenalty = if (brakingUsed) 15 else 0
-            val fatigePenalty = ((100f - stamina) * 0.3f).toInt()
+            var wallPenalty = wallHits * 20
+            var brakingPenalty = if (brakingUsed) 15 else 0
+            var fatigePenalty = ((100f - stamina) * 0.3f).toInt()
             
             finalScore = maxOf(100, timeBonus + speedBonus + topSpeedBonus + precisionBonus + 
                              aerodynamicsBonus + perfectCurveBonus + sectorBonus + checkpointBonus + 
