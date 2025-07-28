@@ -1016,7 +1016,7 @@ class LugeGameEngine {
             banking = curve.banking
         ))
         
-        if (curveIndicators.size > 3) {
+        while (curveIndicators.size > 3) {
             curveIndicators.removeFirstOrNull()
         }
     }
@@ -1057,59 +1057,3 @@ class LugeGameEngine {
         }
     }
 }
-
-// Classes de données pour les particules et effets avec propriétés mutables
-data class SnowParticle3D(
-    var x: Float, var y: Float, var z: Float,
-    var vx: Float, var vy: Float, var vz: Float,
-    var size: Float, var life: Float
-)
-
-data class IceChip(
-    var x: Float, var y: Float, var z: Float,
-    var vx: Float, var vy: Float, var vz: Float,
-    var life: Float, val sparkle: Boolean = false
-)
-
-data class SpeedStreak(
-    var x: Float, var y: Float, var vx: Float, var vy: Float, var life: Float
-)
-
-data class WallSpark(
-    var x: Float, var y: Float, var z: Float,
-    var vx: Float, var vy: Float, var vz: Float,
-    var life: Float, val color: Int, val intensity: Float
-)
-
-data class WindTrail(
-    var x: Float, var y: Float, var z: Float,
-    var vx: Float, var vy: Float, var vz: Float,
-    var life: Float, val intensity: Float
-)
-
-data class GroundImpact(
-    var x: Float, var y: Float, var z: Float,
-    var vx: Float, var vy: Float, var vz: Float,
-    var life: Float, val size: Float
-)
-
-data class IceSparkle(
-    var x: Float, var y: Float, var z: Float,
-    var vx: Float, var vy: Float, var vz: Float,
-    var life: Float, val color: Int, val sparkleRate: Float
-)
-
-data class AeroTrail(
-    val x: Float, val y: Float, val z: Float,
-    val length: Float, val intensity: Float, var life: Float
-)
-
-data class CurveIndicator(
-    val direction: Float,
-    val intensity: Float,
-    val type: TrackCurve.Type,
-    val distance: Float,
-    var urgency: Float,
-    var life: Float,
-    val banking: Float
-)
