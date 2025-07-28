@@ -25,9 +25,9 @@ class LugeGameEngine {
     var groundFriction = 0f
     
     // Système de piste
-    var trackCurves = mutableListOf<TrackCurve>()
-    var trackElements = mutableListOf<TrackElement>()
-    var trackSectors = mutableListOf<TrackSector>()
+    val trackCurves = mutableListOf<TrackCurve>()
+    val trackElements = mutableListOf<TrackElement>()
+    val trackSectors = mutableListOf<TrackSector>()
     var nextCurveIndex = 0
     var currentCurveStrength = 0f
     var curveDirection = 0f
@@ -72,17 +72,17 @@ class LugeGameEngine {
     var bloom = 0f
     
     // Systèmes de particules SIMPLES
-    var snowParticles3D = mutableListOf<SnowParticle3D>()
-    var iceChips = mutableListOf<IceChip>()
-    var speedStreaks = mutableListOf<SpeedStreak>()
-    var wallSparks = mutableListOf<WallSpark>()
-    var windTrails = mutableListOf<WindTrail>()
-    var groundImpacts = mutableListOf<GroundImpact>()
-    var sparkles = mutableListOf<IceSparkle>()
-    var aeroTrails = mutableListOf<AeroTrail>()
-    var curveIndicators = mutableListOf<CurveIndicator>()
-    var speedZones = mutableListOf<SpeedZone>()
-    var checkpoints = mutableListOf<Checkpoint>()
+    val snowParticles3D = mutableListOf<SnowParticle3D>()
+    val iceChips = mutableListOf<IceChip>()
+    val speedStreaks = mutableListOf<SpeedStreak>()
+    val wallSparks = mutableListOf<WallSpark>()
+    val windTrails = mutableListOf<WindTrail>()
+    val groundImpacts = mutableListOf<GroundImpact>()
+    val sparkles = mutableListOf<IceSparkle>()
+    val aeroTrails = mutableListOf<AeroTrail>()
+    val curveIndicators = mutableListOf<CurveIndicator>()
+    val speedZones = mutableListOf<SpeedZone>()
+    val checkpoints = mutableListOf<Checkpoint>()
     
     // Score
     var finalScore = 0
@@ -207,7 +207,7 @@ class LugeGameEngine {
     private fun generateAdvancedLugeTrack() {
         var currentDistance = 0f
         
-        var sectorTypes = listOf(
+        val sectorTypes = listOf(
             TrackSector.SectorType.GENTLE_START,
             TrackSector.SectorType.SPEED_ZONE,
             TrackSector.SectorType.TECHNICAL_CURVES,
@@ -218,7 +218,7 @@ class LugeGameEngine {
         )
         
         for ((index, sectorType) in sectorTypes.withIndex()) {
-            var sectorLength = when (sectorType) {
+            val sectorLength = when (sectorType) {
                 TrackSector.SectorType.GENTLE_START -> 400f
                 TrackSector.SectorType.SPEED_ZONE -> 800f
                 TrackSector.SectorType.TECHNICAL_CURVES -> 600f
@@ -251,7 +251,7 @@ class LugeGameEngine {
     }
     
     private fun generateSectorElements(startDistance: Float, length: Float, sectorType: TrackSector.SectorType) {
-        var curveCount = when (sectorType) {
+        val curveCount = when (sectorType) {
             TrackSector.SectorType.GENTLE_START -> 3
             TrackSector.SectorType.SPEED_ZONE -> 2
             TrackSector.SectorType.TECHNICAL_CURVES -> 8
@@ -263,8 +263,8 @@ class LugeGameEngine {
         
         // Génération des virages
         for (i in 0 until curveCount) {
-            var curveDistance = startDistance + (i + 1) * (length / (curveCount + 1))
-            var curveType = getCurveTypeForSector(sectorType, i)
+            val curveDistance = startDistance + (i + 1) * (length / (curveCount + 1))
+            val curveType = getCurveTypeForSector(sectorType, i)
             
             trackCurves.add(TrackCurve(
                 distance = curveDistance,
@@ -276,10 +276,10 @@ class LugeGameEngine {
         }
         
         // Génération des éléments de décor
-        var elementCount = (length / 80f).toInt()
+        val elementCount = (length / 80f).toInt()
         for (i in 0 until elementCount) {
-            var elementDistance = startDistance + i * 80f + Random.nextFloat() * 40f
-            var elementType = getElementTypeForSector(sectorType, i)
+            val elementDistance = startDistance + i * 80f + Random.nextFloat() * 40f
+            val elementType = getElementTypeForSector(sectorType, i)
             
             trackElements.add(TrackElement(
                 distance = elementDistance,
