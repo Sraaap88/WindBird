@@ -36,7 +36,7 @@
             android:name=".BiathlonActivity"
             android:screenOrientation="landscape" />
             
-        <!-- AJOUTER CES NOUVELLES ACTIVITÉS -->
+        <!-- ACTIVITÉS DES 8 ÉPREUVES (sans Curling) -->
         <activity
             android:name=".SkiJumpActivity"
             android:screenOrientation="landscape" />
@@ -65,10 +65,8 @@
             android:name=".LugeActivity"
             android:screenOrientation="landscape" />
             
-        <activity
-            android:name=".CurlingActivity"
-            android:screenOrientation="landscape" />
-            
+        <!-- RETIRÉ : CurlingActivity -->
+        
         <activity
             android:name=".ScoreTransitionActivity"
             android:screenOrientation="landscape" />
