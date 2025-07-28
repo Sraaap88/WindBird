@@ -40,6 +40,10 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
     private var trackSection = TrackSection.STRAIGHT
     private var landscapeOffset = 0f
     
+    // NOUVEAU: Variables pour effets de vitesse
+    private var speedLineOffset = 0f
+    private var tunnelEffect = 0f
+    
     enum class TrackSection {
         STRAIGHT, LEFT_TURN, RIGHT_TURN, LEFT_RETURN, RIGHT_RETURN
     }
@@ -166,51 +170,332 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
     
     // SYSTÈME WINTER GAMES AMÉLIORÉ
     private fun drawWinterGamesSystem(canvas: Canvas, w: Int, h: Int, gameData: GameData) {
-        val trackStartY = h * 0.225f // DÉCOR PLUS HAUT : 22.5% au lieu de 15%
+        val trackStartY = h * 0.2f // 20% pour le décor
         
-        // Mettre à jour le défilement du paysage
+        // Mettre à jour tous les effets
+        updateSpeedEffects(gameData.speed)
         updateLandscapeScrolling(gameData.speed)
         
-        // 1. MONTAGNES SIMPLES EN HAUT (22.5%)
-        drawSimpleMountains(canvas, w, trackStartY.toInt(), gameData)
+        // 1. FOND SIMPLE AVEC EFFET DE TUNNEL
+        drawSpeedBackground(canvas, w, h, trackStartY, gameData)
         
-        // 2. PISTE SPRITE-SHEET AVEC PARALLAX (77.5% de l'écran)
-        drawParallaxTrackBackground(canvas, w, h, trackStartY, gameData)
+        // 2. PISTE AVEC FRAMES MULTIPLIÉES ET DÉCALÉES
+        drawEnhancedTrackBackground(canvas, w, h, trackStartY, gameData)
         
-        // 3. BOBSLEIGH CENTRÉ (TOUJOURS PAR-DESSUS)
-        drawCenteredBobsled(canvas, w, h, trackStartY, gameData)
+        // 3. LIGNES DE VITESSE MASSIVES
+        drawMassiveSpeedLines(canvas, w, h, trackStartY, gameData)
         
-        // 4. SYMBOLES DE DIRECTION
+        // 4. BOBSLEIGH TRÈS VISIBLE AU PREMIER PLAN
+        drawHighVisibilityBobsled(canvas, w, h, trackStartY, gameData)
+        
+        // 5. SYMBOLES DE DIRECTION
         drawTurnIndicators(canvas, w, h, gameData)
         
-        // 5. Interface vitesse
+        // 6. Interface vitesse
         drawInterface(canvas, w, h, gameData)
     }
     
-    // Montagnes simples qui bougent selon les virages
-    private fun drawSimpleMountains(canvas: Canvas, w: Int, horizonHeight: Int, gameData: GameData) {
-        // Ciel simple
-        paint.color = Color.rgb(220, 235, 250)
-        canvas.drawRect(0f, 0f, w.toFloat(), horizonHeight.toFloat(), paint)
+    // NOUVEAU: Fond avec effet de tunnel de vitesse
+    private fun drawSpeedBackground(canvas: Canvas, w: Int, h: Int, startY: Float, gameData: GameData) {
+        val speedFactor = (gameData.speed / 150f).coerceIn(0f, 1f)
         
-        // Montagnes qui bougent selon les virages SEULEMENT
-        val trackIndex = (gameData.trackPosition * (gameData.trackCurves.size - 1)).toInt()
-        val currentTrackCurve = if (trackIndex < gameData.trackCurves.size) gameData.trackCurves[trackIndex] else 0f
+        // Ciel qui devient plus sombre avec la vitesse
+        val skyColor = Color.rgb(
+            (220 - speedFactor * 50).toInt(),
+            (235 - speedFactor * 60).toInt(),
+            (250 - speedFactor * 70).toInt()
+        )
+        paint.color = skyColor
+        canvas.drawRect(0f, 0f, w.toFloat(), startY, paint)
         
-        // Déplacement selon la direction du virage
-        val mountainShift = currentTrackCurve * w * 0.6f // Plus prononcé
+        // Effet de tunnel concentrique pour la vitesse
+        if (speedFactor > 0.3f) {
+            val centerX = w / 2f
+            val centerY = startY / 2f
+            
+            paint.style = Paint.Style.STROKE
+            paint.color = Color.argb((speedFactor * 100).toInt(), 255, 255, 255)
+            
+            for (i in 1..8) {
+                val radius = (tunnelEffect + i * 30f) % 200f + 20f
+                paint.strokeWidth = (speedFactor * 8f).coerceAtMost(12f)
+                canvas.drawCircle(centerX, centerY, radius, paint)
+            }
+            paint.style = Paint.Style.FILL
+        }
+        
+        // Montagnes simples qui bougent
+        val currentCurve = getCurrentTrackCurve(gameData)
+        val mountainShift = currentCurve * w * 0.4f
         
         paint.color = Color.rgb(180, 190, 210)
         val mountains = Path().apply {
-            moveTo(-mountainShift, horizonHeight.toFloat())
-            lineTo(w * 0.25f - mountainShift, horizonHeight * 0.3f)
-            lineTo(w * 0.5f - mountainShift, horizonHeight * 0.1f)
-            lineTo(w * 0.75f - mountainShift, horizonHeight * 0.4f)
-            lineTo(w.toFloat() - mountainShift, horizonHeight * 0.2f)
-            lineTo(w.toFloat(), horizonHeight.toFloat())
+            moveTo(-mountainShift, startY)
+            lineTo(w * 0.25f - mountainShift, startY * 0.3f)
+            lineTo(w * 0.5f - mountainShift, startY * 0.1f)
+            lineTo(w * 0.75f - mountainShift, startY * 0.4f)
+            lineTo(w.toFloat() - mountainShift, startY * 0.2f)
+            lineTo(w.toFloat(), startY)
             close()
         }
         canvas.drawPath(mountains, paint)
+    }
+    
+    // NOUVEAU: Système de frames vraiment multipliées
+    private fun drawEnhancedTrackBackground(canvas: Canvas, w: Int, h: Int, startY: Float, gameData: GameData) {
+        updateTrackFrame(gameData)
+        
+        val currentFrame = getCurrentTrackFrame()
+        val speedFactor = (gameData.speed / 150f).coerceIn(0f, 1f)
+        val currentCurve = getCurrentTrackCurve(gameData)
+        
+        currentFrame?.let { frame ->
+            
+            // === VRAIE MULTIPLICATION AVEC DÉCALAGES VISIBLES ===
+            val baseSpeed = speedFactor * 15f // Plus rapide
+            
+            // FRAME PRINCIPALE (toujours visible)
+            val mainOffsetY = (frameTimer * baseSpeed) % 50f
+            val dstRect1 = RectF(0f, startY + mainOffsetY, w.toFloat(), h.toFloat() + mainOffsetY)
+            canvas.drawBitmap(frame, null, dstRect1, paint)
+            
+            // FRAME 2: Décalage Y différent
+            paint.alpha = 180
+            val offsetY2 = (frameTimer * baseSpeed * 1.3f) % 50f
+            val offsetX2 = sin(frameTimer * 5f) * currentCurve * 8f
+            val dstRect2 = RectF(offsetX2, startY + offsetY2, w.toFloat() + offsetX2, h.toFloat() + offsetY2)
+            canvas.drawBitmap(frame, null, dstRect2, paint)
+            
+            if (speedFactor > 0.4f) {
+                // FRAME 3: Décalage encore différent
+                paint.alpha = 150
+                val offsetY3 = (frameTimer * baseSpeed * 0.7f) % 50f
+                val offsetX3 = cos(frameTimer * 3f) * currentCurve * -6f
+                val dstRect3 = RectF(offsetX3, startY + offsetY3, w.toFloat() + offsetX3, h.toFloat() + offsetY3)
+                canvas.drawBitmap(frame, null, dstRect3, paint)
+                
+                // FRAME 4: Sens inverse
+                paint.alpha = 120
+                val offsetY4 = (frameTimer * baseSpeed * -0.5f) % 50f + 50f
+                val offsetX4 = sin(frameTimer * 7f) * currentCurve * 4f
+                val dstRect4 = RectF(offsetX4, startY + offsetY4, w.toFloat() + offsetX4, h.toFloat() + offsetY4)
+                canvas.drawBitmap(frame, null, dstRect4, paint)
+            }
+            
+            if (speedFactor > 0.7f) {
+                // FRAME 5: Ultra-rapide
+                paint.alpha = 100
+                val offsetY5 = (frameTimer * baseSpeed * 2f) % 50f
+                val offsetX5 = cos(frameTimer * 12f) * currentCurve * 10f
+                val dstRect5 = RectF(offsetX5, startY + offsetY5, w.toFloat() + offsetX5, h.toFloat() + offsetY5)
+                canvas.drawBitmap(frame, null, dstRect5, paint)
+                
+                // FRAME 6: Micro-décalages
+                paint.alpha = 80
+                val offsetY6 = (frameTimer * baseSpeed * 0.3f) % 50f
+                val offsetX6 = sin(frameTimer * 20f) * 3f
+                val dstRect6 = RectF(offsetX6, startY + offsetY6, w.toFloat() + offsetX6, h.toFloat() + offsetY6)
+                canvas.drawBitmap(frame, null, dstRect6, paint)
+            }
+            
+            paint.alpha = 255 // Remettre opaque
+            
+        } ?: run {
+            // Fallback: piste procédurale animée
+            drawProceduralTrack(canvas, w, h, startY, gameData)
+        }
+    }
+    
+    // NOUVEAU: Piste procédurale si pas d'images
+    private fun drawProceduralTrack(canvas: Canvas, w: Int, h: Int, startY: Float, gameData: GameData) {
+        val speedFactor = (gameData.speed / 150f).coerceIn(0f, 1f)
+        val currentCurve = getCurrentTrackCurve(gameData)
+        
+        // Fond de piste qui défile
+        val scrollOffset = (speedLineOffset * speedFactor * 3f) % 40f
+        
+        for (i in 0..20) {
+            val y = startY + (h - startY) * i / 20f - scrollOffset
+            if (y > startY && y < h + 40f) {
+                val perspective = (y - startY) / (h - startY)
+                val trackWidth = w * (0.3f + perspective * 0.5f)
+                val centerX = w / 2f + currentCurve * w * 0.2f * perspective
+                
+                // Couleur de la piste
+                val gray = (160 + i % 3 * 20).coerceAtMost(255)
+                paint.color = Color.rgb(gray, gray, gray)
+                
+                canvas.drawRect(
+                    centerX - trackWidth / 2f,
+                    y,
+                    centerX + trackWidth / 2f,
+                    y + 20f,
+                    paint
+                )
+                
+                // Lignes blanches
+                if (i % 4 == 0) {
+                    paint.color = Color.WHITE
+                    canvas.drawRect(
+                        centerX - 4f,
+                        y,
+                        centerX + 4f,
+                        y + 20f,
+                        paint
+                    )
+                }
+            }
+        }
+    }
+    
+    // NOUVEAU: Lignes de vitesse massives et visibles
+    private fun drawMassiveSpeedLines(canvas: Canvas, w: Int, h: Int, startY: Float, gameData: GameData) {
+        val speedFactor = (gameData.speed / 150f).coerceIn(0f, 1f)
+        
+        if (speedFactor < 0.3f) return // Pas de lignes si trop lent
+        
+        val currentCurve = getCurrentTrackCurve(gameData)
+        
+        // LIGNES HORIZONTALES MASSIVES
+        paint.strokeWidth = (4f + speedFactor * 8f).coerceAtMost(15f)
+        paint.style = Paint.Style.STROKE
+        paint.color = Color.argb((speedFactor * 150).toInt(), 255, 255, 255)
+        
+        val lineSpeed = speedFactor * 20f
+        val scrollOffset = (speedLineOffset * lineSpeed) % 80f
+        
+        for (i in 0..15) {
+            val lineY = startY + (h - startY) * i / 15f - scrollOffset + (i * 8f)
+            val perspective = (lineY - startY) / (h - startY)
+            
+            if (lineY > startY && lineY < h) {
+                val lineWidth = w * (0.2f + perspective * 0.6f)
+                val centerX = w / 2f + currentCurve * w * 0.3f * perspective
+                
+                // Ligne principale
+                canvas.drawLine(
+                    centerX - lineWidth / 2f,
+                    lineY,
+                    centerX + lineWidth / 2f,
+                    lineY,
+                    paint
+                )
+                
+                // Lignes latérales pour effet tunnel
+                if (speedFactor > 0.6f) {
+                    paint.alpha = (speedFactor * 80).toInt()
+                    canvas.drawLine(
+                        centerX - lineWidth / 2f - 20f,
+                        lineY,
+                        centerX - lineWidth / 2f,
+                        lineY,
+                        paint
+                    )
+                    canvas.drawLine(
+                        centerX + lineWidth / 2f,
+                        lineY,
+                        centerX + lineWidth / 2f + 20f,
+                        lineY,
+                        paint
+                    )
+                    paint.alpha = (speedFactor * 150).toInt()
+                }
+            }
+        }
+        
+        // LIGNES DIAGONALES POUR ULTRA-VITESSE
+        if (speedFactor > 0.8f) {
+            paint.strokeWidth = 3f
+            paint.color = Color.argb((speedFactor * 100).toInt(), 255, 255, 0)
+            
+            for (i in 0..10) {
+                val angle = (speedLineOffset * 8f + i * 36f) % 360f
+                val startX = w / 2f + cos(Math.toRadians(angle.toDouble())).toFloat() * w * 0.3f
+                val startY2 = startY + sin(Math.toRadians(angle.toDouble())).toFloat() * (h - startY) * 0.3f
+                val endX = w / 2f + cos(Math.toRadians(angle.toDouble())).toFloat() * w * 0.5f
+                val endY = startY + sin(Math.toRadians(angle.toDouble())).toFloat() * (h - startY) * 0.5f
+                
+                canvas.drawLine(startX, startY2, endX, endY, paint)
+            }
+        }
+        
+        paint.style = Paint.Style.FILL
+        paint.alpha = 255
+    }
+    
+Bitmap
+            currentCurve > 0.3f -> bobRightBitmap
+            else -> bobStraightBitmap
+        }
+        
+        // OMBRE PLUS VISIBLE
+        paint.color = Color.argb(180, 0, 0, 0)
+        canvas.drawOval(bobX - 30f, bobY + 20f, bobX + 30f, bobY + 32f, paint)
+        
+        bobSprite?.let { bmp ->
+            val dstRect = RectF(
+                bobX - bmp.width * bobScale / 2f,
+                bobY - bmp.height * bobScale / 2f,
+                bobX + bmp.width * bobScale / 2f,
+                bobY + bmp.height * bobScale / 2f
+            )
+            
+            if (abs(bobRotation) > 3f) {
+                canvas.save()
+                canvas.rotate(bobRotation, bobX, bobY)
+            }
+            
+            // CONTOUR NOIR ÉPAIS pour visibilité
+            paint.color = Color.BLACK
+            paint.strokeWidth = 6f
+            paint.style = Paint.Style.STROKE
+            canvas.drawRoundRect(
+                dstRect.left - 3f, dstRect.top - 3f, 
+                dstRect.right + 3f, dstRect.bottom + 3f, 
+                8f, 8f, paint
+            )
+            paint.style = Paint.Style.FILL
+            
+            // Image du bobsleigh
+            canvas.drawBitmap(bmp, null, dstRect, paint)
+            
+            if (abs(bobRotation) > 3f) {
+                canvas.restore()
+            }
+            
+        } ?: run {
+            // Fallback avec contour très visible
+            if (abs(bobRotation) > 3f) {
+                canvas.save()
+                canvas.rotate(bobRotation, bobX, bobY)
+            }
+            
+            // Contour noir épais
+            paint.color = Color.BLACK
+            canvas.drawRoundRect(bobX - 33f, bobY - 21f, bobX + 33f, bobY + 21f, 8f, 8f, paint)
+            
+            // Bobsleigh coloré
+            paint.color = when {
+                currentCurve < -0.3f -> Color.GREEN
+                currentCurve > 0.3f -> Color.BLUE
+                else -> Color.YELLOW
+            }
+            canvas.drawRoundRect(bobX - 30f, bobY - 18f, bobX + 30f, bobY + 18f, 8f, 8f, paint)
+            
+            if (abs(bobRotation) > 3f) {
+                canvas.restore()
+            }
+        }
+    }
+    
+    // Mettre à jour les effets de vitesse
+    private fun updateSpeedEffects(speed: Float) {
+        val speedMultiplier = (speed / 150f).coerceIn(0f, 1f)
+        speedLineOffset += speedMultiplier * 0.5f
+        tunnelEffect += speedMultiplier * 3f
+        
+        if (speedLineOffset > 1000f) speedLineOffset -= 1000f
+        if (tunnelEffect > 1000f) tunnelEffect -= 1000f
     }
     
     private fun updateLandscapeScrolling(speed: Float) {
@@ -219,194 +504,12 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         if (landscapeOffset > 1000f) landscapeOffset -= 1000f
     }
     
-    private fun drawWinterLandscape(canvas: Canvas, w: Int, horizonHeight: Int, gameData: GameData) {
-        // Ciel hivernal
-        val skyGradient = LinearGradient(
-            0f, 0f, 0f, horizonHeight.toFloat(),
-            Color.rgb(240, 248, 255),
-            Color.rgb(200, 220, 245),
-            Shader.TileMode.CLAMP
-        )
-        paint.shader = skyGradient
-        canvas.drawRect(0f, 0f, w.toFloat(), horizonHeight.toFloat(), paint)
-        paint.shader = null
-        
-        // Montagnes qui bougent selon les virages
-        val trackIndex = (gameData.trackPosition * (gameData.trackCurves.size - 1)).toInt()
-        val currentTrackCurve = if (trackIndex < gameData.trackCurves.size) gameData.trackCurves[trackIndex] else 0f
-        val mountainShift = landscapeOffset + currentTrackCurve * w * 0.4f
-        
-        // Montagnes arrière
-        paint.color = Color.rgb(180, 190, 210)
-        val backMountains = Path().apply {
-            moveTo(-mountainShift * 0.2f, horizonHeight.toFloat())
-            lineTo(w * 0.3f - mountainShift * 0.2f, horizonHeight * 0.2f)
-            lineTo(w * 0.7f - mountainShift * 0.2f, horizonHeight * 0.3f)
-            lineTo(w + 100f - mountainShift * 0.2f, horizonHeight * 0.25f)
-            lineTo(w + 100f, horizonHeight.toFloat())
-            close()
-        }
-        canvas.drawPath(backMountains, paint)
-        
-        // Montagnes proches
-        paint.color = Color.rgb(220, 230, 240)
-        val frontMountains = Path().apply {
-            moveTo(-mountainShift * 0.6f, horizonHeight.toFloat())
-            lineTo(w * 0.2f - mountainShift * 0.6f, horizonHeight * 0.5f)
-            lineTo(w * 0.8f - mountainShift * 0.6f, horizonHeight * 0.4f)
-            lineTo(w.toFloat() - mountainShift * 0.6f, horizonHeight * 0.6f)
-            lineTo(w.toFloat(), horizonHeight.toFloat())
-            close()
-        }
-        canvas.drawPath(frontMountains, paint)
-        
-        // Sapins
-        val treeShift = landscapeOffset * 1.5f + currentTrackCurve * w * 0.5f
-        for (i in 0..10) {
-            val treeX = (w * i / 6f - treeShift) % (w + 150f) - 75f
-            val treeY = horizonHeight * (0.7f + sin(i.toFloat()) * 0.1f)
-            
-            paint.color = Color.rgb(20, 60, 20)
-            val treeSize = 20f + (i % 3) * 8f
-            canvas.drawRect(treeX - 1.5f, treeY, treeX + 1.5f, treeY + treeSize, paint)
-            
-            for (layer in 0..2) {
-                val layerY = treeY + layer * treeSize / 4f
-                val layerWidth = treeSize * (0.7f - layer * 0.15f)
-                val trianglePath = Path().apply {
-                    moveTo(treeX, layerY - layerWidth/3f)
-                    lineTo(treeX - layerWidth/2f, layerY + layerWidth/3f)
-                    lineTo(treeX + layerWidth/2f, layerY + layerWidth/3f)
-                    close()
-                }
-                canvas.drawPath(trianglePath, paint)
-                
-                paint.color = Color.WHITE
-                canvas.drawRect(treeX - layerWidth/2f, layerY - 1f, treeX + layerWidth/2f, layerY + 1f, paint)
-                paint.color = Color.rgb(20, 60, 20)
-            }
-        }
-    }
-    
-    // MULTIPLICATION MASSIVE DES FRAMES AVEC DÉCALAGES
-    private fun drawParallaxTrackBackground(canvas: Canvas, w: Int, h: Int, startY: Float, gameData: GameData) {
-        updateTrackFrame(gameData)
-        
-        val currentFrame = getCurrentTrackFrame()
-        val speedFactor = (gameData.speed / 150f).coerceIn(0f, 1f)
-        
-        currentFrame?.let { frame ->
-            
-            // === SYSTÈME DE MULTIPLICATION x6 DES FRAMES ===
-            val baseOffsetY = (frameTimer * gameData.speed * 0.06f) % 30f // Cycle plus long
-            val currentCurve = getCurrentTrackCurve(gameData)
-            
-            // FRAME 1: Principale
-            val dstRect1 = RectF(0f, startY + baseOffsetY, w.toFloat(), h.toFloat() + baseOffsetY)
-            canvas.drawBitmap(frame, null, dstRect1, paint)
-            
-            if (speedFactor > 0.2f) {
-                // FRAME 2: Décalage Y moyen
-                paint.alpha = (30 * speedFactor).toInt()
-                val offsetY2 = (baseOffsetY + 5f) % 30f - 5f
-                val dstRect2 = RectF(0f, startY + offsetY2, w.toFloat(), h.toFloat() + offsetY2)
-                canvas.drawBitmap(frame, null, dstRect2, paint)
-            }
-            
-            if (speedFactor > 0.4f) {
-                // FRAME 3: Décalage Y + X léger
-                paint.alpha = (25 * speedFactor).toInt()
-                val offsetY3 = (baseOffsetY + 10f) % 30f - 10f
-                val offsetX3 = sin(frameTimer * 8f) * 2f
-                val dstRect3 = RectF(offsetX3, startY + offsetY3, w.toFloat() + offsetX3, h.toFloat() + offsetY3)
-                canvas.drawBitmap(frame, null, dstRect3, paint)
-            }
-            
-            if (speedFactor > 0.6f) {
-                // FRAME 4: Décalage plus prononcé
-                paint.alpha = (20 * speedFactor).toInt()
-                val offsetY4 = (baseOffsetY + 15f) % 30f - 15f
-                val offsetX4 = currentCurve * 3f + cos(frameTimer * 6f) * 1.5f
-                val dstRect4 = RectF(offsetX4, startY + offsetY4, w.toFloat() + offsetX4, h.toFloat() + offsetY4)
-                canvas.drawBitmap(frame, null, dstRect4, paint)
-                
-                // FRAME 5: Décalage contraire
-                val offsetY5 = (baseOffsetY + 20f) % 30f - 20f
-                val offsetX5 = -offsetX4 * 0.7f
-                val dstRect5 = RectF(offsetX5, startY + offsetY5, w.toFloat() + offsetX5, h.toFloat() + offsetY5)
-                canvas.drawBitmap(frame, null, dstRect5, paint)
-            }
-            
-            if (speedFactor > 0.8f) {
-                // FRAME 6: Décalage maximum pour ultra-vitesse
-                paint.alpha = (15 * speedFactor).toInt()
-                val offsetY6 = (baseOffsetY + 25f) % 30f - 25f
-                val offsetX6 = sin(frameTimer * 12f) * 4f + currentCurve * 2f
-                val dstRect6 = RectF(offsetX6, startY + offsetY6, w.toFloat() + offsetX6, h.toFloat() + offsetY6)
-                canvas.drawBitmap(frame, null, dstRect6, paint)
-                
-                // FRAME 7: Micro-décalage rapide
-                val offsetY7 = (baseOffsetY + 3f) % 30f - 3f
-                val offsetX7 = cos(frameTimer * 15f) * 2f
-                val dstRect7 = RectF(offsetX7, startY + offsetY7, w.toFloat() + offsetX7, h.toFloat() + offsetY7)
-                canvas.drawBitmap(frame, null, dstRect7, paint)
-            }
-            
-            paint.alpha = 255 // Remettre opaque
-            
-            // === LIGNES DE VITESSE AU SOL ===
-            if (speedFactor > 0.4f) {
-                drawGroundSpeedLines(canvas, w, h, startY, speedFactor, gameData)
-            }
-            
-        } ?: run {
-            // Fallback
-            paint.color = Color.WHITE
-            canvas.drawRect(0f, startY, w.toFloat(), h.toFloat(), paint)
-        }
-    }
-    
-    // LIGNES DE VITESSE AU SOL QUI SUIVENT LA PISTE
-    private fun drawGroundSpeedLines(canvas: Canvas, w: Int, h: Int, startY: Float, speedFactor: Float, gameData: GameData) {
-        val currentCurve = getCurrentTrackCurve(gameData)
-        
-        paint.strokeWidth = 2f
-        paint.style = Paint.Style.STROKE
-        paint.color = Color.argb((40 * speedFactor).toInt(), 200, 200, 255)
-        
-        val scrollSpeed = speedFactor * 8f
-        val scrollOffset = (landscapeOffset * scrollSpeed) % 60f
-        
-        // LIGNES HORIZONTALES qui suivent la perspective de la piste
-        for (i in 0..12) {
-            val lineY = startY + (h - startY) * i / 12f - scrollOffset + (i * 5f)
-            val perspective = (lineY - startY) / (h - startY) // 0 = haut, 1 = bas
-            
-            if (lineY > startY && lineY < h) {
-                // Largeur qui diminue selon la perspective
-                val lineWidth = w * (0.3f + perspective * 0.4f) // Plus large en bas
-                val centerX = w / 2f + currentCurve * w * 0.15f * perspective // Suit la courbe
-                
-                // Ligne centrale qui suit la piste
-                canvas.drawLine(
-                    centerX - lineWidth / 2f,
-                    lineY,
-                    centerX + lineWidth / 2f,
-                    lineY,
-                    paint
-                )
-            }
-        }
-        
-        paint.style = Paint.Style.FILL
-    }
-    
     private fun updateTrackFrame(gameData: GameData) {
         // FLUIDITÉ EXTRÊME avec changement de frames plus rapide
         val frameSpeed = when {
-            gameData.speed > 120f -> 0.008f  // ULTRA RAPIDE pour sensation de fluidité
-            gameData.speed > 80f -> 0.012f   
-            gameData.speed > 40f -> 0.02f   
+            gameData.speed > 120f -> 0.012f  // Plus rapide pour fluidité
+            gameData.speed > 80f -> 0.016f   
+            gameData.speed > 40f -> 0.025f   
             else -> 0.04f          
         }
         
@@ -415,20 +518,18 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         if (frameTimer >= 1f) {
             frameTimer = 0f
             
-            val trackIndex = (gameData.trackPosition * (gameData.trackCurves.size - 1)).toInt()
-            val currentTrackCurve = if (trackIndex < gameData.trackCurves.size) gameData.trackCurves[trackIndex] else 0f
+            val currentCurve = getCurrentTrackCurve(gameData)
             
             when {
-                abs(currentTrackCurve) < 0.3f -> {
+                abs(currentCurve) < 0.3f -> {
                     trackSection = TrackSection.STRAIGHT
-                    // PATTERN ULTRA-COMPLEXE pour masquer complètement les 2 images
-                    val speedVariation = (gameData.speed * 0.25f).toInt() % 12
-                    val complexPattern = arrayOf(0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0) // 12 variations
-                    currentFrameIndex = complexPattern[speedVariation]
+                    // Pattern pour varier les 2 images disponibles
+                    val speedVariation = (gameData.speed * 0.1f).toInt() % 8
+                    currentFrameIndex = if (speedVariation < 4) 0 else 1
                     isReversing = false
                 }
                 
-                currentTrackCurve < -0.3f -> {
+                currentCurve < -0.3f -> {
                     if (trackSection != TrackSection.LEFT_TURN && trackSection != TrackSection.LEFT_RETURN) {
                         trackSection = TrackSection.LEFT_TURN
                         currentFrameIndex = 2
@@ -451,7 +552,7 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
                     }
                 }
                 
-                currentTrackCurve > 0.3f -> {
+                currentCurve > 0.3f -> {
                     if (trackSection != TrackSection.RIGHT_TURN && trackSection != TrackSection.RIGHT_RETURN) {
                         trackSection = TrackSection.RIGHT_TURN
                         currentFrameIndex = 2
@@ -479,32 +580,31 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
     
     // SYMBOLES DE DIRECTION ÉNORMES ET CLAIRS
     private fun drawTurnIndicators(canvas: Canvas, w: Int, h: Int, gameData: GameData) {
-        val trackIndex = (gameData.trackPosition * (gameData.trackCurves.size - 1)).toInt()
-        val currentTrackCurve = if (trackIndex < gameData.trackCurves.size) gameData.trackCurves[trackIndex] else 0f
+        val currentCurve = getCurrentTrackCurve(gameData)
         
         // Seulement si il y a un virage
-        if (abs(currentTrackCurve) > 0.2f) {
+        if (abs(currentCurve) > 0.2f) {
             // Fond semi-transparent
             paint.color = Color.argb(180, 0, 0, 0)
             canvas.drawRoundRect(w/8f, h * 0.2f, w*7f/8f, h * 0.45f, 25f, 25f, paint)
             
             // Symbole ÉNORME selon l'intensité
-            paint.textSize = 200f // ENCORE PLUS GROS
+            paint.textSize = 200f
             paint.textAlign = Paint.Align.CENTER
             paint.color = Color.WHITE
             
             val directionSymbol = when {
-                currentTrackCurve < -0.6f -> "⬅️🔴" // FORT gauche
-                currentTrackCurve < -0.3f -> "⬅️🟡" // MOYEN gauche
-                currentTrackCurve > 0.6f -> "🔴➡️"  // FORT droite
-                currentTrackCurve > 0.3f -> "🟡➡️"  // MOYEN droite
+                currentCurve < -0.6f -> "⬅️🔴" // FORT gauche
+                currentCurve < -0.3f -> "⬅️🟡" // MOYEN gauche
+                currentCurve > 0.6f -> "🔴➡️"  // FORT droite
+                currentCurve > 0.3f -> "🟡➡️"  // MOYEN droite
                 else -> ""
             }
             
             canvas.drawText(directionSymbol, w/2f, h * 0.35f, paint)
             
             // Performance avec couleur selon la qualité
-            paint.textSize = 120f // PLUS GROS
+            paint.textSize = 120f
             paint.color = when {
                 gameData.playerReactionAccuracy > 0.8f -> Color.GREEN
                 gameData.playerReactionAccuracy > 0.6f -> Color.YELLOW
@@ -526,91 +626,6 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
                 getTrackSpriteFrame(currentFrameIndex, true, false)
             }
         }
-    }
-    
-    private fun drawCenteredBobsled(canvas: Canvas, w: Int, h: Int, trackStartY: Float, gameData: GameData) {
-        val baseBobX = w / 2f
-        val baseBobY = trackStartY + (h - trackStartY) * 0.75f // Plus bas dans la grande piste
-        val bobScale = 0.3f // Plus gros pour être bien visible
-        
-        val trackIndex = (gameData.trackPosition * (gameData.trackCurves.size - 1)).toInt()
-        val currentTrackCurve = if (trackIndex < gameData.trackCurves.size) gameData.trackCurves[trackIndex] else 0f
-        
-        var bobOffsetX = 0f
-        var bobRotation = 0f
-        
-        when {
-            currentTrackCurve < -0.6f -> {
-                bobOffsetX = w * 0.08f
-                bobRotation = -20f
-            }
-            currentTrackCurve < -0.3f -> {
-                bobOffsetX = w * 0.05f
-                bobRotation = -10f
-            }
-            currentTrackCurve > 0.6f -> {
-                bobOffsetX = -w * 0.08f
-                bobRotation = 20f
-            }
-            currentTrackCurve > 0.3f -> {
-                bobOffsetX = -w * 0.05f
-                bobRotation = 10f
-            }
-            else -> {
-                bobOffsetX = 0f
-                bobRotation = 0f
-            }
-        }
-        
-        bobRotation += (gameData.tiltZ * 10f).coerceIn(-30f, 30f)
-        
-        val bobX = baseBobX + bobOffsetX
-        val bobY = baseBobY
-        
-        val bobSprite = when {
-            currentTrackCurve < -0.3f -> bobLeftBitmap
-            currentTrackCurve > 0.3f -> bobRightBitmap
-            else -> bobStraightBitmap
-        }
-        
-        bobSprite?.let { bmp ->
-            val dstRect = RectF(
-                bobX - bmp.width * bobScale / 2f,
-                bobY - bmp.height * bobScale / 2f,
-                bobX + bmp.width * bobScale / 2f,
-                bobY + bmp.height * bobScale / 2f
-            )
-            
-            if (abs(bobRotation) > 3f) {
-                canvas.save()
-                canvas.rotate(bobRotation, bobX, bobY)
-                canvas.drawBitmap(bmp, null, dstRect, paint)
-                canvas.restore()
-            } else {
-                canvas.drawBitmap(bmp, null, dstRect, paint)
-            }
-        } ?: run {
-            paint.color = when {
-                currentTrackCurve < -0.3f -> Color.GREEN
-                currentTrackCurve > 0.3f -> Color.BLUE
-                else -> Color.YELLOW
-            }
-            
-            if (abs(bobRotation) > 3f) {
-                canvas.save()
-                canvas.rotate(bobRotation, bobX, bobY)
-            }
-            
-            canvas.drawRoundRect(bobX - 30f, bobY - 18f, bobX + 30f, bobY + 18f, 8f, 8f, paint)
-            
-            if (abs(bobRotation) > 3f) {
-                canvas.restore()
-            }
-        }
-        
-        // Ombre plus prononcée
-        paint.color = Color.argb(180, 0, 0, 0)
-        canvas.drawOval(bobX - 30f, bobY + 20f, bobX + 30f, bobY + 32f, paint)
     }
     
     // HELPER: Obtenir la courbe actuelle (évite les recalculs)
@@ -670,11 +685,9 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         }
         
         flagBitmap?.let { flag ->
-            // CENTRAGE SIMPLE ET DIRECT
-            val targetWidth = flagRect.width() * 0.8f  // 80% de la largeur du rectangle
-            val targetHeight = flagRect.height() * 0.8f // 80% de la hauteur du rectangle
+            val targetWidth = flagRect.width() * 0.8f
+            val targetHeight = flagRect.height() * 0.8f
             
-            // Position absolue au centre
             val centerX = flagRect.centerX()
             val centerY = flagRect.centerY()
             
@@ -687,7 +700,6 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
             
             canvas.drawBitmap(flag, null, flagImageRect, paint)
         } ?: run {
-            // Fallback: emoji centré
             val flag = getCountryFlag(playerCountry)
             paint.color = Color.BLACK
             paint.textSize = 100f
@@ -744,33 +756,28 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         canvas.drawLine(100f, trackY - 50f, 100f, trackY + 50f, paint)
         paint.style = Paint.Style.FILL
         
-        // NOUVEAU SYSTÈME: Bobsleigh statique avec zone de toucher visible
         val bobX = w / 2f
         val bobY = trackY
         
-        // ZONE DE TOUCHER VISIBLE (grand cercle coloré)
         val powerProgress = (gameData.pushPower / 150f).coerceIn(0f, 1f)
         val circleRadius = 100f + powerProgress * 20f
         
-        // Couleur selon la puissance
         val circleColor = when {
-            powerProgress > 0.8f -> Color.argb(100, 255, 0, 0)    // Rouge si très chargé
-            powerProgress > 0.5f -> Color.argb(100, 255, 165, 0)  // Orange
-            powerProgress > 0.2f -> Color.argb(100, 255, 255, 0)  // Jaune
-            else -> Color.argb(100, 0, 255, 0)                    // Vert
+            powerProgress > 0.8f -> Color.argb(100, 255, 0, 0)
+            powerProgress > 0.5f -> Color.argb(100, 255, 165, 0)
+            powerProgress > 0.2f -> Color.argb(100, 255, 255, 0)
+            else -> Color.argb(100, 0, 255, 0)
         }
         
         paint.color = circleColor
         canvas.drawCircle(bobX, bobY, circleRadius, paint)
         
-        // Bordure du cercle
         paint.color = Color.WHITE
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = 4f
         canvas.drawCircle(bobX, bobY, circleRadius, paint)
         paint.style = Paint.Style.FILL
         
-        // Bobsleigh au centre
         bobPushBitmap?.let { bmp ->
             val scale = 0.3f
             val dstRect = RectF(
@@ -785,7 +792,6 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
             canvas.drawRoundRect(bobX - 40f, bobY - 20f, bobX + 40f, bobY + 20f, 8f, 8f, paint)
         }
         
-        // Instructions plus claires
         paint.color = Color.argb(200, 0, 0, 0)
         canvas.drawRoundRect(w/2f - 300f, 80f, w/2f + 300f, 160f, 10f, 10f, paint)
         
@@ -794,17 +800,15 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         paint.textAlign = Paint.Align.CENTER
         canvas.drawText("MAINTENEZ LE CERCLE POUR CHARGER", w/2f, 130f, paint)
         
-        // Barre de puissance améliorée
         paint.color = Color.argb(200, 0, 0, 0)
         canvas.drawRoundRect(w/2f - 250f, h - 150f, w/2f + 250f, h - 40f, 10f, 10f, paint)
         
         paint.color = Color.GRAY
         canvas.drawRect(w/2f - 230f, h - 120f, w/2f + 230f, h - 80f, paint)
         
-        // Barre colorée selon puissance
         val barColor = when {
             powerProgress > 0.8f -> Color.RED
-            powerProgress > 0.5f -> Color.rgb(255, 165, 0) // Orange
+            powerProgress > 0.5f -> Color.rgb(255, 165, 0)
             else -> Color.GREEN
         }
         paint.color = barColor
@@ -815,7 +819,6 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         paint.textSize = 50f
         canvas.drawText("PUISSANCE: ${gameData.pushPower.toInt()}%", w/2f, h - 50f, paint)
         
-        // Timer plus petit
         paint.color = Color.argb(200, 255, 0, 0)
         canvas.drawRoundRect(w - 100f, 40f, w - 20f, 120f, 10f, 10f, paint)
         
