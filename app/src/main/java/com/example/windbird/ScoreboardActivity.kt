@@ -16,8 +16,8 @@ class ScoreboardActivity : Activity() {
     
     private val eventNames = arrayOf(
         "Biathlon", "Saut à Ski", "Bobsleigh", "Patinage Vitesse", 
-        "Slalom", "Snowboard Halfpipe", "Ski Freestyle", "Luge",
-        "Curling" // MODIFIÉ : 9 épreuves au lieu de 10
+        "Slalom", "Snowboard Halfpipe", "Ski Freestyle", "Luge"
+        // MODIFIÉ : 8 épreuves au lieu de 9 (retiré Curling)
     )
     
     private val medals = arrayOf("🥇", "🥈", "🥉", "🏅")
@@ -642,7 +642,7 @@ class ScoreboardActivity : Activity() {
             playerInfo.addView(countryText)
             
             val statsText = TextView(this).apply {
-                text = "Épreuves: ${ranking.eventsCompleted}/9" // MODIFIÉ : 9 au lieu de 10
+                text = "Épreuves: ${ranking.eventsCompleted}/8" // MODIFIÉ : 8 au lieu de 9
                 textSize = 11f
                 setTextColor(if (i < 3) Color.parseColor("#444444") else Color.LTGRAY)
             }
@@ -688,8 +688,8 @@ class ScoreboardActivity : Activity() {
         }
         parent.addView(eventTitle)
         
-        // MODIFIÉ : Boucle sur 9 épreuves (0 à 8) au lieu de 10 (0 à 9)
-        for (eventIndex in 0..8) {
+        // MODIFIÉ : Boucle sur 8 épreuves (0 à 7) au lieu de 9 (0 à 8)
+        for (eventIndex in 0..7) {
             val eventLayout = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(15, 15, 15, 15)
@@ -801,8 +801,8 @@ class ScoreboardActivity : Activity() {
     private fun calculateMedals(playerIndex: Int): IntArray {
         val medals = intArrayOf(0, 0, 0)
         
-        // MODIFIÉ : Boucle sur 9 épreuves (0 à 8)
-        for (eventIndex in 0..8) {
+        // MODIFIÉ : Boucle sur 8 épreuves (0 à 7)
+        for (eventIndex in 0..7) {
             val scores = mutableListOf<Pair<Int, Int>>()
             
             for (i in 0..3) {
@@ -829,8 +829,8 @@ class ScoreboardActivity : Activity() {
     
     private fun countCompletedEvents(playerIndex: Int): Int {
         var count = 0
-        // MODIFIÉ : Boucle sur 9 épreuves (0 à 8)
-        for (eventIndex in 0..8) {
+        // MODIFIÉ : Boucle sur 8 épreuves (0 à 7)
+        for (eventIndex in 0..7) {
             if (tournamentData.getScore(playerIndex, eventIndex) > 0) {
                 count++
             }
