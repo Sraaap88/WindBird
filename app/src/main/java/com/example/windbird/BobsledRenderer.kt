@@ -186,7 +186,7 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         drawMassiveSpeedLines(canvas, w, h, trackStartY, gameData)
         
         // 4. BOBSLEIGH TRÈS VISIBLE AU PREMIER PLAN
-        drawHighVisibilityBobsled(canvas, w, h, trackStartY, gameData)
+        drawCenteredBobsled(canvas, w, h, trackStartY, gameData)
         
         // 5. SYMBOLES DE DIRECTION
         drawTurnIndicators(canvas, w, h, gameData)
@@ -423,7 +423,43 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         paint.alpha = 255
     }
     
-Bitmap
+    // Bobsleigh visible (taille originale)
+    private fun drawCenteredBobsled(canvas: Canvas, w: Int, h: Int, trackStartY: Float, gameData: GameData) {
+        val baseBobX = w / 2f
+        val baseBobY = trackStartY + (h - trackStartY) * 0.75f
+        val bobScale = 0.3f // Taille originale
+        
+        val currentCurve = getCurrentTrackCurve(gameData)
+        
+        var bobOffsetX = 0f
+        var bobRotation = 0f
+        
+        when {
+            currentCurve < -0.6f -> {
+                bobOffsetX = w * 0.08f
+                bobRotation = -20f
+            }
+            currentCurve < -0.3f -> {
+                bobOffsetX = w * 0.05f
+                bobRotation = -10f
+            }
+            currentCurve > 0.6f -> {
+                bobOffsetX = -w * 0.08f
+                bobRotation = 20f
+            }
+            currentCurve > 0.3f -> {
+                bobOffsetX = -w * 0.05f
+                bobRotation = 10f
+            }
+        }
+        
+        bobRotation += (gameData.tiltZ * 10f).coerceIn(-30f, 30f)
+        
+        val bobX = baseBobX + bobOffsetX
+        val bobY = baseBobY
+        
+        val bobSprite = when {
+            currentCurve < -0.3f -> bobLeftBitmap
             currentCurve > 0.3f -> bobRightBitmap
             else -> bobStraightBitmap
         }
