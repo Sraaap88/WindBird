@@ -402,16 +402,38 @@ class LugeGameEngine {
     
     private fun updateTrackElements(deltaTime: Float) {
         // Mise à jour des éléments de décor pour effet de vitesse
-        for (element in trackElements) {
-            element.distance -= speed * deltaTime * 2f
+        val elementsToUpdate = mutableListOf<TrackElement>()
+        
+        for (i in trackElements.indices) {
+            val element = trackElements[i]
+            val newDistance = element.distance - speed * deltaTime * 2f
             
-            // Recycler les éléments qui sont passés
-            if (element.distance < -100f) {
-                element.distance = trackElements.maxByOrNull { it.distance }?.distance?.plus(Random.nextFloat() * 30f + 20f) ?: 0f
-                element.sideOffset = if (Random.nextBoolean()) -1f else 1f
-                element.offsetDistance = Random.nextFloat() * 50f + 30f
+            if (newDistance < -100f) {
+                // Recycler l'élément
+                val maxDistance = trackElements.maxByOrNull { it.distance }?.distance ?: 0f
+                elementsToUpdate.add(TrackElement(
+                    distance = maxDistance + Random.nextFloat() * 30f + 20f,
+                    sideOffset = if (Random.nextBoolean()) -1f else 1f,
+                    offsetDistance = Random.nextFloat() * 50f + 30f,
+                    type = TrackElement.ElementType.TREE,
+                    scale = Random.nextFloat() * 0.3f + 0.5f,
+                    height = Random.nextFloat() * 40f + 60f
+                ))
+            } else {
+                // Mettre à jour la distance
+                elementsToUpdate.add(TrackElement(
+                    distance = newDistance,
+                    sideOffset = element.sideOffset,
+                    offsetDistance = element.offsetDistance,
+                    type = element.type,
+                    scale = element.scale,
+                    height = element.height
+                ))
             }
         }
+        
+        trackElements.clear()
+        trackElements.addAll(elementsToUpdate)
     }
     
     fun calculateFinalScore() {
