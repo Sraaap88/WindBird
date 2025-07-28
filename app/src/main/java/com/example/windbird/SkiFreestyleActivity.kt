@@ -434,8 +434,8 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     }
     
     fun updateAirPhysics() {
-        // Physique réaliste : trajectoire parabolique
-        val gravity = 0.4f
+        // Physique réaliste : trajectoire parabolique MAIS PLUS LENTE
+        val gravity = 0.2f // RÉDUIT de 0.4f à 0.2f pour rester plus longtemps en l'air
         
         airTime += 0.016f
         
@@ -453,8 +453,8 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
             amplitude = max(amplitude, 0.75f - trajectoryPeak)
         }
         
-        // Atterrissage - retour à position fixe
-        if (skierY >= 0.75f) {
+        // Atterrissage - retour à position fixe (PLUS BAS pour atterrir plus tard)
+        if (skierY >= 0.85f) { // Était 0.75f
             landFromJump()
         }
     }
@@ -495,16 +495,16 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
         kickersHit++
         nextKickerIndex++
         
-        // Calcul de la trajectoire selon vitesse et taille du kicker
+        // SAUTS VRAIMENT LONGS - JE TRIPLE ENCORE!
         val kickerPower = when (kicker.size) {
-            KickerSize.SMALL -> 0.20f      // Augmenté de 0.15f
-            KickerSize.MEDIUM -> 0.35f     // Augmenté de 0.25f
-            KickerSize.LARGE -> 0.50f      // Augmenté de 0.35f
+            KickerSize.SMALL -> 0.60f      // Était 0.20f
+            KickerSize.MEDIUM -> 0.90f     // Était 0.35f  
+            KickerSize.LARGE -> 1.20f      // Était 0.50f
         }
         
         // Plus de vitesse = trajectoire plus haute et longue
         val speedFactor = (speed / 30f).coerceIn(0.5f, 1.5f)
-        verticalVelocity = -(kickerPower * speedFactor + pumpEnergy * 0.15f) // Plus de power
+        verticalVelocity = -(kickerPower * speedFactor + pumpEnergy * 0.25f) // Plus de power encore
         horizontalVelocity = (skierX - 0.5f) * 0.02f // Légère dérive horizontale
         trajectoryPeak = 0f
         
