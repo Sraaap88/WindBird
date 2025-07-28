@@ -288,31 +288,76 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         }
     }
     
-    // PARALLAX MULTI-COUCHES RÉVOLUTIONNAIRE
+    // MULTIPLICATION MASSIVE DES FRAMES AVEC DÉCALAGES
     private fun drawParallaxTrackBackground(canvas: Canvas, w: Int, h: Int, startY: Float, gameData: GameData) {
         updateTrackFrame(gameData)
         
         val currentFrame = getCurrentTrackFrame()
         val speedFactor = (gameData.speed / 150f).coerceIn(0f, 1f)
-        val currentCurve = getCurrentTrackCurve(gameData)
         
         currentFrame?.let { frame ->
             
-            // === COUCHE 1: SPRITE-SHEET ORIGINAL ===
-            val baseOffsetY = (frameTimer * gameData.speed * 0.03f) % 5f
-            val dstRect = RectF(0f, startY + baseOffsetY, w.toFloat(), h.toFloat() + baseOffsetY)
-            canvas.drawBitmap(frame, null, dstRect, paint)
+            // === SYSTÈME DE MULTIPLICATION x6 DES FRAMES ===
+            val baseOffsetY = (frameTimer * gameData.speed * 0.06f) % 30f // Cycle plus long
+            val currentCurve = getCurrentTrackCurve(gameData)
             
-            // === COUCHE 2: LIGNES DE VITESSE SUR LES CÔTÉS ===
-            drawSideSpeedLines(canvas, w, h, startY, speedFactor, currentCurve)
+            // FRAME 1: Principale
+            val dstRect1 = RectF(0f, startY + baseOffsetY, w.toFloat(), h.toFloat() + baseOffsetY)
+            canvas.drawBitmap(frame, null, dstRect1, paint)
             
-            // === COUCHE 3: DÉFORMATION WARP ===
-            if (speedFactor > 0.4f) {
-                drawWarpEffect(canvas, w, h, startY, speedFactor)
+            if (speedFactor > 0.2f) {
+                // FRAME 2: Décalage Y moyen
+                paint.alpha = (30 * speedFactor).toInt()
+                val offsetY2 = (baseOffsetY + 5f) % 30f - 5f
+                val dstRect2 = RectF(0f, startY + offsetY2, w.toFloat(), h.toFloat() + offsetY2)
+                canvas.drawBitmap(frame, null, dstRect2, paint)
             }
             
-            // === COUCHE 4: TRACES DE PATINS DYNAMIQUES ===
-            drawDynamicSkateTraces(canvas, w, h, startY, speedFactor, currentCurve)
+            if (speedFactor > 0.4f) {
+                // FRAME 3: Décalage Y + X léger
+                paint.alpha = (25 * speedFactor).toInt()
+                val offsetY3 = (baseOffsetY + 10f) % 30f - 10f
+                val offsetX3 = sin(frameTimer * 8f) * 2f
+                val dstRect3 = RectF(offsetX3, startY + offsetY3, w.toFloat() + offsetX3, h.toFloat() + offsetY3)
+                canvas.drawBitmap(frame, null, dstRect3, paint)
+            }
+            
+            if (speedFactor > 0.6f) {
+                // FRAME 4: Décalage plus prononcé
+                paint.alpha = (20 * speedFactor).toInt()
+                val offsetY4 = (baseOffsetY + 15f) % 30f - 15f
+                val offsetX4 = currentCurve * 3f + cos(frameTimer * 6f) * 1.5f
+                val dstRect4 = RectF(offsetX4, startY + offsetY4, w.toFloat() + offsetX4, h.toFloat() + offsetY4)
+                canvas.drawBitmap(frame, null, dstRect4, paint)
+                
+                // FRAME 5: Décalage contraire
+                val offsetY5 = (baseOffsetY + 20f) % 30f - 20f
+                val offsetX5 = -offsetX4 * 0.7f
+                val dstRect5 = RectF(offsetX5, startY + offsetY5, w.toFloat() + offsetX5, h.toFloat() + offsetY5)
+                canvas.drawBitmap(frame, null, dstRect5, paint)
+            }
+            
+            if (speedFactor > 0.8f) {
+                // FRAME 6: Décalage maximum pour ultra-vitesse
+                paint.alpha = (15 * speedFactor).toInt()
+                val offsetY6 = (baseOffsetY + 25f) % 30f - 25f
+                val offsetX6 = sin(frameTimer * 12f) * 4f + currentCurve * 2f
+                val dstRect6 = RectF(offsetX6, startY + offsetY6, w.toFloat() + offsetX6, h.toFloat() + offsetY6)
+                canvas.drawBitmap(frame, null, dstRect6, paint)
+                
+                // FRAME 7: Micro-décalage rapide
+                val offsetY7 = (baseOffsetY + 3f) % 30f - 3f
+                val offsetX7 = cos(frameTimer * 15f) * 2f
+                val dstRect7 = RectF(offsetX7, startY + offsetY7, w.toFloat() + offsetX7, h.toFloat() + offsetY7)
+                canvas.drawBitmap(frame, null, dstRect7, paint)
+            }
+            
+            paint.alpha = 255 // Remettre opaque
+            
+            // === LIGNES DE VITESSE AU SOL ===
+            if (speedFactor > 0.4f) {
+                drawGroundSpeedLines(canvas, w, h, startY, speedFactor, gameData)
+            }
             
         } ?: run {
             // Fallback
@@ -321,102 +366,35 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         }
     }
     
-    // LIGNES DE VITESSE SUR LES CÔTÉS SEULEMENT
-    private fun drawSideSpeedLines(canvas: Canvas, w: Int, h: Int, startY: Float, speedFactor: Float, currentCurve: Float) {
-        if (speedFactor < 0.2f) return
+    // LIGNES DE VITESSE AU SOL QUI SUIVENT LA PISTE
+    private fun drawGroundSpeedLines(canvas: Canvas, w: Int, h: Int, startY: Float, speedFactor: Float, gameData: GameData) {
+        val currentCurve = getCurrentTrackCurve(gameData)
         
-        val lineCount = (speedFactor * 12).toInt()
-        val scrollSpeed = speedFactor * 6f
-        val scrollOffset = (landscapeOffset * scrollSpeed) % (h - startY)
-        
-        paint.strokeWidth = 3f + speedFactor * 3f
+        paint.strokeWidth = 2f
         paint.style = Paint.Style.STROKE
+        paint.color = Color.argb((40 * speedFactor).toInt(), 200, 200, 255)
         
-        // LIGNES CÔTÉ GAUCHE
-        for (i in 0 until lineCount / 2) {
-            val x = w * 0.05f + i * 15f
-            val startLineY = startY + (i * 25f - scrollOffset) % (h - startY)
-            val endLineY = startLineY + 30f + speedFactor * 20f
+        val scrollSpeed = speedFactor * 8f
+        val scrollOffset = (landscapeOffset * scrollSpeed) % 60f
+        
+        // LIGNES HORIZONTALES qui suivent la perspective de la piste
+        for (i in 0..12) {
+            val lineY = startY + (h - startY) * i / 12f - scrollOffset + (i * 5f)
+            val perspective = (lineY - startY) / (h - startY) // 0 = haut, 1 = bas
             
-            val curveX = x + currentCurve * 20f * (1f - startLineY / h)
-            
-            paint.color = Color.argb((80 * speedFactor).toInt(), 255, 255, 255)
-            if (curveX > 0 && curveX < w * 0.4f) {
-                canvas.drawLine(curveX, startLineY, curveX, minOf(endLineY, h.toFloat()), paint)
-            }
-        }
-        
-        // LIGNES CÔTÉ DROIT
-        for (i in 0 until lineCount / 2) {
-            val x = w * 0.95f - i * 15f
-            val startLineY = startY + ((i + 5) * 25f - scrollOffset) % (h - startY)
-            val endLineY = startLineY + 30f + speedFactor * 20f
-            
-            val curveX = x + currentCurve * 20f * (1f - startLineY / h)
-            
-            paint.color = Color.argb((80 * speedFactor).toInt(), 255, 255, 255)
-            if (curveX > w * 0.6f && curveX < w) {
-                canvas.drawLine(curveX, startLineY, curveX, minOf(endLineY, h.toFloat()), paint)
-            }
-        }
-        
-        paint.style = Paint.Style.FILL
-    }
-    
-    // EFFET WARP (DÉFORMATION)
-    private fun drawWarpEffect(canvas: Canvas, w: Int, h: Int, startY: Float, speedFactor: Float) {
-        // FLOU DE MOUVEMENT SUR LES EXTRÊMES BORDS
-        val blurIntensity = (speedFactor * 60).toInt()
-        paint.color = Color.argb(blurIntensity, 255, 255, 255)
-        
-        // Bandes floues sur les côtés
-        canvas.drawRect(0f, startY, w * 0.08f, h.toFloat(), paint)
-        canvas.drawRect(w * 0.92f, startY, w.toFloat(), h.toFloat(), paint)
-        
-        // VIBRATION SUBTILE DU FOND (très léger)
-        if (speedFactor > 0.7f) {
-            val vibrateX = (sin(frameTimer * 20f) * 2f * (speedFactor - 0.7f)).toFloat()
-            val vibrateY = (cos(frameTimer * 15f) * 1f * (speedFactor - 0.7f)).toFloat()
-            
-            // Effet de vibration sur les bords seulement
-            paint.color = Color.argb(30, 200, 200, 255)
-            canvas.drawRect(vibrateX, startY + vibrateY, w * 0.1f + vibrateX, h.toFloat() + vibrateY, paint)
-            canvas.drawRect(w * 0.9f + vibrateX, startY + vibrateY, w.toFloat() + vibrateX, h.toFloat() + vibrateY, paint)
-        }
-    }
-    
-    // TRACES DE PATINS DYNAMIQUES
-    private fun drawDynamicSkateTraces(canvas: Canvas, w: Int, h: Int, startY: Float, speedFactor: Float, currentCurve: Float) {
-        if (speedFactor < 0.3f) return
-        
-        val traceAlpha = (speedFactor * 120).toInt()
-        paint.color = Color.argb(traceAlpha, 180, 200, 255)
-        paint.strokeWidth = 4f
-        paint.style = Paint.Style.STROKE
-        
-        val traceSpeed = speedFactor * 4f
-        val traceOffset = (landscapeOffset * traceSpeed) % (h - startY)
-        
-        // TRACES QUI SUIVENT LA COURBE
-        for (i in 0 until 3) {
-            val traceX = w * (0.3f + i * 0.2f) + currentCurve * w * 0.15f
-            
-            if (traceX > w * 0.25f && traceX < w * 0.75f) { // Zone centrale libre pour bobsleigh
-                for (j in 0 until 8) {
-                    val segmentY = startY + j * (h - startY) / 8f - traceOffset
-                    val segmentEndY = segmentY + 20f
-                    
-                    if (segmentY < h && segmentEndY > startY) {
-                        val curveInfluence = currentCurve * 10f * (j / 8f)
-                        canvas.drawLine(
-                            traceX + curveInfluence, 
-                            maxOf(segmentY, startY), 
-                            traceX + curveInfluence, 
-                            minOf(segmentEndY, h.toFloat()), 
-                            paint
-                        )
-                    }
-                }
+            if (lineY > startY && lineY < h) {
+                // Largeur qui diminue selon la perspective
+                val lineWidth = w * (0.3f + perspective * 0.4f) // Plus large en bas
+                val centerX = w / 2f + currentCurve * w * 0.15f * perspective // Suit la courbe
+                
+                // Ligne centrale qui suit la piste
+                canvas.drawLine(
+                    centerX - lineWidth / 2f,
+                    lineY,
+                    centerX + lineWidth / 2f,
+                    lineY,
+                    paint
+                )
             }
         }
         
@@ -424,12 +402,12 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
     }
     
     private fun updateTrackFrame(gameData: GameData) {
-        // VITESSE FLUIDE avec interpolation
+        // FLUIDITÉ EXTRÊME avec changement de frames plus rapide
         val frameSpeed = when {
-            gameData.speed > 120f -> 0.02f  // PLUS RAPIDE pour effet de vitesse
-            gameData.speed > 80f -> 0.035f   
-            gameData.speed > 40f -> 0.05f   
-            else -> 0.08f          
+            gameData.speed > 120f -> 0.008f  // ULTRA RAPIDE pour sensation de fluidité
+            gameData.speed > 80f -> 0.012f   
+            gameData.speed > 40f -> 0.02f   
+            else -> 0.04f          
         }
         
         frameTimer += frameSpeed
@@ -443,9 +421,10 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
             when {
                 abs(currentTrackCurve) < 0.3f -> {
                     trackSection = TrackSection.STRAIGHT
-                    // VARIATION POUR MASQUER les 2 images seulement
-                    val variation = (gameData.speed * 0.1f + frameTimer * 10f).toInt() % 4
-                    currentFrameIndex = variation % 2 // Alterne 0,1,0,1 plus vite
+                    // PATTERN ULTRA-COMPLEXE pour masquer complètement les 2 images
+                    val speedVariation = (gameData.speed * 0.25f).toInt() % 12
+                    val complexPattern = arrayOf(0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0) // 12 variations
+                    currentFrameIndex = complexPattern[speedVariation]
                     isReversing = false
                 }
                 
