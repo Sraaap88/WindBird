@@ -299,8 +299,32 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         paint.style = Paint.Style.FILL
         canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
         
-        // NOUVEAU - Tremplin avec perspective parabolique RÉALISTE
-        drawRealisticJumpHill(canvas, w, h)
+        // RETOUR AU TREMPLIN PRÉCÉDENT - Propre et beau
+        paint.color = Color.WHITE
+        val jumpPath = Path()
+        
+        jumpPath.moveTo(w * 0.15f, h * 0.95f)
+        jumpPath.lineTo(w * 0.85f, h * 0.95f)
+        jumpPath.quadTo(w * 0.75f, h * 0.5f, w * 0.55f, h * 0.05f)
+        jumpPath.lineTo(w * 0.45f, h * 0.05f)
+        jumpPath.quadTo(w * 0.25f, h * 0.5f, w * 0.15f, h * 0.95f)
+        jumpPath.close()
+        canvas.drawPath(jumpPath, paint)
+        
+        // Lignes de guidage courbées
+        paint.color = Color.parseColor("#CCCCCC")
+        paint.strokeWidth = 4f
+        paint.style = Paint.Style.STROKE
+        for (i in 1..12) {
+            val progress = i / 12f
+            val lineY = h * (0.95f - progress * 0.9f)
+            
+            val widthFactor = 1f - progress * 0.6f
+            val leftX = w * (0.15f + progress * 0.3f) * widthFactor + w * (1f - widthFactor) * 0.5f
+            val rightX = w * (0.85f - progress * 0.3f) * widthFactor + w * (1f - widthFactor) * 0.5f
+            canvas.drawLine(leftX, lineY, rightX, lineY, paint)
+        }
+        paint.style = Paint.Style.FILL
         
         if (activity.getTapCount() >= 2) {
             drawAngleControlBar(canvas, w, h)
@@ -309,43 +333,18 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         val skierX = w / 2f
         val skierY: Float
         val scale: Float
-        val skierAlpha: Float // NOUVEAU - Transparence du skieur
         
         if (activity.getTapCount() < 2) {
             skierY = h * 0.9f
             scale = 0.84f
-            skierAlpha = 1f
         } else {
             val zoneProgress = activity.getZoneProgress()
-            
-            // NOUVEAU - Animation avec disparition/réapparition
-            when {
-                zoneProgress < 0.25f -> {
-                    // Phase 1: Visible sur la partie convexe
-                    skierY = h * (0.9f - zoneProgress * 1.6f) // Descente rapide
-                    scale = 0.84f - zoneProgress * 0.4f
-                    skierAlpha = 1f
-                }
-                zoneProgress < 0.75f -> {
-                    // Phase 2: Disparition progressive derrière la courbure
-                    val hideProgress = (zoneProgress - 0.25f) / 0.5f
-                    skierY = h * (0.5f - hideProgress * 0.15f) // Descente lente (caché)
-                    scale = 0.44f - hideProgress * 0.25f
-                    skierAlpha = 1f - hideProgress // Disparaît progressivement
-                }
-                else -> {
-                    // Phase 3: Réapparition au bout du tremplin
-                    val reappearProgress = (zoneProgress - 0.75f) / 0.25f
-                    skierY = h * (0.35f - reappearProgress * 0.05f) // Position finale
-                    scale = 0.19f - reappearProgress * 0.07f // Devient très petit
-                    skierAlpha = reappearProgress * 0.8f // Réapparaît progressivement
-                }
-            }
+            skierY = h * (0.9f - zoneProgress * 0.85f)
+            scale = 0.84f - zoneProgress * 0.72f
         }
         
-        // Dessiner le skieur avec transparence
+        // Skieur normal - pas d'effets bizarres
         skierBitmap?.let { bmp ->
-            paint.alpha = (skierAlpha * 255).toInt()
             val dstRect = RectF(
                 skierX - bmp.width * scale / 2f,
                 skierY - bmp.height * scale / 2f,
@@ -353,21 +352,6 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
                 skierY + bmp.height * scale / 2f
             )
             canvas.drawBitmap(bmp, null, dstRect, paint)
-            paint.alpha = 255 // Reset alpha
-            
-            // NOUVEAU - Ombre du skieur pour plus de réalisme
-            if (skierAlpha > 0.3f) {
-                paint.color = Color.parseColor("#33000000") // Ombre transparente
-                paint.alpha = (skierAlpha * 100).toInt()
-                canvas.drawOval(
-                    skierX - bmp.width * scale / 3f,
-                    skierY + bmp.height * scale / 3f,
-                    skierX + bmp.width * scale / 3f,
-                    skierY + bmp.height * scale / 2.5f,
-                    paint
-                )
-                paint.alpha = 255
-            }
         }
         
         // Instructions (identiques)
@@ -402,92 +386,6 @@ class SkiJumpView(context: Context, private val activity: SkiJumpActivity) : Vie
         }
         
         drawSpeedMeter(canvas, w, h)
-    }
-    
-    // NOUVELLE FONCTION - Tremplin avec perspective parabolique réaliste
-    private fun drawRealisticJumpHill(canvas: Canvas, w: Int, h: Int) {
-        paint.style = Paint.Style.FILL
-        
-        // COUCHE 1: Tremplin principal avec courbure parabolique
-        paint.color = Color.WHITE
-        val mainHillPath = Path()
-        
-        // Partie visible convexe (haut)
-        mainHillPath.moveTo(w * 0.1f, h * 0.95f)
-        mainHillPath.lineTo(w * 0.9f, h * 0.95f)
-        mainHillPath.quadTo(w * 0.8f, h * 0.6f, w * 0.6f, h * 0.4f) // Courbure convexe
-        mainHillPath.quadTo(w * 0.5f, h * 0.35f, w * 0.45f, h * 0.3f) // Sommet de la bosse
-        
-        // "Cassure" visuelle - on perd de vue le milieu
-        mainHillPath.lineTo(w * 0.4f, h * 0.25f)
-        mainHillPath.quadTo(w * 0.2f, h * 0.6f, w * 0.1f, h * 0.95f)
-        mainHillPath.close()
-        canvas.drawPath(mainHillPath, paint)
-        
-        // COUCHE 2: Bout du tremplin (saut) - visible au loin
-        paint.color = Color.parseColor("#F0F0F0") // Légèrement plus sombre pour la distance
-        val jumpEndPath = Path()
-        jumpEndPath.moveTo(w * 0.75f, h * 0.28f)
-        jumpEndPath.lineTo(w * 0.85f, h * 0.32f)
-        jumpEndPath.quadTo(w * 0.9f, h * 0.35f, w * 0.95f, h * 0.4f) // Partie concave du saut
-        jumpEndPath.lineTo(w * 0.92f, h * 0.42f)
-        jumpEndPath.quadTo(w * 0.85f, h * 0.38f, w * 0.75f, h * 0.3f)
-        jumpEndPath.close()
-        canvas.drawPath(jumpEndPath, paint)
-        
-        // COUCHE 3: Lignes de guidage avec perspective
-        paint.color = Color.parseColor("#CCCCCC")
-        paint.strokeWidth = 3f
-        paint.style = Paint.Style.STROKE
-        
-        // Lignes sur la partie visible
-        for (i in 1..8) {
-            val progress = i / 8f
-            when {
-                progress < 0.6f -> {
-                    // Lignes sur la partie convexe
-                    val lineY = h * (0.95f - progress * 0.65f)
-                    val curveEffect = sin(progress * Math.PI).toFloat() * 0.1f
-                    val leftX = w * (0.1f + progress * 0.35f + curveEffect)
-                    val rightX = w * (0.9f - progress * 0.35f - curveEffect)
-                    canvas.drawLine(leftX, lineY, rightX, lineY, paint)
-                }
-                progress > 0.8f -> {
-                    // Lignes sur le bout du saut (très petites)
-                    val lineY = h * (0.4f - (progress - 0.8f) * 0.1f)
-                    val leftX = w * (0.75f + (progress - 0.8f) * 0.05f)
-                    val rightX = w * (0.85f - (progress - 0.8f) * 0.05f)
-                    canvas.drawLine(leftX, lineY, rightX, lineY, paint)
-                }
-            }
-        }
-        
-        // COUCHE 4: Effets de profondeur avec dégradés
-        paint.style = Paint.Style.FILL
-        
-        // Ombre de la courbure
-        val shadowGradient = LinearGradient(
-            w * 0.3f, h * 0.25f,
-            w * 0.7f, h * 0.4f,
-            Color.parseColor("#44000000"),
-            Color.TRANSPARENT,
-            Shader.TileMode.CLAMP
-        )
-        paint.shader = shadowGradient
-        paint.alpha = 150
-        
-        val shadowPath = Path()
-        shadowPath.moveTo(w * 0.3f, h * 0.25f)
-        shadowPath.quadTo(w * 0.5f, h * 0.35f, w * 0.7f, h * 0.4f)
-        shadowPath.lineTo(w * 0.7f, h * 0.45f)
-        shadowPath.quadTo(w * 0.5f, h * 0.4f, w * 0.3f, h * 0.3f)
-        shadowPath.close()
-        canvas.drawPath(shadowPath, paint)
-        
-        // Reset shader et alpha
-        paint.shader = null
-        paint.alpha = 255
-        paint.style = Paint.Style.FILL
     }
     
     private fun drawAngleControlBar(canvas: Canvas, w: Int, h: Int) {
