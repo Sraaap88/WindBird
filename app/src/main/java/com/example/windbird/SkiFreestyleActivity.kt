@@ -1,4 +1,4 @@
-// Imagespackage com.example.windbird
+package com.example.windbird
 
 import android.app.Activity
 import android.content.Context
@@ -145,6 +145,8 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
         private set
 
     // Images du skieur et des éléments
+    var skierBitmap: Bitmap? = null
+        private set
     var skierEagleBitmap: Bitmap? = null
         private set
     var skierJumpBitmap: Bitmap? = null
@@ -193,6 +195,13 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     }
 
     private fun loadAllImages() {
+        try {
+            // Image principale du skieur
+            skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skifreestyle)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        
         try {
             // Image du skieur en position eagle/tricks
             skierEagleBitmap = BitmapFactory.decodeResource(resources, R.drawable.skifreestyle_eagle)
