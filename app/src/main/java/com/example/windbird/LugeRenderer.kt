@@ -8,7 +8,7 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val gradientCache = mutableMapOf<String, LinearGradient>()
     private val effectsRenderer = LugeEffectsRenderer(engine)
-    private var playerCountry: String = "FR" // Par défaut France
+    private var playerCountry: String = "CA" // Par défaut Canada
 
     fun drawPreparation(canvas: Canvas, w: Int, h: Int) {
         canvas.save()
@@ -275,8 +275,8 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
         
         // Dessiner le drapeau selon le pays
         when (playerCountry) {
-            "FR" -> drawFrenchFlag(canvas, flagX, flagY, flagSize)
             "CA" -> drawCanadianFlag(canvas, flagX, flagY, flagSize)
+            "FR" -> drawFrenchFlag(canvas, flagX, flagY, flagSize)
             "US" -> drawAmericanFlag(canvas, flagX, flagY, flagSize)
             "NO" -> drawNorwegianFlag(canvas, flagX, flagY, flagSize)
             "JP" -> drawJapaneseFlag(canvas, flagX, flagY, flagSize)
