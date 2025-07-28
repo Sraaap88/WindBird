@@ -405,6 +405,30 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
         canvas.drawOval(-25f, 3f, 25f, 10f, paint)
         paint.alpha = 255
         
+        // Utiliser l'image du lugeur
+        try {
+            val resourceId = context.resources.getIdentifier("luge", "drawable", context.packageName)
+            if (resourceId != 0) {
+                val lugerBitmap = BitmapFactory.decodeResource(context.resources, resourceId)
+                val scaledBitmap = Bitmap.createScaledBitmap(lugerBitmap, 80, 80, true)
+                canvas.drawBitmap(scaledBitmap, -40f, -40f, paint)
+            } else {
+                // Fallback si image pas trouvée
+                drawFallbackLuger(canvas)
+            }
+        } catch (e: Exception) {
+            drawFallbackLuger(canvas)
+        }
+        
+        canvas.restore()
+        
+        // Traînée de vitesse
+        if (engine.speed > 30f) {
+            drawSpeedTrail(canvas, lugerScreenX, lugerScreenY)
+        }
+    }
+    
+    private fun drawFallbackLuger(canvas: Canvas) {
         // Luge
         paint.color = Color.parseColor("#444444")
         canvas.drawRoundRect(-40f, 0f, 40f, 50f, 12f, 12f, paint)
@@ -424,13 +448,6 @@ class LugeRenderer(private val engine: LugeGameEngine, private val context: andr
         canvas.drawLine(-25f, 45f, -25f, 55f, paint)
         canvas.drawLine(25f, 45f, 25f, 55f, paint)
         paint.style = Paint.Style.FILL
-        
-        canvas.restore()
-        
-        // Traînée de vitesse
-        if (engine.speed > 30f) {
-            drawSpeedTrail(canvas, lugerScreenX, lugerScreenY)
-        }
     }
     
     private fun drawSpeedTrail(canvas: Canvas, lugerX: Float, lugerY: Float) {
