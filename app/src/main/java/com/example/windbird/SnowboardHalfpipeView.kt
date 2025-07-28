@@ -296,45 +296,17 @@ class SnowboardHalfpipeView(
             val trackFrames = activity.getTrackFrames()
             if (trackFrames.isEmpty()) return
             
-            // Animation de défilement EN PERSPECTIVE pour simuler l'avancement dans le demi-tube
+            // Animation simple : changer d'image selon la vitesse et le temps
             val currentTime = System.currentTimeMillis()
-            val scrollSpeed = activity.getSpeed() * 2f
-            val perspectiveOffset = ((currentTime / 80f) * scrollSpeed) % 1000f
+            val animationSpeed = activity.getSpeed() / 5f
+            val frameIndex = ((currentTime / (200f / animationSpeed)).toInt() % trackFrames.size + trackFrames.size) % trackFrames.size
             
-            // Dessiner plusieurs "couches" en perspective pour créer l'effet de profondeur du demi-tube
-            for (layer in 0..4) {
-                val layerDepth = layer * 0.2f // Profondeur de 0 à 0.8
-                val layerY = perspectiveOffset * (1f + layerDepth) % (h * 1.5f) - h * 0.25f
-                
-                // Plus on va vers le fond, plus les images sont petites (perspective)
-                val scale = 1f - layerDepth * 0.3f // De 100% à 70%
-                val layerWidth = w * scale
-                val layerHeight = h * scale
-                val layerX = (w - layerWidth) / 2f
-                
-                // Choisir une frame différente selon la profondeur et le temps
-                val frameIndex = ((currentTime / 400f + layer * 2f).toInt() % trackFrames.size + trackFrames.size) % trackFrames.size
-                val frame = trackFrames[frameIndex]
-                
-                // Effet de transparence selon la profondeur
-                val alpha = (255 * (1f - layerDepth * 0.4f)).toInt()
-                paint.alpha = alpha
-                
-                // Dessiner la couche avec effet de perspective
-                reusableRectF.set(
-                    layerX,
-                    layerY,
-                    layerX + layerWidth,
-                    layerY + layerHeight
-                )
-                
-                canvas.drawBitmap(trackBitmap, frame, reusableRectF, paint)
-            }
+            // Prendre UNE SEULE image du sprite-sheet et l'afficher en plein écran
+            val frame = trackFrames[frameIndex]
             
-            paint.alpha = 255
-            
-            // Ajouter des effets de particules pour accentuer le mouvement
-            drawMovementParticles(canvas, w, h, scrollSpeed)
+            // Afficher l'image en plein écran
+            reusableRectF.set(0f, 0f, w.toFloat(), h.toFloat())
+            canvas.drawBitmap(trackBitmap, frame, reusableRectF, paint)
         }
     }
     
@@ -505,7 +477,7 @@ class SnowboardHalfpipeView(
             val srcLeft = frameIndex * frameWidth
             val srcRect = Rect(srcLeft, 0, srcLeft + frameWidth, frameHeight)
             
-            val imageScale = 0.6f
+            val imageScale = 1.2f // DOUBLE la taille (0.6f * 2 = 1.2f)
             val imageWidth = frameWidth * imageScale
             val imageHeight = frameHeight * imageScale
             
@@ -570,8 +542,8 @@ class SnowboardHalfpipeView(
         val frameWidth = frame.width().toFloat()
         val frameHeight = frame.height().toFloat()
         
-        // Échelle adaptative selon la taille du sprite
-        val baseScale = 0.8f
+        // DOUBLE la taille du snowboarder
+        val baseScale = 1.6f // Double de 0.8f
         val adaptiveScale = baseScale * minOf(1f, 80f / maxOf(frameWidth, frameHeight))
         
         val imageWidth = frameWidth * adaptiveScale
