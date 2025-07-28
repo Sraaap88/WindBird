@@ -71,7 +71,7 @@ class LugeGameEngine {
     var vignetting = 0f
     var bloom = 0f
     
-    // Systèmes de particules
+    // Systèmes de particules SIMPLES
     val snowParticles3D = mutableListOf<SnowParticle3D>()
     val iceChips = mutableListOf<IceChip>()
     val speedStreaks = mutableListOf<SpeedStreak>()
@@ -383,7 +383,7 @@ class LugeGameEngine {
         lugerTilt = gForce * 8f
         
         // Système aérodynamique avancé
-        handleAerodynamics(deltaTime)
+        handleAerodynamics()
         
         // Physique de vitesse
         handleSpeedPhysics(deltaTime)
@@ -398,7 +398,7 @@ class LugeGameEngine {
         
         // Génération d'effets selon la vitesse
         if (speed > 50f) {
-            generateAdvancedSpeedEffects(deltaTime)
+            generateAdvancedSpeedEffects()
         }
         
         if (speed > 90f) {
@@ -406,7 +406,7 @@ class LugeGameEngine {
         }
     }
     
-    private fun handleAerodynamics(deltaTime: Float) {
+    private fun handleAerodynamics() {
         val aeroPosition = tiltY.coerceIn(-1.5f, 1.5f)
         
         when {
@@ -487,7 +487,7 @@ class LugeGameEngine {
         wallHits++
         
         val wallSide = if (lugerX <= 0.1f) -1f else 1f
-        lugerMomentum.x = -lugerMomentum.x * 0.6f // Rebond avec perte d'énergie
+        lugerMomentum.x = -lugerMomentum.x * 0.6f
         
         val impactForce = abs(lugerMomentum.x) + speed * 0.01f
         speed *= (1f - impactForce * 0.15f).coerceIn(0.7f, 1f)
@@ -495,10 +495,8 @@ class LugeGameEngine {
         precision -= 8f * impactForce
         steeringPrecision -= 5f
         
-        // Correction de position
         lugerX = if (wallSide < 0) 0.15f else 0.85f
         
-        // Effets du contact
         cameraShake = 0.5f
         generateAdvancedWallSparks(wallSide)
         aerodynamics -= 2f
@@ -511,7 +509,6 @@ class LugeGameEngine {
             val curveDistance = curve.distance - distance
             
             if (curveDistance < -curve.length) {
-                // Virage terminé
                 nextCurveIndex++
                 currentCurveStrength = 0f
                 curveDirection = 0f
@@ -519,29 +516,24 @@ class LugeGameEngine {
             }
             
             if (curveDistance <= 200f && curveDistance >= -curve.length) {
-                // Dans la zone d'influence du virage
                 val curveProgress = when {
                     curveDistance > 0 -> 0f
                     curveDistance >= -curve.length -> (-curveDistance) / curve.length
                     else -> 1f
                 }
                 
-                // Application de la force du virage
                 if (curveDistance <= 0f && curveDistance >= -curve.length) {
                     currentCurveStrength = sin(curveProgress * PI).toFloat() * curve.intensity
                     curveDirection = curve.direction
                     
-                    // Effet du banking
                     val bankingEffect = curve.banking * sin(curveProgress * PI).toFloat()
                     lugerY += bankingEffect * 0.001f
                 }
                 
-                // Évaluation de la performance
                 if (curveProgress > 0.2f && curveProgress < 0.8f) {
                     evaluateAdvancedCurvePerformance(curve, curveProgress)
                 }
                 
-                // Ajout d'indicateurs visuels
                 if (curveDistance > 0f && curveDistance < 120f) {
                     addAdvancedCurveIndicator(curve, curveDistance)
                 }
@@ -562,7 +554,6 @@ class LugeGameEngine {
         
         when {
             positionError < 0.15f && speedError < 0.2f -> {
-                // Virage parfait !
                 perfectCurves++
                 precision += 4f
                 aerodynamics += 2f
@@ -572,21 +563,18 @@ class LugeGameEngine {
                 precision += difficultyBonus
             }
             positionError < 0.25f && speedError < 0.35f -> {
-                // Bon virage
                 precision += 1f
                 generateGoodCurveEffect()
             }
             positionError > 0.4f || speedError > 0.5f -> {
-                // Virage raté
                 precision -= 3f
                 aerodynamics -= 1f
             }
         }
         
-        // Pénalité pour vitesse excessive
         if (curve.intensity > 0.7f && speed > idealSpeed * 1.3f) {
             steeringPrecision -= 10f
-            lugerMomentum.x += curve.direction * 0.1f // Dérapage
+            lugerMomentum.x += curve.direction * 0.1f
         }
     }
     
@@ -606,7 +594,6 @@ class LugeGameEngine {
             brakingUsed = true
             lastBrakeTime = currentTime
             
-            // Coûts du freinage
             stamina -= 2f
             steeringPrecision -= 0.5f
             
@@ -621,27 +608,22 @@ class LugeGameEngine {
         val windResistance = 0.015f * (speed / maxSpeed)
         val fatigueEffect = (100f - stamina) / 1000f
         
-        // Dégradation naturelle
         aerodynamics -= windResistance + fatigueEffect
         precision -= 0.025f + fatigueEffect * 2f
         steeringPrecision -= 0.01f + fatigueEffect
         
-        // Récupération avec bonne technique
         if (speed > 60f && abs(tiltX) < 0.3f && gForce < 0.5f) {
             aerodynamics += 0.04f
             precision += 0.02f
         }
         
-        // Bonus de stamina en position aérodynamique
         if (tiltY < -0.5f) {
             stamina += 0.1f * deltaTime
         }
         
-        // Effet de l'altitude
         val altitudeEffect = altitude / 1000f
         aerodynamics *= (1f + altitudeEffect * 0.02f)
         
-        // Contraintes réalistes
         aerodynamics = aerodynamics.coerceIn(60f, 140f)
         precision = precision.coerceIn(40f, 140f)
         steeringPrecision = steeringPrecision.coerceIn(30f, 120f)
@@ -659,7 +641,6 @@ class LugeGameEngine {
             }
             currentSector = currentSectorIndex
             
-            // Effets spéciaux selon le secteur
             val sector = trackSectors[currentSector]
             when (sector.type) {
                 TrackSector.SectorType.SPEED_ZONE -> maxSpeed += 10f
@@ -681,11 +662,9 @@ class LugeGameEngine {
                 
                 val timeDifference = checkpoint.actualTime - checkpoint.targetTime
                 if (timeDifference < 0) {
-                    // En avance !
                     precision += 10f
                     aerodynamics += 5f
                 } else if (timeDifference > 5f) {
-                    // En retard
                     precision -= 5f
                 }
                 
@@ -706,16 +685,14 @@ class LugeGameEngine {
     }
     
     private fun updateParticles(deltaTime: Float) {
-        // Particules de neige 3D - mise à jour sans removeAll
-        val particlesToUpdate = snowParticles3D.toList()
-        for (particle in particlesToUpdate) {
+        // Particules de neige 3D - simple sans removeAll
+        for (particle in snowParticles3D) {
             particle.x += particle.vx * deltaTime
             particle.y += particle.vy * deltaTime
             particle.z += particle.vz * deltaTime
             particle.life -= deltaTime
             
             if (particle.life <= 0f || particle.z < -100f) {
-                // Recycler la particule
                 particle.x = Random.nextFloat() * 1000f - 500f
                 particle.y = Random.nextFloat() * 500f + 200f
                 particle.z = Random.nextFloat() * 200f + 1000f
@@ -723,107 +700,68 @@ class LugeGameEngine {
             }
         }
         
-        // Mise à jour des autres particules
-        updateOtherParticles(deltaTime)
+        // Nettoyage simple des autres particules
+        cleanupParticles(deltaTime)
     }
     
-    private fun updateOtherParticles(deltaTime: Float) {
-        // Mise à jour des copeaux de glace
-        val chipsToRemove = mutableListOf<IceChip>()
-        for (chip in iceChips) {
+    private fun cleanupParticles(deltaTime: Float) {
+        // Mise à jour simple des autres particules
+        iceChips.removeIf { chip ->
             chip.x += chip.vx * deltaTime
             chip.y += chip.vy * deltaTime
             chip.z += chip.vz * deltaTime
             chip.life -= deltaTime
-            if (chip.life <= 0f || chip.z < -200f) {
-                chipsToRemove.add(chip)
-            }
+            chip.life <= 0f || chip.z < -200f
         }
-        iceChips.removeAll(chipsToRemove)
         
-        // Mise à jour des traînées de vitesse
-        val streaksToRemove = mutableListOf<SpeedStreak>()
-        for (streak in speedStreaks) {
+        speedStreaks.removeIf { streak ->
             streak.x += streak.vx * deltaTime
             streak.y += streak.vy * deltaTime
             streak.life -= deltaTime
-            if (streak.life <= 0f || streak.x < -200f) {
-                streaksToRemove.add(streak)
-            }
+            streak.life <= 0f || streak.x < -200f
         }
-        speedStreaks.removeAll(streaksToRemove)
         
-        // Mise à jour des étincelles de mur
-        val sparksToRemove = mutableListOf<WallSpark>()
-        for (spark in wallSparks) {
+        wallSparks.removeIf { spark ->
             spark.x += spark.vx * deltaTime
             spark.y += spark.vy * deltaTime
             spark.z += spark.vz * deltaTime
             spark.life -= deltaTime
-            if (spark.life <= 0f || spark.y > 900f) {
-                sparksToRemove.add(spark)
-            }
+            spark.life <= 0f || spark.y > 900f
         }
-        wallSparks.removeAll(sparksToRemove)
         
-        // Mise à jour des traînées de vent
-        val windToRemove = mutableListOf<WindTrail>()
-        for (trail in windTrails) {
+        windTrails.removeIf { trail ->
             trail.x += trail.vx * deltaTime
             trail.y += trail.vy * deltaTime
             trail.z += trail.vz * deltaTime
             trail.life -= deltaTime
-            if (trail.life <= 0f || trail.z < -300f) {
-                windToRemove.add(trail)
-            }
+            trail.life <= 0f || trail.z < -300f
         }
-        windTrails.removeAll(windToRemove)
         
-        // Mise à jour des impacts au sol
-        val impactsToRemove = mutableListOf<GroundImpact>()
-        for (impact in groundImpacts) {
+        groundImpacts.removeIf { impact ->
             impact.x += impact.vx * deltaTime
             impact.y += impact.vy * deltaTime
             impact.z += impact.vz * deltaTime
             impact.life -= deltaTime
-            if (impact.life <= 0f) {
-                impactsToRemove.add(impact)
-            }
+            impact.life <= 0f
         }
-        groundImpacts.removeAll(impactsToRemove)
         
-        // Mise à jour des étincelles
-        val sparklesToRemove = mutableListOf<IceSparkle>()
-        for (sparkle in sparkles) {
+        sparkles.removeIf { sparkle ->
             sparkle.x += sparkle.vx * deltaTime
             sparkle.y += sparkle.vy * deltaTime
             sparkle.z += sparkle.vz * deltaTime
             sparkle.life -= deltaTime
-            if (sparkle.life <= 0f) {
-                sparklesToRemove.add(sparkle)
-            }
+            sparkle.life <= 0f
         }
-        sparkles.removeAll(sparklesToRemove)
         
-        // Mise à jour des traînées aéro
-        val aeroToRemove = mutableListOf<AeroTrail>()
-        for (trail in aeroTrails) {
+        aeroTrails.removeIf { trail ->
             trail.life -= deltaTime
-            if (trail.life <= 0f) {
-                aeroToRemove.add(trail)
-            }
+            trail.life <= 0f
         }
-        aeroTrails.removeAll(aeroToRemove)
         
-        // Mise à jour des indicateurs de virage
-        val indicatorsIterator = curveIndicators.iterator()
-        while (indicatorsIterator.hasNext()) {
-            val indicator = indicatorsIterator.next()
+        curveIndicators.removeIf { indicator ->
             indicator.life -= deltaTime
             indicator.urgency = minOf(1f, indicator.urgency + deltaTime * 0.5f)
-            if (indicator.life <= 0f) {
-                indicatorsIterator.remove()
-            }
+            indicator.life <= 0f
         }
     }
     
@@ -846,12 +784,11 @@ class LugeGameEngine {
         cameraHeight = cameraHeight * 0.95f + targetHeight * 0.05f
     }
     
-    // Génération d'effets et particules
-    private fun generateAdvancedSpeedEffects(deltaTime: Float) {
+    // Génération d'effets SIMPLES
+    private fun generateAdvancedSpeedEffects() {
         val effectIntensity = speed / maxSpeed
         
-        // Particules de neige selon la vitesse
-        if (Random.nextFloat() < effectIntensity * 0.8f) {
+        if (Random.nextFloat() < effectIntensity * 0.8f && snowParticles3D.size < 300) {
             snowParticles3D.add(SnowParticle3D(
                 x = Random.nextFloat() * 1000f - 500f,
                 y = Random.nextFloat() * 500f + 200f,
@@ -864,8 +801,7 @@ class LugeGameEngine {
             ))
         }
         
-        // Copeaux de glace
-        if (Random.nextFloat() < 0.6f) {
+        if (Random.nextFloat() < 0.6f && iceChips.size < 50) {
             iceChips.add(IceChip(
                 x = Random.nextFloat() * 400f + 300f,
                 y = Random.nextFloat() * 300f + 400f,
@@ -877,173 +813,115 @@ class LugeGameEngine {
                 sparkle = speed > 80f
             ))
         }
-        
-        // Traînées aérodynamiques
-        if (speed > 70f && Random.nextFloat() < 0.4f) {
-            aeroTrails.add(AeroTrail(
-                x = Random.nextFloat() * 200f + 400f,
-                y = Random.nextFloat() * 100f + 450f,
-                z = 30f,
-                length = speed * 2f,
-                intensity = effectIntensity,
-                life = 1f
-            ))
-        }
-        
-        // Traînées de vent
-        if (speed > 90f) {
-            windTrails.add(WindTrail(
-                x = Random.nextFloat() * 600f + 200f,
-                y = Random.nextFloat() * 400f + 300f,
-                z = Random.nextFloat() * 100f + 80f,
-                vx = (Random.nextFloat() - 0.5f) * 30f,
-                vy = Random.nextFloat() * 20f,
-                vz = -speed * 1.5f,
-                life = 2f,
-                intensity = effectIntensity
-            ))
-        }
-        
-        // Limitation du nombre de particules
-        limitParticleCount()
-    }
-    
-    private fun limitParticleCount() {
-        // Limitation du nombre de particules avec suppression des plus anciens
-        while (snowParticles3D.size > 300) {
-            val iterator = snowParticles3D.iterator()
-            if (iterator.hasNext()) {
-                iterator.next()
-                iterator.remove()
-            }
-        }
-        while (iceChips.size > 50) {
-            val iterator = iceChips.iterator()
-            if (iterator.hasNext()) {
-                iterator.next()
-                iterator.remove()
-            }
-        }
-        while (aeroTrails.size > 30) {
-            val iterator = aeroTrails.iterator()
-            if (iterator.hasNext()) {
-                iterator.next()
-                iterator.remove()
-            }
-        }
-        while (windTrails.size > 20) {
-            val iterator = windTrails.iterator()
-            if (iterator.hasNext()) {
-                iterator.next()
-                iterator.remove()
-            }
-        }
     }
     
     private fun generateAdvancedWallSparks(wallSide: Float) {
         for (i in 0..11) {
-            wallSparks.add(WallSpark(
-                x = if (wallSide < 0) 100f else 700f,
-                y = Random.nextFloat() * 200f + 400f,
-                z = Random.nextFloat() * 50f + 30f,
-                vx = wallSide * Random.nextFloat() * 80f + 40f,
-                vy = Random.nextFloat() * -60f - 20f,
-                vz = Random.nextFloat() * 40f + 10f,
-                life = 1.5f,
-                color = if (Random.nextFloat() < 0.3f) Color.RED else Color.YELLOW,
-                intensity = speed / maxSpeed
-            ))
+            if (wallSparks.size < 50) {
+                wallSparks.add(WallSpark(
+                    x = if (wallSide < 0) 100f else 700f,
+                    y = Random.nextFloat() * 200f + 400f,
+                    z = Random.nextFloat() * 50f + 30f,
+                    vx = wallSide * Random.nextFloat() * 80f + 40f,
+                    vy = Random.nextFloat() * -60f - 20f,
+                    vz = Random.nextFloat() * 40f + 10f,
+                    life = 1.5f,
+                    color = if (Random.nextFloat() < 0.3f) Color.RED else Color.YELLOW,
+                    intensity = speed / maxSpeed
+                ))
+            }
         }
     }
     
     private fun generatePerfectCurveEffect() {
         for (i in 0..14) {
-            sparkles.add(IceSparkle(
-                x = Random.nextFloat() * 200f + 350f,
-                y = Random.nextFloat() * 150f + 375f,
-                z = Random.nextFloat() * 80f + 40f,
-                vx = (Random.nextFloat() - 0.5f) * 40f,
-                vy = Random.nextFloat() * -30f - 10f,
-                vz = Random.nextFloat() * 20f,
-                life = 2f,
-                color = Color.CYAN,
-                sparkleRate = 0.1f
-            ))
+            if (sparkles.size < 100) {
+                sparkles.add(IceSparkle(
+                    x = Random.nextFloat() * 200f + 350f,
+                    y = Random.nextFloat() * 150f + 375f,
+                    z = Random.nextFloat() * 80f + 40f,
+                    vx = (Random.nextFloat() - 0.5f) * 40f,
+                    vy = Random.nextFloat() * -30f - 10f,
+                    vz = Random.nextFloat() * 20f,
+                    life = 2f,
+                    color = Color.CYAN,
+                    sparkleRate = 0.1f
+                ))
+            }
         }
     }
     
     private fun generateGoodCurveEffect() {
         for (i in 0..7) {
-            sparkles.add(IceSparkle(
-                x = Random.nextFloat() * 150f + 375f,
-                y = Random.nextFloat() * 100f + 400f,
-                z = Random.nextFloat() * 60f + 30f,
-                vx = (Random.nextFloat() - 0.5f) * 25f,
-                vy = Random.nextFloat() * -20f - 5f,
-                vz = Random.nextFloat() * 15f,
-                life = 1.2f,
-                color = Color.WHITE,
-                sparkleRate = 0.2f
-            ))
+            if (sparkles.size < 100) {
+                sparkles.add(IceSparkle(
+                    x = Random.nextFloat() * 150f + 375f,
+                    y = Random.nextFloat() * 100f + 400f,
+                    z = Random.nextFloat() * 60f + 30f,
+                    vx = (Random.nextFloat() - 0.5f) * 25f,
+                    vy = Random.nextFloat() * -20f - 5f,
+                    vz = Random.nextFloat() * 15f,
+                    life = 1.2f,
+                    color = Color.WHITE,
+                    sparkleRate = 0.2f
+                ))
+            }
         }
     }
     
     private fun generateAdvancedBrakingEffect() {
         for (i in 0..7) {
-            groundImpacts.add(GroundImpact(
-                x = Random.nextFloat() * 100f + 450f,
-                y = Random.nextFloat() * 60f + 530f,
-                z = 10f,
-                vx = (Random.nextFloat() - 0.5f) * 30f,
-                vy = Random.nextFloat() * 40f + 10f,
-                vz = Random.nextFloat() * 20f,
-                life = 1.3f,
-                size = Random.nextFloat() * 8f + 5f
-            ))
+            if (groundImpacts.size < 30) {
+                groundImpacts.add(GroundImpact(
+                    x = Random.nextFloat() * 100f + 450f,
+                    y = Random.nextFloat() * 60f + 530f,
+                    z = 10f,
+                    vx = (Random.nextFloat() - 0.5f) * 30f,
+                    vy = Random.nextFloat() * 40f + 10f,
+                    vz = Random.nextFloat() * 20f,
+                    life = 1.3f,
+                    size = Random.nextFloat() * 8f + 5f
+                ))
+            }
         }
     }
     
     private fun generateCheckpointEffect(checkpoint: Checkpoint) {
         for (i in 0..19) {
-            sparkles.add(IceSparkle(
-                x = Random.nextFloat() * 300f + 350f,
-                y = Random.nextFloat() * 200f + 300f,
-                z = Random.nextFloat() * 100f + 50f,
-                vx = (Random.nextFloat() - 0.5f) * 60f,
-                vy = Random.nextFloat() * -40f - 20f,
-                vz = Random.nextFloat() * 30f + 10f,
-                life = 3f,
-                color = if (checkpoint.actualTime < checkpoint.targetTime) Color.GREEN else Color.YELLOW,
-                sparkleRate = 0.05f
-            ))
+            if (sparkles.size < 100) {
+                sparkles.add(IceSparkle(
+                    x = Random.nextFloat() * 300f + 350f,
+                    y = Random.nextFloat() * 200f + 300f,
+                    z = Random.nextFloat() * 100f + 50f,
+                    vx = (Random.nextFloat() - 0.5f) * 60f,
+                    vy = Random.nextFloat() * -40f - 20f,
+                    vz = Random.nextFloat() * 30f + 10f,
+                    life = 3f,
+                    color = if (checkpoint.actualTime < checkpoint.targetTime) Color.GREEN else Color.YELLOW,
+                    sparkleRate = 0.05f
+                ))
+            }
         }
     }
     
     private fun addAdvancedCurveIndicator(curve: TrackCurve, distance: Float) {
         val urgency = (120f - distance) / 120f
         
-        curveIndicators.add(CurveIndicator(
-            direction = curve.direction,
-            intensity = curve.intensity,
-            type = curve.type,
-            distance = distance,
-            urgency = urgency,
-            life = 4f,
-            banking = curve.banking
-        ))
-        
-        while (curveIndicators.size > 3) {
-            val iterator = curveIndicators.iterator()
-            if (iterator.hasNext()) {
-                iterator.next()
-                iterator.remove()
-            }
+        if (curveIndicators.size < 3) {
+            curveIndicators.add(CurveIndicator(
+                direction = curve.direction,
+                intensity = curve.intensity,
+                type = curve.type,
+                distance = distance,
+                urgency = urgency,
+                life = 4f,
+                banking = curve.banking
+            ))
         }
     }
     
     fun calculateFinalScore() {
         if (!scoreCalculated) {
-            // Mise à jour des métriques finales
             performanceMetrics.finalTime = raceTime
             performanceMetrics.topSpeed = topSpeed
             performanceMetrics.averageSpeed = distance / raceTime
@@ -1054,7 +932,6 @@ class LugeGameEngine {
             performanceMetrics.brakingUsed = brakingUsed
             performanceMetrics.stamina = stamina
             
-            // Calcul de score complexe
             val timeBonus = maxOf(0, (180 - raceTime).toInt()) * 3
             val speedBonus = (performanceMetrics.averageSpeed / maxSpeed * 100).toInt()
             val topSpeedBonus = (topSpeed / maxSpeed * 80).toInt()
