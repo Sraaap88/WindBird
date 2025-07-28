@@ -296,35 +296,64 @@ class SnowboardHalfpipeView(
             val trackFrames = activity.getTrackFrames()
             if (trackFrames.isEmpty()) return
             
-            // Animation de défilement basée sur la vitesse et le temps
+            // Animation de défilement EN PERSPECTIVE pour simuler l'avancement dans le demi-tube
             val currentTime = System.currentTimeMillis()
-            val scrollSpeed = activity.getSpeed() * 0.5f
-            val scrollOffset = ((currentTime / 100f) * scrollSpeed) % h.toFloat()
+            val scrollSpeed = activity.getSpeed() * 2f
+            val perspectiveOffset = ((currentTime / 80f) * scrollSpeed) % 1000f
             
-            // Dessiner 3 images complètes qui se suivent verticalement pour créer un défilement fluide
-            for (i in -1..1) {
-                val segmentY = i * h.toFloat() - scrollOffset
+            // Dessiner plusieurs "couches" en perspective pour créer l'effet de profondeur du demi-tube
+            for (layer in 0..4) {
+                val layerDepth = layer * 0.2f // Profondeur de 0 à 0.8
+                val layerY = perspectiveOffset * (1f + layerDepth) % (h * 1.5f) - h * 0.25f
                 
-                // Vérifier si le segment est visible
-                if (segmentY < h + 50f && segmentY > -h - 50f) {
-                    // Choisir une frame du sprite-sheet (cycle à travers les 12 frames)
-                    val frameIndex = ((currentTime / 500f + i).toInt() % trackFrames.size + trackFrames.size) % trackFrames.size
-                    val frame = trackFrames[frameIndex]
-                    
-                    // Dessiner l'image complète en plein écran
-                    reusableRectF.set(
-                        0f,
-                        segmentY,
-                        w.toFloat(),
-                        segmentY + h.toFloat()
-                    )
-                    
-                    canvas.drawBitmap(trackBitmap, frame, reusableRectF, paint)
-                }
+                // Plus on va vers le fond, plus les images sont petites (perspective)
+                val scale = 1f - layerDepth * 0.3f // De 100% à 70%
+                val layerWidth = w * scale
+                val layerHeight = h * scale
+                val layerX = (w - layerWidth) / 2f
+                
+                // Choisir une frame différente selon la profondeur et le temps
+                val frameIndex = ((currentTime / 400f + layer * 2f).toInt() % trackFrames.size + trackFrames.size) % trackFrames.size
+                val frame = trackFrames[frameIndex]
+                
+                // Effet de transparence selon la profondeur
+                val alpha = (255 * (1f - layerDepth * 0.4f)).toInt()
+                paint.alpha = alpha
+                
+                // Dessiner la couche avec effet de perspective
+                reusableRectF.set(
+                    layerX,
+                    layerY,
+                    layerX + layerWidth,
+                    layerY + layerHeight
+                )
+                
+                canvas.drawBitmap(trackBitmap, frame, reusableRectF, paint)
             }
             
-            // Ajouter des lignes de vitesse pour accentuer l'effet de mouvement
-            drawSpeedLines(canvas, w, h, scrollSpeed * 2f)
+            paint.alpha = 255
+            
+            // Ajouter des effets de particules pour accentuer le mouvement
+            drawMovementParticles(canvas, w, h, scrollSpeed)
+        }
+    }
+    
+    private fun drawMovementParticles(canvas: Canvas, w: Int, h: Int, speed: Float) {
+        if (speed > 8f) {
+            paint.color = Color.parseColor("#60FFFFFF") // Blanc semi-transparent
+            val currentTime = System.currentTimeMillis()
+            
+            // Particules qui se déplacent depuis le fond vers l'avant
+            for (i in 0..12) {
+                val particleSpeed = speed * (1f + i * 0.1f)
+                val particleX = ((currentTime / 60f + i * 80f) * particleSpeed / 15f) % (w * 1.3f) - w * 0.15f
+                val particleY = h * (0.2f + (i % 4) * 0.2f)
+                val particleSize = 3f + (speed / 20f) * 4f
+                
+                if (particleX > -20f && particleX < w + 20f) {
+                    canvas.drawCircle(particleX, particleY, particleSize, paint)
+                }
+            }
         }
     }
     
@@ -476,7 +505,7 @@ class SnowboardHalfpipeView(
             val srcLeft = frameIndex * frameWidth
             val srcRect = Rect(srcLeft, 0, srcLeft + frameWidth, frameHeight)
             
-            val imageScale = 0.48f // Réduit de 20% (0.6f -> 0.48f)
+            val imageScale = 0.6f
             val imageWidth = frameWidth * imageScale
             val imageHeight = frameHeight * imageScale
             
@@ -491,50 +520,62 @@ class SnowboardHalfpipeView(
             return
         }
         
-        // Sélectionner la frame selon l'état
+        // Sélectionner la frame selon l'état avec une meilleure logique d'animation
         val frameIndex = when {
             activity.getIsLanding() -> {
-                // Animation de landing fluide (0 à 4)
-                val landingFrame = (activity.getLandingTimer() * 6f).toInt().coerceIn(0, frames.size - 1)
-                landingFrame
+                // Animation de landing fluide
+                val progress = (activity.getLandingTimer() * 4f).coerceIn(0f, frames.size - 1f)
+                progress.toInt()
             }
             activity.getIsInAir() -> {
-                // Frame spécifique pour les airs
                 when (activity.getCurrentTrick()) {
                     SnowboardHalfpipeActivity.TrickType.SPIN -> {
-                        // Animation de rotation
-                        ((activity.getTrickRotation() / 90f).toInt() % frames.size)
+                        // Animation de rotation basée sur l'angle
+                        val rotationFrame = ((activity.getTrickRotation() / 72f).toInt() % frames.size + frames.size) % frames.size
+                        rotationFrame
                     }
                     SnowboardHalfpipeActivity.TrickType.GRAB -> {
-                        // Frame de grab (milieu du sprite-sheet)
-                        (frames.size / 2).coerceAtMost(frames.size - 1)
+                        // Frame de grab - utiliser les frames du milieu
+                        val grabFrame = (frames.size / 2) + ((activity.getTrickProgress() * 2f).toInt() % 2)
+                        grabFrame.coerceIn(0, frames.size - 1)
+                    }
+                    SnowboardHalfpipeActivity.TrickType.FLIP -> {
+                        // Animation de flip
+                        val flipFrame = ((activity.getTrickFlip() / 45f).toInt() % frames.size + frames.size) % frames.size
+                        flipFrame
                     }
                     else -> {
-                        // Frame d'air normale
-                        1.coerceAtMost(frames.size - 1)
+                        // Frame d'air stable
+                        (frames.size / 2).coerceAtMost(frames.size - 1)
                     }
                 }
             }
             activity.getCurrentSide() == SnowboardHalfpipeActivity.RiderSide.CENTER -> {
-                // Frame "tout droit" au centre
+                // Frame centrale pour aller tout droit
                 (frames.size / 2).coerceAtMost(frames.size - 1)
             }
             else -> {
-                // Animation de montée selon momentum et temps
-                val animSpeed = abs(activity.getMomentum()) * 10f + 1f
-                val timeAnimation = (System.currentTimeMillis() / 300L * animSpeed).toInt()
-                timeAnimation % frames.size
+                // Animation cyclique basée sur le mouvement et le temps
+                val animSpeed = maxOf(1f, abs(activity.getMomentum()) * 15f)
+                val timeComponent = (System.currentTimeMillis() / 250L).toInt()
+                val movementFrame = (timeComponent * animSpeed.toInt()) % frames.size
+                movementFrame
             }
         }
         
-        val frame = frames[frameIndex.coerceIn(0, frames.size - 1)]
+        val safeFrameIndex = frameIndex.coerceIn(0, frames.size - 1)
+        val frame = frames[safeFrameIndex]
         
-        // Taille ajustée
-        val imageScale = 0.48f // 0.6f * 0.8f = 0.48f
-        val frameWidth = frame.width()
-        val frameHeight = frame.height()
-        val imageWidth = frameWidth * imageScale
-        val imageHeight = frameHeight * imageScale
+        // Utiliser les vraies dimensions du sprite découpé
+        val frameWidth = frame.width().toFloat()
+        val frameHeight = frame.height().toFloat()
+        
+        // Échelle adaptative selon la taille du sprite
+        val baseScale = 0.8f
+        val adaptiveScale = baseScale * minOf(1f, 80f / maxOf(frameWidth, frameHeight))
+        
+        val imageWidth = frameWidth * adaptiveScale
+        val imageHeight = frameHeight * adaptiveScale
         
         reusableRectF.set(
             -imageWidth/2f,
