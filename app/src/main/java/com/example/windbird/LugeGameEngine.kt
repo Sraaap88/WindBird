@@ -706,8 +706,9 @@ class LugeGameEngine {
     }
     
     private fun updateParticles(deltaTime: Float) {
-        // Particules de neige 3D
-        for (particle in snowParticles3D) {
+        // Particules de neige 3D - mise à jour sans removeAll
+        val particlesToUpdate = snowParticles3D.toList()
+        for (particle in particlesToUpdate) {
             particle.x += particle.vx * deltaTime
             particle.y += particle.vy * deltaTime
             particle.z += particle.vz * deltaTime
@@ -727,63 +728,103 @@ class LugeGameEngine {
     }
     
     private fun updateOtherParticles(deltaTime: Float) {
-        iceChips.removeAll { chip ->
+        // Mise à jour des copeaux de glace
+        val chipsToRemove = mutableListOf<IceChip>()
+        for (chip in iceChips) {
             chip.x += chip.vx * deltaTime
             chip.y += chip.vy * deltaTime
             chip.z += chip.vz * deltaTime
             chip.life -= deltaTime
-            chip.life <= 0f || chip.z < -200f
+            if (chip.life <= 0f || chip.z < -200f) {
+                chipsToRemove.add(chip)
+            }
         }
+        iceChips.removeAll(chipsToRemove)
         
-        speedStreaks.removeAll { streak ->
+        // Mise à jour des traînées de vitesse
+        val streaksToRemove = mutableListOf<SpeedStreak>()
+        for (streak in speedStreaks) {
             streak.x += streak.vx * deltaTime
             streak.y += streak.vy * deltaTime
             streak.life -= deltaTime
-            streak.life <= 0f || streak.x < -200f
+            if (streak.life <= 0f || streak.x < -200f) {
+                streaksToRemove.add(streak)
+            }
         }
+        speedStreaks.removeAll(streaksToRemove)
         
-        wallSparks.removeAll { spark ->
+        // Mise à jour des étincelles de mur
+        val sparksToRemove = mutableListOf<WallSpark>()
+        for (spark in wallSparks) {
             spark.x += spark.vx * deltaTime
             spark.y += spark.vy * deltaTime
             spark.z += spark.vz * deltaTime
             spark.life -= deltaTime
-            spark.life <= 0f || spark.y > 900f
+            if (spark.life <= 0f || spark.y > 900f) {
+                sparksToRemove.add(spark)
+            }
         }
+        wallSparks.removeAll(sparksToRemove)
         
-        windTrails.removeAll { trail ->
+        // Mise à jour des traînées de vent
+        val windToRemove = mutableListOf<WindTrail>()
+        for (trail in windTrails) {
             trail.x += trail.vx * deltaTime
             trail.y += trail.vy * deltaTime
             trail.z += trail.vz * deltaTime
             trail.life -= deltaTime
-            trail.life <= 0f || trail.z < -300f
+            if (trail.life <= 0f || trail.z < -300f) {
+                windToRemove.add(trail)
+            }
         }
+        windTrails.removeAll(windToRemove)
         
-        groundImpacts.removeAll { impact ->
+        // Mise à jour des impacts au sol
+        val impactsToRemove = mutableListOf<GroundImpact>()
+        for (impact in groundImpacts) {
             impact.x += impact.vx * deltaTime
             impact.y += impact.vy * deltaTime
             impact.z += impact.vz * deltaTime
             impact.life -= deltaTime
-            impact.life <= 0f
+            if (impact.life <= 0f) {
+                impactsToRemove.add(impact)
+            }
         }
+        groundImpacts.removeAll(impactsToRemove)
         
-        sparkles.removeAll { sparkle ->
+        // Mise à jour des étincelles
+        val sparklesToRemove = mutableListOf<IceSparkle>()
+        for (sparkle in sparkles) {
             sparkle.x += sparkle.vx * deltaTime
             sparkle.y += sparkle.vy * deltaTime
             sparkle.z += sparkle.vz * deltaTime
             sparkle.life -= deltaTime
-            sparkle.life <= 0f
+            if (sparkle.life <= 0f) {
+                sparklesToRemove.add(sparkle)
+            }
         }
+        sparkles.removeAll(sparklesToRemove)
         
-        aeroTrails.removeAll { trail ->
+        // Mise à jour des traînées aéro
+        val aeroToRemove = mutableListOf<AeroTrail>()
+        for (trail in aeroTrails) {
             trail.life -= deltaTime
-            trail.life <= 0f
+            if (trail.life <= 0f) {
+                aeroToRemove.add(trail)
+            }
         }
+        aeroTrails.removeAll(aeroToRemove)
         
-        curveIndicators.removeAll { indicator ->
+        // Mise à jour des indicateurs de virage
+        val indicatorsToRemove = mutableListOf<CurveIndicator>()
+        for (indicator in curveIndicators) {
             indicator.life -= deltaTime
             indicator.urgency = minOf(1f, indicator.urgency + deltaTime * 0.5f)
-            indicator.life <= 0f
+            if (indicator.life <= 0f) {
+                indicatorsToRemove.add(indicator)
+            }
         }
+        curveIndicators.removeAll(indicatorsToRemove)
     }
     
     private fun updateCameraEffects(deltaTime: Float) {
