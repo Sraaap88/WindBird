@@ -261,7 +261,7 @@ class LugeActivity : Activity(), SensorEventListener {
             // Définir le pays du joueur selon les données du tournoi
             val playerCountry = if (currentPlayerIndex < tournamentData.playerCountries.size) {
                 tournamentData.playerCountries[currentPlayerIndex]
-            } else "CA" // Par défaut Canada
+            } else "FR" // Par défaut France
             renderer.setPlayerCountry(playerCountry)
             
             when (gameState) {
