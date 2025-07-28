@@ -144,8 +144,18 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
     var practiceMode: Boolean = false
         private set
 
-    // Image du skieur
+    // Images du skieur et des éléments
     var skierBitmap: Bitmap? = null
+        private set
+    var skierEagleBitmap: Bitmap? = null
+        private set
+    var skierJumpBitmap: Bitmap? = null
+        private set
+    var skierFrontBitmap: Bitmap? = null
+        private set
+    var kickerBitmap: Bitmap? = null
+        private set
+    var preparationBitmap: Bitmap? = null
         private set
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -162,9 +172,8 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
         gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
         accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
-        // Charger les images
-        loadSkierImage()
-        loadPreparationImage()
+        // Charger toutes les images
+        loadAllImages()
 
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
@@ -185,22 +194,44 @@ class SkiFreestyleActivity : Activity(), SensorEventListener {
         initializeGame()
     }
 
-    private fun loadSkierImage() {
+    private fun loadAllImages() {
         try {
+            // Image principale du skieur
             skierBitmap = BitmapFactory.decodeResource(resources, R.drawable.skifreestyle)
         } catch (e: Exception) {
-            // Garder null si l'image n'existe pas, on utilisera le dessin par défaut
             e.printStackTrace()
         }
-    }
-    
-    // Variable pour l'image de préparation
-    var preparationBitmap: Bitmap? = null
-        private set
-    
-    private fun loadPreparationImage() {
+        
         try {
-            // Tu as pas montré skifreestyle_preparation.png mais je suppose qu'elle existe
+            // Image du skieur en position eagle/tricks
+            skierEagleBitmap = BitmapFactory.decodeResource(resources, R.drawable.skifreestyle_eagle)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        
+        try {
+            // Image du skieur en saut
+            skierJumpBitmap = BitmapFactory.decodeResource(resources, R.drawable.skifreestyle_jump)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        
+        try {
+            // Image du skieur vue de face/front
+            skierFrontBitmap = BitmapFactory.decodeResource(resources, R.drawable.skifreestyle_front)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        
+        try {
+            // Image du kicker
+            kickerBitmap = BitmapFactory.decodeResource(resources, R.drawable.skifreestyle_kicker)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        
+        try {
+            // Image de préparation
             preparationBitmap = BitmapFactory.decodeResource(resources, R.drawable.skifreestyle_preparation)
         } catch (e: Exception) {
             e.printStackTrace()
