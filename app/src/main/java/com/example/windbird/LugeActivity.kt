@@ -252,11 +252,17 @@ class LugeActivity : Activity(), SensorEventListener {
     }
 
     inner class LugeView(context: Context) : View(context) {
-        private val renderer = LugeRenderer(lugeEngine)
+        private val renderer = LugeRenderer(lugeEngine, context)
 
         override fun onDraw(canvas: Canvas) {
             val w = canvas.width
             val h = canvas.height
+            
+            // Définir le pays du joueur selon les données du tournoi
+            val playerCountry = if (currentPlayerIndex < tournamentData.playerCountries.size) {
+                tournamentData.playerCountries[currentPlayerIndex]
+            } else "CA" // Par défaut Canada
+            renderer.setPlayerCountry(playerCountry)
             
             when (gameState) {
                 GameState.PREPARATION -> renderer.drawPreparation(canvas, w, h)
