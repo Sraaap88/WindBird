@@ -585,7 +585,7 @@ class SlalomActivity : Activity(), SensorEventListener {
     private fun updateStatus() {
                     statusText.text = when (gameState) {
             GameState.PREPARATION -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Préparation... ${(preparationDuration - phaseTimer).toInt() + 1}s"
-            GameState.RACE -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Portes: $gatesPassed/25 | ${speed.toInt()} km/h | Carving: ${(carvingQuality * 100).toInt()}%"
+            GameState.RACE -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Portes: $gatesPassed/20 | ${speed.toInt()} km/h | Carving: ${(carvingQuality * 100).toInt()}%"
             GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | Temps: ${raceTime.toInt()}s | Score: ${finalScore}"
             GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Course terminée!"
         }
@@ -752,23 +752,27 @@ class SlalomActivity : Activity(), SensorEventListener {
             slopePath.close()
             canvas.drawPath(slopePath, paint)
             
-            // Lignes de perspective avec COURBE DE COLLINE - SENS CORRIGÉ POUR DÉFILER VERS LE BAS
+            // Lignes de perspective - SENS VRAIMENT CORRIGÉ : du point de fuite vers nous
             paint.color = Color.parseColor("#EEEEEE")
             paint.strokeWidth = 2f
             paint.style = Paint.Style.STROKE
             
-            val lineSpacing = 60f
-            // CORRECTION : Les lignes doivent partir du haut et descendre vers nous
-            val startPosition = courseProgress - (courseProgress % lineSpacing)
+            val lineSpacing = 80f // Plus d'espacement entre lignes
             
-            for (i in 0..30) { // Plus de lignes pour couvrir toute la distance
-                val linePosition = startPosition + i * lineSpacing
-                val relativePosition = linePosition - courseProgress // Distance par rapport au joueur
+            // LOGIQUE COMPLÈTEMENT INVERSÉE : les lignes bougent dans l'autre sens !
+            for (i in 0..25) {
+                // Les lignes sont à des positions fixes sur le parcours
+                val lineWorldPosition = i * lineSpacing
+                // Calculer où cette ligne apparaît relativement à notre progression
+                val relativePosition = lineWorldPosition + courseProgress // INVERSE : + au lieu de -
                 
-                if (relativePosition >= 0f && relativePosition <= 1500f) { // Seulement devant nous
-                    val distanceRatio = relativePosition / 1500f // 0 = proche, 1 = loin
+                // Moduler pour créer un effet de boucle
+                val adjustedPosition = relativePosition % (25 * lineSpacing)
+                
+                if (adjustedPosition >= 0f && adjustedPosition <= 1500f) {
+                    val distanceRatio = adjustedPosition / 1500f // 0 = proche, 1 = loin
                     
-                    // VRAIE COURBE de colline - SENS CORRIGÉ
+                    // Courbe de colline
                     val hillCurve = distanceRatio * distanceRatio * 0.4f + distanceRatio * 0.6f
                     val lineY = vanishingPointY + hillCurve * (h - vanishingPointY)
                     
@@ -807,50 +811,55 @@ class SlalomActivity : Activity(), SensorEventListener {
         }
         
         private fun drawScrollingDecor(canvas: Canvas, w: Int, h: Int, vanishingPointX: Float, vanishingPointY: Float) {
-            // Décor qui défile : sapins, rochers, etc. - SENS CORRIGÉ
-            val decorSpacing = 200f
-            val startPosition = courseProgress - (courseProgress % decorSpacing)
+            // Décor qui défile - SENS VRAIMENT CORRIGÉ : du point de fuite vers nous
+            val decorSpacing = 300f // Plus d'espacement
             
-            for (i in 0..12) { // Seulement devant nous
-                val decorPosition = startPosition + i * decorSpacing + kotlin.random.Random(i + 100).nextFloat() * 100f
-                val relativePosition = decorPosition - courseProgress
+            // LOGIQUE COMPLÈTEMENT INVERSÉE pour les arbres aussi !
+            for (i in 0..15) {
+                // Position fixe de l'arbre sur le "monde"
+                val decorWorldPosition = i * decorSpacing + kotlin.random.Random(i + 100).nextFloat() * 150f
+                // Position relative inversée
+                val relativePosition = decorWorldPosition + courseProgress // INVERSE : + au lieu de -
                 
-                if (relativePosition >= 0f && relativePosition <= 1200f) { // Seulement devant
-                    val distanceRatio = relativePosition / 1200f // 0 = proche, 1 = loin
+                // Moduler pour effet de boucle
+                val adjustedPosition = relativePosition % (15 * decorSpacing)
+                
+                if (adjustedPosition >= 0f && adjustedPosition <= 1500f) {
+                    val distanceRatio = adjustedPosition / 1500f // 0 = proche, 1 = loin
                     
-                    // VRAIE COURBE de colline - SENS CORRIGÉ
+                    // Courbe de colline
                     val hillCurve = distanceRatio * distanceRatio * 0.4f + distanceRatio * 0.6f
                     val decorY = vanishingPointY + hillCurve * (h - vanishingPointY)
                     
                     if (decorY >= vanishingPointY && decorY <= h) {
                         val perspectiveFactor = (decorY - vanishingPointY) / (h - vanishingPointY)
-                        val decorSize = perspectiveFactor * 35f + 5f // Légèrement plus gros
+                        val decorSize = perspectiveFactor * 40f + 8f // Plus gros
                         
                         // Alterner les côtés et types de décor
                         val side = if (i % 2 == 0) -1f else 1f
-                        val decorX = vanishingPointX + side * (w * 0.35f + kotlin.random.Random(i + 200).nextFloat() * w * 0.2f) * perspectiveFactor
+                        val decorX = vanishingPointX + side * (w * 0.4f + kotlin.random.Random(i + 200).nextFloat() * w * 0.25f) * perspectiveFactor
                         
-                        if (decorX > 0 && decorX < w) {
+                        if (decorX > -50f && decorX < w + 50f) { // Tolérance pour les bords
                             // Type de décor aléatoire
                             when (i % 4) {
                                 0 -> { // Sapin
                                     paint.color = Color.parseColor("#006600")
-                                    canvas.drawCircle(decorX, decorY - decorSize, decorSize * 0.8f, paint)
+                                    canvas.drawCircle(decorX, decorY - decorSize, decorSize * 0.9f, paint)
                                     paint.color = Color.parseColor("#8B4513")
-                                    canvas.drawRect(decorX - decorSize * 0.1f, decorY - decorSize * 0.2f, 
-                                                   decorX + decorSize * 0.1f, decorY, paint)
+                                    canvas.drawRect(decorX - decorSize * 0.12f, decorY - decorSize * 0.25f, 
+                                                   decorX + decorSize * 0.12f, decorY, paint)
                                 }
                                 1 -> { // Rocher
                                     paint.color = Color.parseColor("#666666")
-                                    canvas.drawCircle(decorX, decorY - decorSize * 0.3f, decorSize * 0.6f, paint)
+                                    canvas.drawCircle(decorX, decorY - decorSize * 0.4f, decorSize * 0.7f, paint)
                                 }
                                 2 -> { // Buisson
                                     paint.color = Color.parseColor("#228B22")
-                                    canvas.drawCircle(decorX, decorY - decorSize * 0.4f, decorSize * 0.5f, paint)
+                                    canvas.drawCircle(decorX, decorY - decorSize * 0.5f, decorSize * 0.6f, paint)
                                 }
                                 3 -> { // Petit sapin
                                     paint.color = Color.parseColor("#004400")
-                                    canvas.drawCircle(decorX, decorY - decorSize * 0.6f, decorSize * 0.4f, paint)
+                                    canvas.drawCircle(decorX, decorY - decorSize * 0.7f, decorSize * 0.5f, paint)
                                 }
                             }
                         }
@@ -1108,7 +1117,7 @@ class SlalomActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#000033")
             paint.textSize = 20f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("Portes: $gatesPassed/25", 30f, baseY, paint)
+            canvas.drawText("Portes: $gatesPassed/20", 30f, baseY, paint)
             canvas.drawText("Parfaites: $perfectGates", 30f, baseY + 30f, paint)
             canvas.drawText("Manquées: $gatesMissed", 30f, baseY + 60f, paint)
             
