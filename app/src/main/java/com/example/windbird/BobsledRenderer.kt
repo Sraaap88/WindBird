@@ -283,9 +283,7 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
                 }
             }
         }
-        
-        // LIGNES DE VITESSE AU SOL qui suivent la piste
-        drawSpeedLines(canvas, w, h, startY, gameData)
+
     }
     
     // Piste simple si pas d'images sprite
