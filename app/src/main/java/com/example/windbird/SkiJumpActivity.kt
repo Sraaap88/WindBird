@@ -247,18 +247,18 @@ class SkiJumpActivity : Activity(), SensorEventListener {
         val zoneMax = targetZoneCenter + targetZoneSize / 2f
         inTargetZone = integratedTiltY >= zoneMin && integratedTiltY <= zoneMax
         
-        // Système de vitesse progressive plus lent (3 secondes pour atteindre la max)
+        // Système de vitesse encore plus lent pour correspondre au skieur
         if (inTargetZone) {
-            performanceScore = (performanceScore + 0.003f).coerceAtMost(1f) // Plus lent (0.008f -> 0.003f)
+            performanceScore = (performanceScore + 0.0015f).coerceAtMost(1f) // 2x plus lent (0.003f -> 0.0015f)
             maxAchievableSpeed = 60f + (performanceScore * 60f)
             
             if (speed < maxAchievableSpeed) {
-                speed += 1.2f + tapBonus * 0.1f // Plus lent (2.5f -> 1.2f)
+                speed += 0.6f + tapBonus * 0.05f // 2x plus lent (1.2f -> 0.6f)
             }
         } else {
-            performanceScore = (performanceScore - 0.006f).coerceAtLeast(0.5f) // Légèrement plus rapide la perte
+            performanceScore = (performanceScore - 0.003f).coerceAtLeast(0.5f) // Légèrement plus lent aussi
             maxAchievableSpeed = 60f + (performanceScore * 60f)
-            speed -= 0.8f // Perte plus douce (1.2f -> 0.8f)
+            speed -= 0.4f // 2x plus lent (0.8f -> 0.4f)
         }
         
         speed = speed.coerceIn(0f, maxAchievableSpeed)
