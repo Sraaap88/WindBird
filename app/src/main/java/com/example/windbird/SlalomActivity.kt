@@ -46,7 +46,7 @@ class SlalomActivity : Activity(), SensorEventListener {
     private var maxSpeed = 55f // Zone rouge à partir de 50
     private var skierX = 0.5f // Position horizontale (0.0 = gauche, 1.0 = droite)
     private var courseProgress = 0f // Progression sur le parcours
-    private var totalCourseLength = 4000f // Doublé de 2000f à 4000f pour épreuve 2x plus longue
+    private var totalCourseLength = 8000f // ÉNORMÉMENT augmenté pour les portes très espacées
     private var raceTime = 0f
     
     // Contrôles gyroscope - LÉGERS AJUSTEMENTS
@@ -585,7 +585,7 @@ class SlalomActivity : Activity(), SensorEventListener {
     private fun updateStatus() {
                     statusText.text = when (gameState) {
             GameState.PREPARATION -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Préparation... ${(preparationDuration - phaseTimer).toInt() + 1}s"
-            GameState.RACE -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Portes: $gatesPassed/20 | ${speed.toInt()} km/h | Carving: ${(carvingQuality * 100).toInt()}%"
+            GameState.RACE -> "⛷️ ${tournamentData.playerNames[currentPlayerIndex]} | Portes: $gatesPassed/12 | ${speed.toInt()} km/h | Carving: ${(carvingQuality * 100).toInt()}%"
             GameState.RESULTS -> "🏆 ${tournamentData.playerNames[currentPlayerIndex]} | Temps: ${raceTime.toInt()}s | Score: ${finalScore}"
             GameState.FINISHED -> "✅ ${tournamentData.playerNames[currentPlayerIndex]} | Course terminée!"
         }
@@ -1083,7 +1083,7 @@ class SlalomActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#333333")
             paint.textSize = 24f
             canvas.drawText("⏱️ Temps: ${raceTime.toInt()}s", w/2f, h * 0.5f, paint)
-            canvas.drawText("🚪 Portes passées: $gatesPassed/20", w/2f, h * 0.55f, paint)
+            canvas.drawText("🚪 Portes passées: $gatesPassed/12", w/2f, h * 0.55f, paint)
             canvas.drawText("⭐ Portes parfaites: $perfectGates", w/2f, h * 0.6f, paint)
             canvas.drawText("❌ Portes manquées: $gatesMissed", w/2f, h * 0.65f, paint)
             canvas.drawText("⚡ Vitesse max: ${speed.toInt()} km/h", w/2f, h * 0.7f, paint)
@@ -1119,7 +1119,7 @@ class SlalomActivity : Activity(), SensorEventListener {
             paint.color = Color.parseColor("#000033")
             paint.textSize = 20f
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("Portes: $gatesPassed/20", 30f, baseY, paint)
+            canvas.drawText("Portes: $gatesPassed/12", 30f, baseY, paint)
             canvas.drawText("Parfaites: $perfectGates", 30f, baseY + 30f, paint)
             canvas.drawText("Manquées: $gatesMissed", 30f, baseY + 60f, paint)
             
