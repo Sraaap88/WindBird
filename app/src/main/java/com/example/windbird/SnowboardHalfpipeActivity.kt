@@ -268,36 +268,36 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
     
     private fun analyzeAndCacheFrames() {
         try {
-            // Découpage des snowboarders (5 frames par sprite-sheet horizontal)
+            // Découpage PRÉCIS des snowboarders (5 frames par sprite-sheet horizontal)
             snowLeftSpriteBitmap?.let { 
-                snowboarderFrameCache["left_sprite"] = divideSpritesheetProperly(it, 5, 1)
+                snowboarderFrameCache["left_sprite"] = cutSpritesheetPrecisely(it, 5, 1)
             }
             snowRightSpriteBitmap?.let { 
-                snowboarderFrameCache["right_sprite"] = divideSpritesheetProperly(it, 5, 1)
+                snowboarderFrameCache["right_sprite"] = cutSpritesheetPrecisely(it, 5, 1)
             }
             snowLeftLandingBitmap?.let { 
-                snowboarderFrameCache["left_landing"] = divideSpritesheetProperly(it, 5, 1)
+                snowboarderFrameCache["left_landing"] = cutSpritesheetPrecisely(it, 5, 1)
             }
             snowRightLandingBitmap?.let { 
-                snowboarderFrameCache["right_landing"] = divideSpritesheetProperly(it, 5, 1)
+                snowboarderFrameCache["right_landing"] = cutSpritesheetPrecisely(it, 5, 1)
             }
             snowLeftRotationBitmap?.let { 
-                snowboarderFrameCache["left_rotation"] = divideSpritesheetProperly(it, 5, 1)
+                snowboarderFrameCache["left_rotation"] = cutSpritesheetPrecisely(it, 5, 1)
             }
             snowRightRotationBitmap?.let { 
-                snowboarderFrameCache["right_rotation"] = divideSpritesheetProperly(it, 5, 1)
+                snowboarderFrameCache["right_rotation"] = cutSpritesheetPrecisely(it, 5, 1)
             }
             snowLeftGrabBitmap?.let { 
-                snowboarderFrameCache["left_grab"] = divideSpritesheetProperly(it, 5, 1)
+                snowboarderFrameCache["left_grab"] = cutSpritesheetPrecisely(it, 5, 1)
             }
             snowRightGrabBitmap?.let { 
-                snowboarderFrameCache["right_grab"] = divideSpritesheetProperly(it, 5, 1)
+                snowboarderFrameCache["right_grab"] = cutSpritesheetPrecisely(it, 5, 1)
             }
             snowLeftSpinBitmap?.let { 
-                snowboarderFrameCache["left_spin"] = divideSpritesheetProperly(it, 5, 1)
+                snowboarderFrameCache["left_spin"] = cutSpritesheetPrecisely(it, 5, 1)
             }
             snowRightSpinBitmap?.let { 
-                snowboarderFrameCache["right_spin"] = divideSpritesheetProperly(it, 5, 1)
+                snowboarderFrameCache["right_spin"] = cutSpritesheetPrecisely(it, 5, 1)
             }
             
             // Découpage du sprite-sheet de la piste (3 colonnes x 4 rangées = 12 frames)
@@ -308,6 +308,64 @@ class SnowboardHalfpipeActivity : Activity(), SensorEventListener {
         } catch (e: Exception) {
             android.util.Log.e("SnowboardHalfpipe", "Erreur découpage frames: ${e.message}")
         }
+    }
+    
+    private fun cutSpritesheetPrecisely(bitmap: Bitmap, cols: Int, rows: Int): List<Rect> {
+        val frames = mutableListOf<Rect>()
+        val frameWidth = bitmap.width / cols
+        val frameHeight = bitmap.height / rows
+        
+        // Découper en trouvant les VRAIES limites de chaque sprite
+        for (row in 0 until rows) {
+            for (col in 0 until cols) {
+                val baseLeft = col * frameWidth
+                val baseTop = row * frameHeight
+                val baseRight = baseLeft + frameWidth
+                val baseBottom = baseTop + frameHeight
+                
+                // Trouver les vraies limites du sprite (pixels non-transparents)
+                var actualLeft = baseRight
+                var actualTop = baseBottom  
+                var actualRight = baseLeft
+                var actualBottom = baseTop
+                var foundContent = false
+                
+                // Scanner cette zone pour trouver le contenu réel
+                for (y in baseTop until baseBottom) {
+                    for (x in baseLeft until baseRight) {
+                        if (x < bitmap.width && y < bitmap.height) {
+                            val pixel = bitmap.getPixel(x, y)
+                            val alpha = (pixel shr 24) and 0xFF
+                            
+                            // Pixel visible (pas complètement transparent)
+                            if (alpha > 20) {
+                                foundContent = true
+                                actualLeft = minOf(actualLeft, x)
+                                actualTop = minOf(actualTop, y)
+                                actualRight = maxOf(actualRight, x + 1)
+                                actualBottom = maxOf(actualBottom, y + 1)
+                            }
+                        }
+                    }
+                }
+                
+                if (foundContent) {
+                    // Ajouter une petite marge pour éviter de couper le sprite
+                    val margin = 2
+                    actualLeft = maxOf(baseLeft, actualLeft - margin)
+                    actualTop = maxOf(baseTop, actualTop - margin)
+                    actualRight = minOf(baseRight, actualRight + margin)
+                    actualBottom = minOf(baseBottom, actualBottom + margin)
+                    
+                    frames.add(Rect(actualLeft, actualTop, actualRight, actualBottom))
+                } else {
+                    // Si aucun contenu trouvé, utiliser la frame de base
+                    frames.add(Rect(baseLeft, baseTop, baseRight, baseBottom))
+                }
+            }
+        }
+        
+        return frames
     }
     
     private fun divideSpritesheetProperly(bitmap: Bitmap, cols: Int, rows: Int): List<Rect> {
