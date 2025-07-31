@@ -293,21 +293,14 @@ class SnowboardHalfpipeView(
     
     private fun drawAnimatedTrack(canvas: Canvas, w: Int, h: Int) {
         activity.getSnowTrackSpriteBitmap()?.let { trackBitmap ->
-            // Afficher UNE SEULE image statique en pleine hauteur
+            // Afficher UNE SEULE image statique en PLEIN ÉCRAN
             val trackFrames = activity.getTrackFrames()
             if (trackFrames.isNotEmpty()) {
                 // Prendre la première frame comme fond statique
                 val staticFrame = trackFrames[0]
                 
-                // Calculer l'échelle pour que l'image prenne toute la hauteur
-                val scaleY = h.toFloat() / staticFrame.height()
-                val scaledWidth = staticFrame.width() * scaleY
-                val scaledHeight = h.toFloat()
-                
-                // Centrer horizontalement
-                val offsetX = (w - scaledWidth) / 2f
-                
-                reusableRectF.set(offsetX, 0f, offsetX + scaledWidth, scaledHeight)
+                // PLEIN ÉCRAN - étirer l'image pour qu'elle couvre tout l'écran
+                reusableRectF.set(0f, 0f, w.toFloat(), h.toFloat())
                 canvas.drawBitmap(trackBitmap, staticFrame, reusableRectF, paint)
             }
         }
@@ -360,24 +353,34 @@ class SnowboardHalfpipeView(
     }
     
     private fun drawSnowboarderFromBehind(canvas: Canvas, w: Int, h: Int) {
-        // Position du snowboarder avec effet de profondeur/perspective
-        val riderScreenX = w * activity.getRiderPosition()
+        // Position du snowboarder qui correspond EXACTEMENT au halfpipe
         
-        // Calculer la position Y et la taille selon la profondeur dans la piste
-        // Plus il est haut sur la piste (vers l'arrière) = plus petit et plus haut sur l'écran
-        val depthFactor = 1f - activity.getRiderHeight() // 0 = fond, 1 = haut de la piste
+        // Position X : mapper la position du rider (0.0-1.0) sur la largeur du halfpipe visible
+        // Le halfpipe occupe environ 60% du centre de l'écran
+        val halfpipeLeftEdge = w * 0.2f   // Bord gauche du halfpipe à 20% de l'écran
+        val halfpipeRightEdge = w * 0.8f  // Bord droit du halfpipe à 80% de l'écran
+        val halfpipeWidth = halfpipeRightEdge - halfpipeLeftEdge
+        val riderScreenX = halfpipeLeftEdge + (activity.getRiderPosition() * halfpipeWidth)
         
-        // Position Y : du bas (grand) vers le haut (petit) de l'écran
-        val riderScreenY = h * (0.85f - depthFactor * 0.4f) // De 85% (bas) à 45% (haut) de l'écran
+        // Position Y : mapper la hauteur du rider sur la hauteur du halfpipe visible
+        // Le halfpipe va du bas de l'écran (90%) jusqu'en haut (20%)
+        val halfpipeBottom = h * 0.9f     // Fond du halfpipe à 90% de l'écran
+        val halfpipeTop = h * 0.2f        // Haut du halfpipe à 20% de l'écran
+        val halfpipeHeight = halfpipeBottom - halfpipeTop
         
-        // Taille selon la profondeur : plus grand au fond, plus petit en arrière
-        val depthScale = 0.6f + (1f - depthFactor) * 0.8f // De 0.6 (arrière) à 1.4 (avant)
+        // Inverser riderHeight car 0.8 = fond, 0.2 = haut
+        val normalizedHeight = (activity.getRiderHeight() - 0.2f) / 0.6f // Normaliser entre 0-1
+        val riderScreenY = halfpipeBottom - (normalizedHeight * halfpipeHeight)
+        
+        // Taille selon la profondeur : plus grand au fond, plus petit en haut
+        val depthFactor = 1f - normalizedHeight // 1 = fond, 0 = haut
+        val depthScale = 2f + (depthFactor * 2f) // De 2x (haut) à 4x (fond)
         
         canvas.save()
         canvas.translate(riderScreenX, riderScreenY)
         
-        // Rotation selon la position sur la rampe (inclinaison naturelle)
-        val slopeAngle = (activity.getRiderPosition() - 0.5f) * 25f
+        // Rotation selon la position sur la rampe (inclinaison naturelle du halfpipe)
+        val slopeAngle = (activity.getRiderPosition() - 0.5f) * 35f
         canvas.rotate(slopeAngle)
         
         // Sélection de l'image et rotations selon l'état
@@ -386,12 +389,12 @@ class SnowboardHalfpipeView(
         // Appliquer la rotation additionnelle pour les tricks
         canvas.rotate(additionalRotation)
         
-        // Échelle selon profondeur et si en l'air
+        // Échelle finale : 4x plus grand avec effet de profondeur
         val airScale = if (activity.getIsInAir()) 1.1f else 1f
         val finalScale = depthScale * airScale
         canvas.scale(finalScale, finalScale)
         
-        // Dessiner l'image du snowboarder avec découpage intelligent
+        // Dessiner l'image du snowboarder
         snowboarderImage?.let { image ->
             drawSnowboarderFromSpriteSheet(canvas, image, activity.getCacheKey(image))
         } ?: run {
@@ -410,10 +413,10 @@ class SnowboardHalfpipeView(
         if (abs(activity.getMomentum()) > 0.1f) {
             paint.color = Color.parseColor("#60FFFFFF")
             for (i in 1..3) {
-                val trailX = riderScreenX - activity.getMomentum() * i * 30f * depthScale
+                val trailX = riderScreenX - activity.getMomentum() * i * 40f * (depthScale / 4f)
                 val trailY = riderScreenY
                 val trailAlpha = (255 * (1f - i * 0.3f)).toInt()
-                val trailSize = (4f - i) * 6f * depthScale
+                val trailSize = (6f - i) * 8f * (depthScale / 4f)
                 paint.alpha = trailAlpha
                 canvas.drawCircle(trailX, trailY, trailSize, paint)
             }
