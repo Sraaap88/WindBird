@@ -18,8 +18,8 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
     private var bobFinishLineBitmap: Bitmap? = null
     private var bobCelebrationBitmap: Bitmap? = null
     
-    // Images de la piste sprite
-    private var bobtrackLeftSpriteBitmap: Bitmap? = null
+    // Nouveau sprite-sheet de la piste
+    private var bobtrackSpriteBitmap: Bitmap? = null
     
     // Images des drapeaux
     private var flagCanadaBitmap: Bitmap? = null
@@ -28,27 +28,44 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
     private var flagNorvegeBitmap: Bitmap? = null
     private var flagJapanBitmap: Bitmap? = null
     
-    // Variables pour découper le sprite-sheet
+    // Variables pour le nouveau sprite-sheet (9 rangées × 13 colonnes = 117 frames)
     private var spriteFrameWidth = 0
     private var spriteFrameHeight = 0
-    private val totalFrames = 9 // Nombre d'images dans le sprite-sheet
+    private val framesPerRow = 13
+    private val totalRows = 9
+    private val totalFrames = 117
     
-    // Variables pour sprite-sheet Winter Games
+    // Classification des segments de piste
+    private val straightFrames = listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
+    private val lightTurnEntryFrames = listOf(13, 14, 15, 16, 17, 18)
+    private val lightTurnExitFrames = listOf(19, 20, 21, 22, 23, 24, 25)
+    private val mediumTurnEntryFrames = listOf(26, 27, 28, 29, 30, 31)
+    private val mediumTurnExitFrames = listOf(32, 33, 34, 35, 36, 37, 38)
+    private val heavyTurnEntryFrames = listOf(39, 40, 41, 42, 43, 44)
+    private val heavyTurnExitFrames = listOf(45, 46, 47, 48, 49, 50, 51)
+    private val extremeTurnFrames = listOf(52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64)
+    private val maxTurnFrames = listOf(65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77)
+    private val transitionFrames = listOf(91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103)
+    
+    // Variables pour sprite-sheet et animation
     private var currentFrameIndex = 0
     private var frameTimer = 0f
-    private var isReversing = false
     private var trackSection = TrackSection.STRAIGHT
-    private var landscapeOffset = 0f
-    
-    // Variables pour effets de vitesse SIMPLES
     private var scrollOffset = 0f
     
+    // Variables pour lignes horizontales (effet de vitesse)
+    private var speedLinesOffset = 0f
+    private val speedLines = mutableListOf<SpeedLine>()
+    
+    data class SpeedLine(var y: Float, val width: Float, val alpha: Int)
+    
     enum class TrackSection {
-        STRAIGHT, LEFT_TURN, RIGHT_TURN, LEFT_RETURN, RIGHT_RETURN
+        STRAIGHT, LEFT_TURN, RIGHT_TURN, LEFT_EXIT, RIGHT_EXIT
     }
     
     init {
         loadBitmaps()
+        initializeSpeedLines()
     }
     
     private fun loadBitmaps() {
@@ -61,11 +78,11 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
             bobFinishLineBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.bob_finish_line)
             bobCelebrationBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.bob_celebration)
             
-            // Charger le sprite-sheet de la piste
-            bobtrackLeftSpriteBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.bobtrack_left_sprite)
-            bobtrackLeftSpriteBitmap?.let { sprite ->
-                spriteFrameWidth = sprite.width / totalFrames
-                spriteFrameHeight = sprite.height
+            // Charger le nouveau sprite-sheet
+            bobtrackSpriteBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.bobtrack_sprite) // Changez le nom selon votre fichier
+            bobtrackSpriteBitmap?.let { sprite ->
+                spriteFrameWidth = sprite.width / framesPerRow
+                spriteFrameHeight = sprite.height / totalRows
             }
             
             // Charger les drapeaux
@@ -99,24 +116,41 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         canvas.drawRoundRect(10f, 20f, 110f, 60f, 10f, 10f, tempPaint)
         return bitmap
     }
+    
+    private fun initializeSpeedLines() {
+        // Initialiser les lignes de vitesse
+        for (i in 0..15) {
+            speedLines.add(
+                SpeedLine(
+                    y = i * 40f,
+                    width = 50f + (kotlin.random.Random.nextFloat() * 100f),
+                    alpha = 100 + (kotlin.random.Random.nextFloat() * 155).toInt()
+                )
+            )
+        }
+    }
 
-    // Fonction pour extraire une frame du sprite-sheet
-    private fun getTrackSpriteFrame(frameIndex: Int, mirrorHorizontal: Boolean = false, reverse: Boolean = false): Bitmap? {
-        return bobtrackLeftSpriteBitmap?.let { sprite ->
-            val actualFrameIndex = if (reverse) {
-                (totalFrames - 1 - frameIndex).coerceIn(0, totalFrames - 1)
-            } else {
-                frameIndex.coerceIn(0, totalFrames - 1)
-            }
+    // Fonction pour extraire une frame du sprite-sheet avec coordonnées row/col
+    private fun getTrackSpriteFrame(frameIndex: Int, mirrorHorizontal: Boolean = false): Bitmap? {
+        return bobtrackSpriteBitmap?.let { sprite ->
+            val safeFrameIndex = frameIndex.coerceIn(0, totalFrames - 1)
+            val row = safeFrameIndex / framesPerRow
+            val col = safeFrameIndex % framesPerRow
             
             val sourceRect = Rect(
-                actualFrameIndex * spriteFrameWidth,
-                0,
-                (actualFrameIndex + 1) * spriteFrameWidth,
-                spriteFrameHeight
+                col * spriteFrameWidth,
+                row * spriteFrameHeight,
+                (col + 1) * spriteFrameWidth,
+                (row + 1) * spriteFrameHeight
             )
             
-            val frameBitmap = Bitmap.createBitmap(sprite, sourceRect.left, sourceRect.top, sourceRect.width(), sourceRect.height())
+            val frameBitmap = Bitmap.createBitmap(
+                sprite, 
+                sourceRect.left, 
+                sourceRect.top, 
+                sourceRect.width(), 
+                sourceRect.height()
+            )
             
             if (mirrorHorizontal) {
                 val matrix = Matrix().apply { postScale(-1f, 1f) }
@@ -124,6 +158,48 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
             } else {
                 frameBitmap
             }
+        }
+    }
+    
+    // Sélectionner la frame appropriée selon l'état du virage
+    private fun selectFrameForCurve(currentCurve: Float): Int {
+        return when {
+            abs(currentCurve) < 0.2f -> {
+                // Ligne droite - utiliser les frames droites en alternance
+                straightFrames[currentFrameIndex % straightFrames.size]
+            }
+            
+            currentCurve < -0.8f -> {
+                // Virage très serré à gauche
+                extremeTurnFrames[currentFrameIndex % extremeTurnFrames.size]
+            }
+            
+            currentCurve < -0.5f -> {
+                // Virage fort à gauche
+                heavyTurnEntryFrames[currentFrameIndex % heavyTurnEntryFrames.size]
+            }
+            
+            currentCurve < -0.2f -> {
+                // Virage léger à gauche
+                lightTurnEntryFrames[currentFrameIndex % lightTurnEntryFrames.size]
+            }
+            
+            currentCurve > 0.8f -> {
+                // Virage très serré à droite
+                maxTurnFrames[currentFrameIndex % maxTurnFrames.size]
+            }
+            
+            currentCurve > 0.5f -> {
+                // Virage fort à droite
+                heavyTurnExitFrames[currentFrameIndex % heavyTurnExitFrames.size]
+            }
+            
+            currentCurve > 0.2f -> {
+                // Virage léger à droite
+                lightTurnExitFrames[currentFrameIndex % lightTurnExitFrames.size]
+            }
+            
+            else -> straightFrames[0]
         }
     }
 
@@ -165,27 +241,31 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         }
     }
     
-    // SYSTÈME DE DESCENTE PROPRE ET EFFICACE
+    // SYSTÈME DE DESCENTE AVEC NOUVEAU SPRITE-SHEET
     private fun drawDescentSystem(canvas: Canvas, w: Int, h: Int, gameData: GameData) {
         val trackStartY = h * 0.15f
         
-        // Mettre à jour le défilement
+        // Mettre à jour le défilement et l'animation
         updateScrolling(gameData.speed)
+        updateTrackFrame(gameData)
+        updateSpeedLines(gameData.speed)
         
-        // 1. CIEL ET MONTAGNES SIMPLES
+        // 1. CIEL ET MONTAGNES
         drawBackground(canvas, w, trackStartY.toInt(), gameData)
         
-        // 2. PISTE AVEC VRAIE MULTIPLICATION DES FRAMES
-        drawTrackWithMultipleFrames(canvas, w, h, trackStartY, gameData)
+        // 2. PISTE AVEC NOUVEAU SPRITE-SHEET
+        drawTrackWithNewSpriteSheet(canvas, w, h, trackStartY, gameData)
         
-        // 3. BOBSLEIGH VISIBLE PAR-DESSUS TOUT
+        // 3. LIGNES DE VITESSE HORIZONTALES
+        drawSpeedLines(canvas, w, h, trackStartY, gameData)
+        
+        // 4. BOBSLEIGH
         drawBobsled(canvas, w, h, trackStartY, gameData)
         
-        // 4. INTERFACE
+        // 5. INTERFACE
         drawInterface(canvas, w, h, gameData)
     }
     
-    // Fond simple et efficace
     private fun drawBackground(canvas: Canvas, w: Int, horizonHeight: Int, gameData: GameData) {
         // Ciel
         paint.color = Color.rgb(220, 235, 250)
@@ -207,83 +287,104 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         canvas.drawPath(mountains, paint)
     }
     
-    // MEILLEURE UTILISATION DES 9 FRAMES + EFFET DE VITESSE
-    private fun drawTrackWithMultipleFrames(canvas: Canvas, w: Int, h: Int, startY: Float, gameData: GameData) {
-        updateTrackFrame(gameData)
-        
-        val speedFactor = (gameData.speed / 150f).coerceIn(0f, 1f)
+    // NOUVEAU SYSTÈME AVEC LE SPRITE-SHEET COMPLET
+    private fun drawTrackWithNewSpriteSheet(canvas: Canvas, w: Int, h: Int, startY: Float, gameData: GameData) {
         val currentCurve = getCurrentTrackCurve(gameData)
+        val selectedFrame = selectFrameForCurve(currentCurve)
+        val needsMirror = currentCurve > 0.3f // Miroir pour les virages à droite
         
-        // === SYSTÈME AMÉLIORÉ: UTILISER MIEUX LES FRAMES ===
+        val trackFrame = getTrackSpriteFrame(selectedFrame, needsMirror)
         
-        when (trackSection) {
-            TrackSection.STRAIGHT -> {
-                // LIGNES DROITES: Alterner entre frames 0 et 1 + leurs copies
-                val frame1 = getTrackSpriteFrame(0, false, false)
-                val frame2 = getTrackSpriteFrame(1, false, false)
-                
-                frame1?.let { f1 ->
-                    // Frame 1 à position normale
-                    val offset1 = scrollOffset % 80f
-                    val dstRect1 = RectF(0f, startY + offset1, w.toFloat(), h.toFloat() + offset1)
-                    canvas.drawBitmap(f1, null, dstRect1, paint)
-                    
-                    // Frame 1 décalée
-                    val offset1b = (scrollOffset + 40f) % 80f
-                    val dstRect1b = RectF(0f, startY + offset1b, w.toFloat(), h.toFloat() + offset1b)
-                    paint.alpha = 180
-                    canvas.drawBitmap(f1, null, dstRect1b, paint)
-                    paint.alpha = 255
+        trackFrame?.let { frame ->
+            // Effet de défilement multiple pour créer la profondeur
+            for (i in 0..4) {
+                val layerOffset = (scrollOffset + i * 60f) % 180f
+                val layerAlpha = when (i) {
+                    0 -> 255  // Premier plan
+                    1 -> 200  // Deuxième plan
+                    2 -> 150  // Troisième plan
+                    3 -> 100  // Quatrième plan
+                    else -> 80   // Arrière-plan
                 }
                 
-                frame2?.let { f2 ->
-                    // Frame 2 à position intermédiaire
-                    val offset2 = (scrollOffset + 20f) % 80f
-                    val dstRect2 = RectF(0f, startY + offset2, w.toFloat(), h.toFloat() + offset2)
-                    paint.alpha = 200
-                    canvas.drawBitmap(f2, null, dstRect2, paint)
-                    
-                    // Frame 2 décalée
-                    val offset2b = (scrollOffset + 60f) % 80f
-                    val dstRect2b = RectF(0f, startY + offset2b, w.toFloat(), h.toFloat() + offset2b)
-                    paint.alpha = 150
-                    canvas.drawBitmap(f2, null, dstRect2b, paint)
-                    paint.alpha = 255
-                }
+                val perspectiveShift = currentCurve * w * 0.1f * (i + 1)
+                
+                val dstRect = RectF(
+                    perspectiveShift,
+                    startY + layerOffset,
+                    w.toFloat() + perspectiveShift,
+                    h.toFloat() + layerOffset + 100f
+                )
+                
+                paint.alpha = layerAlpha
+                canvas.drawBitmap(frame, null, dstRect, paint)
             }
+            paint.alpha = 255
             
-            else -> {
-                // VIRAGES: Copier et décaler les frames de virage
-                val currentFrame = getCurrentTrackFrame()
-                
-                currentFrame?.let { frame ->
-                    // Frame principale
-                    val offset1 = scrollOffset % 60f
-                    val offsetX1 = currentCurve * 8f
-                    val dstRect1 = RectF(offsetX1, startY + offset1, w.toFloat() + offsetX1, h.toFloat() + offset1)
-                    canvas.drawBitmap(frame, null, dstRect1, paint)
+        } ?: run {
+            // Fallback si pas de sprite-sheet
+            drawSimpleTrack(canvas, w, h, startY, gameData)
+        }
+    }
+    
+    // NOUVELLES LIGNES DE VITESSE HORIZONTALES
+    private fun drawSpeedLines(canvas: Canvas, w: Int, h: Int, startY: Float, gameData: GameData) {
+        val currentCurve = getCurrentTrackCurve(gameData)
+        val speedFactor = (gameData.speed / 150f).coerceIn(0f, 1f)
+        
+        if (speedFactor > 0.3f) {
+            paint.style = Paint.Style.FILL
+            
+            speedLines.forEach { line ->
+                if (line.y > startY && line.y < h) {
+                    // Perspective: lignes plus courtes vers le haut
+                    val perspective = (line.y - startY) / (h - startY)
+                    val lineWidth = line.width * (0.3f + perspective * 0.7f)
+                    val centerX = w / 2f + currentCurve * w * 0.15f * perspective
                     
-                    // Copie décalée Y
-                    val offset2 = (scrollOffset + 30f) % 60f
-                    val offsetX2 = currentCurve * -5f
-                    val dstRect2 = RectF(offsetX2, startY + offset2, w.toFloat() + offsetX2, h.toFloat() + offset2)
-                    paint.alpha = 170
-                    canvas.drawBitmap(frame, null, dstRect2, paint)
+                    // Couleur et transparence selon la vitesse
+                    val alpha = (line.alpha * speedFactor).toInt()
+                    paint.color = Color.argb(alpha, 255, 255, 255)
                     
-                    // Copie avec vitesse différente
-                    if (speedFactor > 0.4f) {
-                        val offset3 = (scrollOffset * 1.4f) % 60f
-                        val offsetX3 = currentCurve * 12f
-                        val dstRect3 = RectF(offsetX3, startY + offset3, w.toFloat() + offsetX3, h.toFloat() + offset3)
-                        paint.alpha = 130
-                        canvas.drawBitmap(frame, null, dstRect3, paint)
+                    // Dessiner la ligne
+                    canvas.drawRect(
+                        centerX - lineWidth / 2f,
+                        line.y,
+                        centerX + lineWidth / 2f,
+                        line.y + 3f,
+                        paint
+                    )
+                    
+                    // Ligne centrale plus marquée
+                    if (kotlin.random.Random.nextFloat() < 0.3f) {
+                        paint.color = Color.argb((alpha * 1.5f).toInt().coerceAtMost(255), 255, 255, 0)
+                        canvas.drawRect(
+                            centerX - lineWidth / 4f,
+                            line.y,
+                            centerX + lineWidth / 4f,
+                            line.y + 2f,
+                            paint
+                        )
                     }
-                    
-                    paint.alpha = 255
                 }
             }
         }
-
+    }
+    
+    private fun updateSpeedLines(speed: Float) {
+        val speedFactor = (speed / 150f).coerceIn(0f, 1f)
+        val lineSpeed = speedFactor * 12f + 2f
+        
+        speedLines.forEach { line ->
+            line.y += lineSpeed
+            
+            // Remettre la ligne en haut quand elle sort de l'écran
+            if (line.y > 800f) {
+                line.y = -20f
+                line.width = 50f + (kotlin.random.Random.nextFloat() * 100f)
+                line.alpha = 100 + (kotlin.random.Random.nextFloat() * 155).toInt()
+            }
+        }
     }
     
     // Piste simple si pas d'images sprite
@@ -323,7 +424,6 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         }
     }
     
-    // Bobsleigh simple et visible
     private fun drawBobsled(canvas: Canvas, w: Int, h: Int, trackStartY: Float, gameData: GameData) {
         val bobX = w / 2f
         val bobY = trackStartY + (h - trackStartY) * 0.7f
@@ -377,17 +477,17 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         }
     }
     
-    // Mettre à jour le défilement simple
+    // Mettre à jour le défilement
     private fun updateScrolling(speed: Float) {
-        val scrollSpeed = (speed / 150f).coerceIn(0f, 1f) * 8f
+        val scrollSpeed = (speed / 150f).coerceIn(0f, 1f) * 10f
         scrollOffset += scrollSpeed
-        if (scrollOffset > 200f) scrollOffset -= 200f
+        if (scrollOffset > 300f) scrollOffset -= 300f
     }
     
     private fun updateTrackFrame(gameData: GameData) {
         val frameSpeed = when {
-            gameData.speed > 100f -> 0.015f
-            gameData.speed > 60f -> 0.025f
+            gameData.speed > 100f -> 0.08f
+            gameData.speed > 60f -> 0.06f
             else -> 0.04f
         }
         
@@ -395,76 +495,7 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
         
         if (frameTimer >= 1f) {
             frameTimer = 0f
-            
-            val currentCurve = getCurrentTrackCurve(gameData)
-            
-            when {
-                abs(currentCurve) < 0.3f -> {
-                    trackSection = TrackSection.STRAIGHT
-                    currentFrameIndex = (currentFrameIndex + 1) % 2 // Alterne entre 0 et 1
-                    isReversing = false
-                }
-                
-                currentCurve < -0.3f -> {
-                    if (trackSection != TrackSection.LEFT_TURN && trackSection != TrackSection.LEFT_RETURN) {
-                        trackSection = TrackSection.LEFT_TURN
-                        currentFrameIndex = 2
-                        isReversing = false
-                    }
-                    
-                    if (trackSection == TrackSection.LEFT_TURN && !isReversing) {
-                        currentFrameIndex++
-                        if (currentFrameIndex >= totalFrames - 1) {
-                            trackSection = TrackSection.LEFT_RETURN
-                            isReversing = true
-                        }
-                    } else if (trackSection == TrackSection.LEFT_RETURN && isReversing) {
-                        currentFrameIndex--
-                        if (currentFrameIndex <= 1) {
-                            trackSection = TrackSection.STRAIGHT
-                            currentFrameIndex = 0
-                            isReversing = false
-                        }
-                    }
-                }
-                
-                currentCurve > 0.3f -> {
-                    if (trackSection != TrackSection.RIGHT_TURN && trackSection != TrackSection.RIGHT_RETURN) {
-                        trackSection = TrackSection.RIGHT_TURN
-                        currentFrameIndex = 2
-                        isReversing = false
-                    }
-                    
-                    if (trackSection == TrackSection.RIGHT_TURN && !isReversing) {
-                        currentFrameIndex++
-                        if (currentFrameIndex >= totalFrames - 1) {
-                            trackSection = TrackSection.RIGHT_RETURN
-                            isReversing = true
-                        }
-                    } else if (trackSection == TrackSection.RIGHT_RETURN && isReversing) {
-                        currentFrameIndex--
-                        if (currentFrameIndex <= 1) {
-                            trackSection = TrackSection.STRAIGHT
-                            currentFrameIndex = 0
-                            isReversing = false
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    private fun getCurrentTrackFrame(): Bitmap? {
-        return when (trackSection) {
-            TrackSection.STRAIGHT -> {
-                getTrackSpriteFrame(currentFrameIndex, false, false)
-            }
-            TrackSection.LEFT_TURN, TrackSection.LEFT_RETURN -> {
-                getTrackSpriteFrame(currentFrameIndex, false, false)
-            }
-            TrackSection.RIGHT_TURN, TrackSection.RIGHT_RETURN -> {
-                getTrackSpriteFrame(currentFrameIndex, true, false)
-            }
+            currentFrameIndex = (currentFrameIndex + 1) % 8 // Cycle à travers les frames
         }
     }
     
