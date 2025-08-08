@@ -57,7 +57,7 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
     private var speedLinesOffset = 0f
     private val speedLines = mutableListOf<SpeedLine>()
     
-    data class SpeedLine(var y: Float, val width: Float, val alpha: Int)
+    data class SpeedLine(var y: Float, var width: Float, var alpha: Int)
     
     enum class TrackSection {
         STRAIGHT, LEFT_TURN, RIGHT_TURN, LEFT_EXIT, RIGHT_EXIT
@@ -79,7 +79,7 @@ class BobsledRenderer(private val context: Context, private val activity: Bobsle
             bobCelebrationBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.bob_celebration)
             
             // Charger le nouveau sprite-sheet
-            bobtrackSpriteBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.bobtrack_sprite) // Changez le nom selon votre fichier
+            bobtrackSpriteBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.bobtrack_left_sprite)
             bobtrackSpriteBitmap?.let { sprite ->
                 spriteFrameWidth = sprite.width / framesPerRow
                 spriteFrameHeight = sprite.height / totalRows
